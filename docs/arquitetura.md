@@ -7,9 +7,10 @@ Plataforma inteligente de treino, nutrição e evolução física com IA.
 ## Tecnologias
 
 ### Frontend
-- Next.js
-- React
+- React 19
 - TypeScript
+- Vite 8
+- PWA com service worker e manifesto
 
 ### Backend
 - Supabase
@@ -19,6 +20,15 @@ Plataforma inteligente de treino, nutrição e evolução física com IA.
 
 ### IA
 - OpenAI
+
+## Estrutura atual
+
+- `frontend/src`: aplicação React tipada
+- `frontend/public`: ícones e recursos públicos da PWA
+- `frontend/vite.config.ts`: build, manifesto e service worker
+- `docs/backlog-p0.md`: ordem de execução e critérios de aceite
+
+O frontend usa somente a URL do projeto e uma chave publicável do Supabase. Chaves secretas e `service_role` não pertencem ao navegador.
 
 ## Módulos
 

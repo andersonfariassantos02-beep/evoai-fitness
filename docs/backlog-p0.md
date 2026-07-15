@@ -28,17 +28,19 @@ O trabalho deve preservar três princípios:
 
 ## 1. [P0] Consolidar frontend em React + TypeScript + Vite PWA
 
+**Status:** concluído em 15 de julho de 2026.
+
 ### Objetivo
 
 Consolidar a base do frontend na arquitetura definida para o EvoAI Fitness: React + TypeScript + Vite como PWA instalável.
 
 ### Critérios de aceite
 
-- [ ] O projeto instala dependências e executa em ambiente local.
-- [ ] O comando de build termina sem erros.
-- [ ] A documentação deixa de indicar Next.js e passa a refletir React + TypeScript + Vite.
-- [ ] Manifesto, ícones e configuração mínima de PWA estão presentes.
-- [ ] A estrutura inicial está pronta para autenticação, perfis e treino ao vivo.
+- [x] O projeto instala dependências e executa em ambiente local.
+- [x] O comando de build termina sem erros.
+- [x] A documentação deixa de indicar Next.js e passa a refletir React + TypeScript + Vite.
+- [x] Manifesto, ícones e configuração mínima de PWA estão presentes.
+- [x] A estrutura inicial está pronta para autenticação, perfis e treino ao vivo.
 
 ## 2. [P0] Implementar autenticação e rotas protegidas
 

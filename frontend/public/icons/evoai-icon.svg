@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="EvoAI Fitness">
+  <defs>
+    <linearGradient id="bg" x1="90" y1="20" x2="430" y2="490" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2380ff"/>
+      <stop offset="1" stop-color="#0649c7"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="#071a33"/>
+  <path d="M138 162c0-25 20-45 45-45h202v75H221v29h140v70H221v29h164v75H183c-25 0-45-20-45-45V162Z" fill="url(#bg)"/>
+  <path d="m324 91 57 28-32 59-57-28 32-59Zm-109 243 57 28-32 59-57-28 32-59Z" fill="#75b5ff"/>
+</svg>

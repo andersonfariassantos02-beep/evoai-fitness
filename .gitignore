@@ -1,0 +1,13 @@
+# Dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local environment variables
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# Logs and editor files
+*.log
+.DS_Store
+.vscode/
