@@ -44,18 +44,20 @@ Consolidar a base do frontend na arquitetura definida para o EvoAI Fitness: Reac
 
 ## 2. [P0] Implementar autenticação e rotas protegidas
 
+**Status:** implementado em 15 de julho de 2026; validação integrada pendente.
+
 ### Objetivo
 
 Transformar a integração inicial com Supabase Auth em um fluxo completo de acesso ao aplicativo.
 
 ### Critérios de aceite
 
-- [ ] Login por e-mail e senha funciona com Supabase.
-- [ ] A sessão permanece válida após recarregar o aplicativo.
-- [ ] Estados de carregamento e mensagens de erro ficam visíveis.
-- [ ] Usuários não autenticados são direcionados para a tela de login.
-- [ ] Usuários autenticados acessam as rotas protegidas.
-- [ ] Logout encerra a sessão e retorna à tela de login.
+- [ ] Login por e-mail e senha funciona com Supabase em um projeto configurado.
+- [ ] A sessão permanece válida após recarregar o aplicativo em teste integrado.
+- [x] Estados de carregamento e mensagens de erro ficam visíveis.
+- [x] Usuários não autenticados são direcionados para a tela de login.
+- [x] Usuários autenticados acessam as rotas protegidas.
+- [ ] Logout encerra a sessão e retorna à tela de login em teste integrado.
 
 ## 3. [P0] Criar schema Supabase para família, perfis e restrições
 

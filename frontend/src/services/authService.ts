@@ -5,7 +5,13 @@ export function login(email: string, password: string) {
 }
 
 export function register(email: string, password: string) {
-  return getSupabaseClient().auth.signUp({ email, password });
+  return getSupabaseClient().auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/#/login?confirmed=true`,
+    },
+  });
 }
 
 export function logout() {
