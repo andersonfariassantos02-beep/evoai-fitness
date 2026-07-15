@@ -11,6 +11,7 @@ Plataforma inteligente de treino, nutrição e evolução física com IA.
 - TypeScript
 - Vite 8
 - PWA com service worker e manifesto
+- React Router com rotas por hash
 
 ### Backend
 - Supabase
@@ -29,6 +30,8 @@ Plataforma inteligente de treino, nutrição e evolução física com IA.
 - `docs/backlog-p0.md`: ordem de execução e critérios de aceite
 
 O frontend usa somente a URL do projeto e uma chave publicável do Supabase. Chaves secretas e `service_role` não pertencem ao navegador.
+
+O Supabase Auth é centralizado no `AuthProvider`, responsável por restaurar a sessão e acompanhar eventos de autenticação. As rotas `#/login` e `#/cadastro` são públicas; `#/app` exige sessão válida. O roteamento por hash mantém a navegação compatível com hospedagens estáticas sem regras adicionais de rewrite.
 
 ## Módulos
 

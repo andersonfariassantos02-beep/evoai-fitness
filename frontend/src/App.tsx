@@ -1,105 +1,74 @@
-import type { ReactNode } from "react";
-import { isSupabaseConfigured } from "./lib/supabase";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { useAuth } from "./contexts/AuthContext";
+import DashboardPage from "./pages/DashboardPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
-type StatusTone = "ready" | "attention" | "planned";
-
-interface StatusCardProps {
-  title: string;
-  description: string;
-  tone: StatusTone;
-  icon: ReactNode;
-}
-
-const statusLabels: Record<StatusTone, string> = {
-  ready: "Pronto",
-  attention: "Configurar",
-  planned: "Próxima etapa",
-};
-
-function StatusCard({ title, description, tone, icon }: StatusCardProps) {
+function LoadingScreen() {
   return (
-    <article className="status-card">
-      <div className={`status-card__icon status-card__icon--${tone}`}>{icon}</div>
-      <div className="status-card__content">
-        <span className={`status-pill status-pill--${tone}`}>{statusLabels[tone]}</span>
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </div>
-    </article>
+    <main className="centered-screen" aria-live="polite" aria-busy="true">
+      <span className="spinner" aria-hidden="true" />
+      <p>Restaurando sua sessão…</p>
+    </main>
   );
 }
 
-export default function App() {
-  const supabaseTone: StatusTone = isSupabaseConfigured ? "ready" : "attention";
-
+function ConfigurationScreen() {
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <a className="brand" href="#top" aria-label="EvoAI Fitness — início">
-          <span className="brand__mark" aria-hidden="true">E</span>
-          <span>
-            <strong>EvoAI</strong>
-            <small>Fitness</small>
-          </span>
-        </a>
-        <span className="version-badge">Fundação P0</span>
-      </header>
+    <main className="centered-screen">
+      <section className="notice-card" aria-labelledby="configuration-title">
+        <span className="notice-card__icon" aria-hidden="true">!</span>
+        <p className="eyebrow">CONFIGURAÇÃO NECESSÁRIA</p>
+        <h1 id="configuration-title">Conecte o Supabase para entrar.</h1>
+        <p>
+          Crie o arquivo <code>frontend/.env</code> e informe
+          <code> VITE_SUPABASE_URL</code> e
+          <code> VITE_SUPABASE_PUBLISHABLE_KEY</code>.
+        </p>
+      </section>
+    </main>
+  );
+}
 
-      <main id="top">
-        <section className="hero" aria-labelledby="hero-title">
-          <div>
-            <span className="eyebrow">BASE DO APLICATIVO</span>
-            <h1 id="hero-title">Pronto para evoluir, série por série.</h1>
-            <p>
-              A fundação mobile-first do EvoAI Fitness agora está preparada
-              para autenticação, perfis familiares e treino ao vivo.
-            </p>
-          </div>
-          <div className="hero__signal" aria-label="Aplicativo instalável">
-            <span className="hero__pulse" />
-            <strong>PWA instalável</strong>
-            <small>Funciona como aplicativo no celular</small>
-          </div>
-        </section>
+function ProtectedRoute() {
+  const { configured, loading, session } = useAuth();
+  const location = useLocation();
 
-        <section className="status-grid" aria-label="Estado da fundação">
-          <StatusCard
-            title="React + TypeScript"
-            description="Código tipado, estrutura moderna e build validado com Vite."
-            tone="ready"
-            icon="TS"
-          />
-          <StatusCard
-            title="Supabase"
-            description={
-              isSupabaseConfigured
-                ? "Variáveis locais detectadas; cliente pronto para autenticação."
-                : "Adicione a URL e a chave publicável no arquivo .env local."
-            }
-            tone={supabaseTone}
-            icon="S"
-          />
-          <StatusCard
-            title="Autenticação"
-            description="Login, sessão persistente e rotas protegidas entram na próxima entrega."
-            tone="planned"
-            icon="→"
-          />
-        </section>
+  if (!configured) return <ConfigurationScreen />;
+  if (loading) return <LoadingScreen />;
 
-        <section className="next-step" aria-labelledby="next-step-title">
-          <div>
-            <span className="eyebrow">PRÓXIMO PASSO</span>
-            <h2 id="next-step-title">Implementar login e rotas protegidas</h2>
-          </div>
-          <span className="next-step__number">02</span>
-        </section>
-      </main>
+  return session
+    ? <Outlet />
+    : <Navigate to="/login" replace state={{ from: location.pathname }} />;
+}
 
-      <footer className="app-footer">
-        <span>EvoAI Fitness</span>
-        <span>Base técnica • P0</span>
-      </footer>
-    </div>
+function PublicOnlyRoute() {
+  const { configured, loading, session } = useAuth();
+
+  if (!configured) return <ConfigurationScreen />;
+  if (loading) return <LoadingScreen />;
+
+  return session ? <Navigate to="/app" replace /> : <Outlet />;
+}
+
+function RouteFallback() {
+  const { loading, session } = useAuth();
+
+  if (loading) return <LoadingScreen />;
+  return <Navigate to={session ? "/app" : "/login"} replace />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route element={<PublicOnlyRoute />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/cadastro" element={<RegisterPage />} />
+      </Route>
+      <Route element={<ProtectedRoute />}>
+        <Route path="/app" element={<DashboardPage />} />
+      </Route>
+      <Route path="*" element={<RouteFallback />} />
+    </Routes>
   );
 }
