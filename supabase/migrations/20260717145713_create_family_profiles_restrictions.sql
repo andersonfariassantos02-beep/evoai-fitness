@@ -21,7 +21,7 @@ create table public.family_members (
   primary key (family_id, user_id)
 );
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references public.families(id) on delete cascade,
   linked_user_id uuid references auth.users(id) on delete set null,
@@ -32,6 +32,80 @@ create table public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists family_id uuid
+    references public.families(id) on delete cascade,
+  add column if not exists linked_user_id uuid
+    references auth.users(id) on delete set null,
+  add column if not exists display_name text,
+  add column if not exists birth_date date,
+  add column if not exists active boolean not null default true,
+  add column if not exists created_by uuid
+    references auth.users(id) on delete restrict,
+  add column if not exists updated_at timestamptz not null default now();
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'nome'
+  ) then
+    execute $migration$
+      update public.profiles
+      set display_name = coalesce(display_name, nullif(trim(nome), '')),
+          updated_at = coalesce(updated_at, created_at, now())
+      where display_name is null
+         or updated_at is null
+    $migration$;
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if exists (
+    select 1
+    from public.profiles
+    where family_id is null
+       or created_by is null
+       or display_name is null
+  ) then
+    raise exception using
+      message = 'Legacy profiles must be assigned to a family before applying P0.3';
+  end if;
+end;
+$$;
+
+alter table public.profiles
+  alter column id set default gen_random_uuid(),
+  alter column family_id set not null,
+  alter column display_name set not null,
+  alter column active set default true,
+  alter column active set not null,
+  alter column created_by set not null,
+  alter column created_at set default now(),
+  alter column created_at set not null,
+  alter column updated_at set default now(),
+  alter column updated_at set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.profiles'::regclass
+      and conname = 'profiles_display_name_length'
+  ) then
+    alter table public.profiles
+      add constraint profiles_display_name_length
+      check (char_length(trim(display_name)) between 1 and 120);
+  end if;
+end;
+$$;
 
 create table public.profile_restrictions (
   id uuid primary key default gen_random_uuid(),
