@@ -30,8 +30,6 @@ No painel do Supabase, mantenha o provedor de e-mail habilitado e configure a UR
 
 O roteamento por hash permite abrir as rotas diretamente em hospedagens estáticas sem regras adicionais de rewrite.
 
-O Vite carrega e normaliza explicitamente as variáveis `VITE_SUPABASE_*` durante o build, inclusive em terminais Windows. Depois de alterar o `.env`, reinicie o servidor de desenvolvimento.
-
 ## Validar
 
 ```bash

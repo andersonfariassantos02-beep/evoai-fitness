@@ -1,41 +1,9 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-function evoaiRuntimeConfig(): Plugin {
-  let supabaseUrl = "";
-  let supabasePublishableKey = "";
-
-  return {
-    name: "evoai-runtime-config",
-    configResolved(config) {
-      supabaseUrl = config.env.VITE_SUPABASE_URL?.trim() ?? "";
-      supabasePublishableKey =
-        config.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-        config.env.VITE_SUPABASE_ANON_KEY?.trim() ||
-        "";
-    },
-    transformIndexHtml: {
-      order: "pre",
-      handler() {
-        return [
-          {
-            tag: "script",
-            children: `window.__EVOAI_CONFIG__=${JSON.stringify({
-              supabaseUrl,
-              supabasePublishableKey,
-            })}`,
-            injectTo: "head-prepend",
-          },
-        ];
-      },
-    },
-  };
-}
-
 export default defineConfig({
   plugins: [
-    evoaiRuntimeConfig(),
     react(),
     VitePWA({
       registerType: "autoUpdate",
