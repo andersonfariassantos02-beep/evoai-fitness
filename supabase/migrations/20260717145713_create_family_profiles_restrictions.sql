@@ -3,7 +3,7 @@ create schema if not exists private;
 revoke all on schema private from public;
 grant usage on schema private to authenticated;
 
-create table public.families (
+create table if not exists public.families (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(trim(name)) between 1 and 120),
   created_by uuid not null references auth.users(id) on delete restrict,
@@ -11,7 +11,7 @@ create table public.families (
   updated_at timestamptz not null default now()
 );
 
-create table public.family_members (
+create table if not exists public.family_members (
   family_id uuid not null references public.families(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('owner', 'admin', 'member')),
@@ -107,7 +107,7 @@ begin
 end;
 $$;
 
-create table public.profile_restrictions (
+create table if not exists public.profile_restrictions (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null references public.profiles(id) on delete cascade,
   category text not null check (
@@ -128,17 +128,17 @@ create table public.profile_restrictions (
   )
 );
 
-create index family_members_user_id_idx
+create index if not exists family_members_user_id_idx
   on public.family_members (user_id, family_id);
 
-create index profiles_family_id_idx
+create index if not exists profiles_family_id_idx
   on public.profiles (family_id);
 
-create unique index profiles_family_linked_user_unique_idx
+create unique index if not exists profiles_family_linked_user_unique_idx
   on public.profiles (family_id, linked_user_id)
   where linked_user_id is not null;
 
-create index profile_restrictions_profile_id_idx
+create index if not exists profile_restrictions_profile_id_idx
   on public.profile_restrictions (profile_id);
 
 create or replace function private.set_updated_at()
@@ -251,34 +251,42 @@ grant execute on function private.is_family_member(uuid) to authenticated;
 grant execute on function private.has_family_role(uuid, text[]) to authenticated;
 grant execute on function private.can_bootstrap_family_owner(uuid, uuid, text) to authenticated;
 
+drop trigger if exists families_set_updated_at on public.families;
 create trigger families_set_updated_at
 before update on public.families
 for each row execute function private.set_updated_at();
 
+drop trigger if exists families_preserve_created_record on public.families;
 create trigger families_preserve_created_record
 before update on public.families
 for each row execute function private.preserve_created_record();
 
+drop trigger if exists family_members_set_updated_at on public.family_members;
 create trigger family_members_set_updated_at
 before update on public.family_members
 for each row execute function private.set_updated_at();
 
+drop trigger if exists family_members_preserve_identity on public.family_members;
 create trigger family_members_preserve_identity
 before update on public.family_members
 for each row execute function private.preserve_membership_identity();
 
+drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
 before update on public.profiles
 for each row execute function private.set_updated_at();
 
+drop trigger if exists profiles_preserve_created_record on public.profiles;
 create trigger profiles_preserve_created_record
 before update on public.profiles
 for each row execute function private.preserve_created_record();
 
+drop trigger if exists profile_restrictions_set_updated_at on public.profile_restrictions;
 create trigger profile_restrictions_set_updated_at
 before update on public.profile_restrictions
 for each row execute function private.set_updated_at();
 
+drop trigger if exists profile_restrictions_preserve_created_record on public.profile_restrictions;
 create trigger profile_restrictions_preserve_created_record
 before update on public.profile_restrictions
 for each row execute function private.preserve_created_record();
@@ -293,6 +301,7 @@ grant select, insert, update, delete on public.family_members to authenticated;
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.profile_restrictions to authenticated;
 
+drop policy if exists "family members can view families" on public.families;
 create policy "family members can view families"
 on public.families
 for select
@@ -302,12 +311,14 @@ using (
   or (select private.is_family_member(id))
 );
 
+drop policy if exists "authenticated users can create families" on public.families;
 create policy "authenticated users can create families"
 on public.families
 for insert
 to authenticated
 with check (created_by = (select auth.uid()));
 
+drop policy if exists "family managers can update families" on public.families;
 create policy "family managers can update families"
 on public.families
 for update
@@ -315,18 +326,21 @@ to authenticated
 using ((select private.has_family_role(id, array['owner', 'admin'])))
 with check ((select private.has_family_role(id, array['owner', 'admin'])));
 
+drop policy if exists "family owners can delete families" on public.families;
 create policy "family owners can delete families"
 on public.families
 for delete
 to authenticated
 using ((select private.has_family_role(id, array['owner'])));
 
+drop policy if exists "family members can view memberships" on public.family_members;
 create policy "family members can view memberships"
 on public.family_members
 for select
 to authenticated
 using ((select private.is_family_member(family_id)));
 
+drop policy if exists "family managers can add memberships" on public.family_members;
 create policy "family managers can add memberships"
 on public.family_members
 for insert
@@ -345,6 +359,7 @@ with check (
   )
 );
 
+drop policy if exists "family managers can update non-owner memberships" on public.family_members;
 create policy "family managers can update non-owner memberships"
 on public.family_members
 for update
@@ -370,6 +385,7 @@ with check (
   )
 );
 
+drop policy if exists "family managers can delete non-owner memberships" on public.family_members;
 create policy "family managers can delete non-owner memberships"
 on public.family_members
 for delete
@@ -385,12 +401,14 @@ using (
   )
 );
 
+drop policy if exists "family members can view profiles" on public.profiles;
 create policy "family members can view profiles"
 on public.profiles
 for select
 to authenticated
 using ((select private.is_family_member(family_id)));
 
+drop policy if exists "family managers can create profiles" on public.profiles;
 create policy "family managers can create profiles"
 on public.profiles
 for insert
@@ -400,6 +418,7 @@ with check (
   and (select private.has_family_role(family_id, array['owner', 'admin']))
 );
 
+drop policy if exists "family managers can update profiles" on public.profiles;
 create policy "family managers can update profiles"
 on public.profiles
 for update
@@ -407,12 +426,14 @@ to authenticated
 using ((select private.has_family_role(family_id, array['owner', 'admin'])))
 with check ((select private.has_family_role(family_id, array['owner', 'admin'])));
 
+drop policy if exists "family managers can delete profiles" on public.profiles;
 create policy "family managers can delete profiles"
 on public.profiles
 for delete
 to authenticated
 using ((select private.has_family_role(family_id, array['owner', 'admin'])));
 
+drop policy if exists "family members can view restrictions" on public.profile_restrictions;
 create policy "family members can view restrictions"
 on public.profile_restrictions
 for select
@@ -426,6 +447,7 @@ using (
   )
 );
 
+drop policy if exists "family managers can create restrictions" on public.profile_restrictions;
 create policy "family managers can create restrictions"
 on public.profile_restrictions
 for insert
@@ -440,6 +462,7 @@ with check (
   )
 );
 
+drop policy if exists "family managers can update restrictions" on public.profile_restrictions;
 create policy "family managers can update restrictions"
 on public.profile_restrictions
 for update
@@ -461,6 +484,7 @@ with check (
   )
 );
 
+drop policy if exists "family managers can delete restrictions" on public.profile_restrictions;
 create policy "family managers can delete restrictions"
 on public.profile_restrictions
 for delete
