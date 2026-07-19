@@ -120,12 +120,12 @@ Estabelecer uma barreira mínima de qualidade para o fluxo P0 do EvoAI Fitness.
 
 ### Critérios de aceite
 
-- [ ] Existem testes unitários para substituições e progressão.
-- [ ] O fluxo de autenticação e sessão possui validação automatizada.
-- [ ] O percurso `treino planejado → séries → conclusão → histórico` é testado.
-- [ ] As políticas RLS possuem cenários positivos e negativos documentados.
-- [ ] O build de produção é executado automaticamente.
-- [ ] A documentação informa como instalar, configurar, testar e validar o MVP.
+- [x] Existem testes unitários para substituições e progressão.
+- [x] O fluxo de autenticação e sessão possui validação automatizada.
+- [x] O percurso `treino planejado → séries → conclusão → histórico` é testado.
+- [x] As políticas RLS possuem cenários positivos e negativos documentados.
+- [x] O build de produção é executado automaticamente.
+- [x] A documentação informa como instalar, configurar, testar e validar o MVP.
 
 ## Definição de pronto do P0
 

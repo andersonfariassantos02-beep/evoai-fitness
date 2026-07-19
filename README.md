@@ -33,12 +33,21 @@ O roteamento por hash permite abrir as rotas diretamente em hospedagens estátic
 ## Validar
 
 ```bash
+npm test
 npm run typecheck
 npm run build
 npm run preview
 ```
 
 O build gera o manifesto e o service worker da PWA em `frontend/dist/`.
+
+Os testes automatizados validam autenticação e rotas protegidas, substituições,
+progressão determinística e o percurso de conclusão de um treino. O GitHub
+Actions executa `npm test` e `npm run build` a cada push e Pull Request.
+
+Para aplicar e validar o banco, execute as migrações de `supabase/migrations`
+em ordem cronológica. Os cenários positivos e negativos de RLS e o roteiro
+completo de aceite estão em [Validação do MVP](docs/validacao-mvp.md).
 
 ## Planejamento
 
