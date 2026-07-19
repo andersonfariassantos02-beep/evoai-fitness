@@ -24,6 +24,14 @@ Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, s
 3. [x] Ampliar o catálogo e cadastrar instruções técnicas, mídia e variações por equipamento.
 4. [x] Gerar planos semanais por objetivo, disponibilidade e recuperação.
 
+### Validação do gerador semanal
+
+- [x] O objetivo define uma sequência determinística de treinos.
+- [x] A meta semanal limita a quantidade de sessões, sem inventar dias disponíveis.
+- [x] O gerador prefere intervalos de recuperação entre sessões quando há opções no calendário.
+- [x] Quando o intervalo ideal não cabe, a disponibilidade informada é preservada e o ajuste fica explícito.
+- [x] Treinos concluídos permanecem fixos; somente as sessões restantes são redistribuídas.
+
 ## 2. Restrições do perfil no planejamento
 
 **Status:** pronto para validação em 19 de julho de 2026.

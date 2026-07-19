@@ -27,4 +27,50 @@ describe("buildWeeklyPlan", () => {
 
     expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-22", "2026-07-24"]);
   });
+
+  it("distribui os treinos preservando recuperação quando há disponibilidade", () => {
+    const available = ["2026-07-20", "2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24"]
+      .map((date) => ({ date, available: true, completed: false }));
+    const plan = buildWeeklyPlan(available, new Date(2026, 6, 20), {
+      weeklyTarget: 3,
+      minimumRecoveryDays: 1,
+      today: new Date(2026, 6, 19),
+    });
+
+    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-22", "2026-07-24"]);
+    expect(plan.recoveryCompromised).toBe(false);
+  });
+
+  it("prioriza a disponibilidade e sinaliza quando a recuperação ideal não cabe", () => {
+    const available = ["2026-07-20", "2026-07-21"]
+      .map((date) => ({ date, available: true, completed: false }));
+    const plan = buildWeeklyPlan(available, new Date(2026, 6, 20), {
+      weeklyTarget: 2,
+      minimumRecoveryDays: 1,
+      today: new Date(2026, 6, 19),
+    });
+
+    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-21"]);
+    expect(plan.recoveryCompromised).toBe(true);
+    expect(plan.message).toContain("disponibilidade foi priorizada");
+  });
+
+  it("preserva treinos concluídos ao distribuir as sessões restantes", () => {
+    const available: TrainingCalendarEntry[] = [
+      { date: "2026-07-20", available: true, completed: true },
+      ...["2026-07-21", "2026-07-22", "2026-07-23", "2026-07-24"]
+        .map((date) => ({ date, available: true, completed: false })),
+    ];
+    const plan = buildWeeklyPlan(available, new Date(2026, 6, 20), {
+      weeklyTarget: 3,
+      minimumRecoveryDays: 1,
+      today: new Date(2026, 6, 19),
+    });
+
+    expect(plan.days.map((day) => [day.date, day.status])).toEqual([
+      ["2026-07-20", "completed"],
+      ["2026-07-22", "planned"],
+      ["2026-07-24", "planned"],
+    ]);
+  });
 });
