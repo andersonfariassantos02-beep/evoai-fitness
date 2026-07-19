@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
-import { saveSet, startOrLoadWorkout, updateSession, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
+import { getSubstitutionCandidates } from "../lib/workoutTemplates";
+import { saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
 
 export default function WorkoutSessionPage() {
   const { date = "" } = useParams();
@@ -37,6 +38,22 @@ export default function WorkoutSessionPage() {
     setSession({ ...session, status });
   }
 
+  async function replaceExercise(exercise: ExerciseLog) {
+    const reason = window.prompt("Motivo da substituição: indisponibilidade, desconforto ou restrição?", "indisponibilidade")?.trim();
+    if (!reason) return;
+    const candidates = getSubstitutionCandidates(exercise.exercise_key, reason);
+    if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
+    const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
+    const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
+    const replacement = candidates[selected];
+    if (!replacement) return;
+    try {
+      const updated = await substituteExercise(exercise, replacement, reason);
+      setSession((current) => current ? { ...current, exercises: current.exercises.map((item) => item.id === exercise.id ? updated : item) } : current);
+      setMessage(`Substituído por ${replacement.name}. A prescrição foi ajustada para ${replacement.sets} séries de ${replacement.repsMin}–${replacement.repsMax} repetições.`);
+    } catch (error) { setMessage(error instanceof Error && error.message === "EXERCISE_ALREADY_STARTED" ? "Substitua somente exercícios ainda não iniciados, para preservar o histórico registrado." : "Não foi possível salvar a substituição."); }
+  }
+
   async function finish() {
     if (!session || !user || next) { setMessage("Conclua todas as séries antes de finalizar."); return; }
     await updateSession(session.id, "completed", session.notes);
@@ -51,8 +68,10 @@ export default function WorkoutSessionPage() {
     <div className="workout-progress"><strong>{completed}/{allSets.length} séries</strong><span><i style={{ width: `${allSets.length ? completed / allSets.length * 100 : 0}%` }} /></span></div>
     {next && <aside className="next-set"><span>PRÓXIMA SÉRIE</span><strong>{next.exercise} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></aside>}
     <main className="exercise-list">
-      <p className="template-notice">Modelo determinístico inicial. Os exercícios serão conectados ao Banco Mestre na próxima etapa.</p>
-      {session.exercises.map((exercise) => <section className="exercise-card" key={exercise.id}><h2>{exercise.position}. {exercise.exercise_name}</h2>
+      <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>
+      {session.exercises.map((exercise) => <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
+        {exercise.original_exercise_key && <p className="substitution-note">Substituição registrada · motivo: {exercise.substitution_reason}</p>}
+        <p className={`progression progression--${exercise.recommendation.action}`}><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></p>
         {exercise.sets.map((set) => <div className={`set-row ${set.completed ? "set-row--done" : ""}`} key={set.id}>
           <strong>Série {set.set_number}</strong><label>Reps<input type="number" value={set.actual_reps ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { actual_reps: event.target.value ? Number(event.target.value) : null })} /></label>
           <label>Kg<input type="number" step="0.5" value={set.load_kg ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { load_kg: event.target.value ? Number(event.target.value) : null })} /></label>
@@ -66,4 +85,3 @@ export default function WorkoutSessionPage() {
     </main>
   </div>;
 }
-

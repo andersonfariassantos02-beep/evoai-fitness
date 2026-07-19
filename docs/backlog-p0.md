@@ -105,12 +105,12 @@ Permitir substituições equivalentes e recomendações reproduzíveis com base 
 
 ### Critérios de aceite
 
-- [ ] O usuário pode substituir um exercício quando houver indisponibilidade ou desconforto.
-- [ ] As equivalências consideram grupo muscular, padrão de movimento, equipamento e restrições.
-- [ ] Séries e repetições recomendadas acompanham o exercício substituto.
-- [ ] O histórico do exercício original não é misturado com o histórico do substituto.
-- [ ] A próxima recomendação considera carga, repetições, RPE, falha e execução anterior.
-- [ ] A interface apresenta uma justificativa curta para cada recomendação.
+- [x] O usuário pode substituir um exercício quando houver indisponibilidade ou desconforto.
+- [x] As equivalências consideram grupo muscular, padrão de movimento, equipamento e restrições.
+- [x] Séries e repetições recomendadas acompanham o exercício substituto.
+- [x] O histórico do exercício original não é misturado com o histórico do substituto.
+- [x] A próxima recomendação considera carga, repetições, RPE, falha e execução anterior.
+- [x] A interface apresenta uma justificativa curta para cada recomendação.
 
 ## 6. [P0] Adicionar testes e critérios de conclusão do MVP
 
