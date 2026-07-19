@@ -31,7 +31,7 @@ function ConfigurationScreen() {
   );
 }
 
-function ProtectedRoute() {
+export function ProtectedRoute() {
   const { configured, loading, session } = useAuth();
   const location = useLocation();
 
@@ -43,7 +43,7 @@ function ProtectedRoute() {
     : <Navigate to="/login" replace state={{ from: location.pathname }} />;
 }
 
-function PublicOnlyRoute() {
+export function PublicOnlyRoute() {
   const { configured, loading, session } = useAuth();
 
   if (!configured) return <ConfigurationScreen />;
