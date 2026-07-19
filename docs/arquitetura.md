@@ -96,4 +96,11 @@ As marcações são locais primeiro e sincronizadas com `training_calendar_entri
 - A rota `/admin/exercicios` exige sessão e associação explícita em `app_admins`.
 - O navegador usa somente a chave publicável; autorização de leitura e escrita é aplicada por RLS.
 - Usuários comuns leem apenas exercícios ativos. Administradores leem o catálogo completo e podem criar, editar, ativar ou desativar.
+
+## Orientação técnica e mídia
+
+- `exercise_catalog` concentra instruções, cautelas, variações por equipamento e uma mídia opcional por exercício.
+- URLs de mídia são aceitas somente por HTTPS; o aplicativo não executa conteúdo incorporado não confiável.
+- A orientação é carregada durante o treino como conteúdo auxiliar e nunca modifica registros de séries já executadas.
+- A ausência temporária desses campos mantém o exercício utilizável com a prescrição básica do catálogo.
 - Exercícios são desativados em vez de excluídos para preservar sessões e histórico.

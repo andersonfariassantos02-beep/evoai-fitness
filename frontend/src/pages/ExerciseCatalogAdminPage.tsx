@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isExerciseCatalogAdmin, loadExerciseCatalogAdmin, saveExerciseCatalogItem, setExerciseCatalogItemActive, type ExerciseCatalogAdminItem } from "../services/exerciseCatalogService";
 
-const empty: ExerciseCatalogAdminItem = { key: "", name: "", default_sets: 3, reps_min: 8, reps_max: 12, muscle: "", movement: "", equipment: "", avoid_when: [], active: true };
+const empty: ExerciseCatalogAdminItem = { key: "", name: "", default_sets: 3, reps_min: 8, reps_max: 12, muscle: "", movement: "", equipment: "", avoid_when: [], instructions: "", cautions: [], media_url: null, equipment_variants: [], active: true };
 
 export default function ExerciseCatalogAdminPage() {
   const { user } = useAuth();
@@ -31,9 +31,14 @@ export default function ExerciseCatalogAdminPage() {
       <form className="profile-card" onSubmit={submit}><h2>Novo exercício</h2>
         {(["key","name","muscle","movement","equipment"] as const).map(field => <label key={field}>{field}<input required value={form[field]} onChange={e => setForm({ ...form, [field]: e.target.value })} /></label>)}
         <div className="admin-numbers"><label>Séries<input type="number" min="1" max="10" value={form.default_sets} onChange={e => setForm({...form, default_sets:+e.target.value})}/></label><label>Reps mín.<input type="number" min="1" value={form.reps_min} onChange={e => setForm({...form, reps_min:+e.target.value})}/></label><label>Reps máx.<input type="number" min="1" value={form.reps_max} onChange={e => setForm({...form, reps_max:+e.target.value})}/></label></div>
-        <label>Evitar quando (separado por vírgulas)<input value={form.avoid_when.join(", ")} onChange={e => setForm({...form, avoid_when:e.target.value.split(",").map(v=>v.trim())})}/></label><button>Salvar exercício</button>
+        <label>Evitar quando (separado por vírgulas)<input value={form.avoid_when.join(", ")} onChange={e => setForm({...form, avoid_when:e.target.value.split(",").map(v=>v.trim())})}/></label>
+        <label>Instruções técnicas<textarea value={form.instructions} onChange={e => setForm({...form, instructions:e.target.value})} placeholder="Passos claros para executar o movimento"/></label>
+        <label>Pontos de atenção (separados por vírgulas)<input value={form.cautions.join(", ")} onChange={e => setForm({...form, cautions:e.target.value.split(",").map(v=>v.trim())})}/></label>
+        <label>Variações de equipamento (separadas por vírgulas)<input value={form.equipment_variants.join(", ")} onChange={e => setForm({...form, equipment_variants:e.target.value.split(",").map(v=>v.trim())})}/></label>
+        <label>URL HTTPS da demonstração<input type="url" value={form.media_url ?? ""} onChange={e => setForm({...form, media_url:e.target.value || null})} placeholder="https://…"/></label>
+        <button>Salvar exercício</button>
       </form>
-      <section className="profile-card admin-catalog"><h2>Catálogo ({items.length})</h2>{items.map(item => <article className={`admin-item ${item.active ? "" : "admin-item--inactive"}`} key={item.key}><div><strong>{item.name}</strong><small>{item.key} · {item.muscle} · {item.default_sets}×{item.reps_min}–{item.reps_max}</small></div><div><button type="button" onClick={()=>setForm(item)}>Editar</button><button type="button" onClick={async()=>{await setExerciseCatalogItemActive(item.key,!item.active); await refresh();}}>{item.active ? "Desativar" : "Ativar"}</button></div></article>)}</section>
+      <section className="profile-card admin-catalog"><h2>Catálogo ({items.length})</h2>{items.map(item => <article className={`admin-item ${item.active ? "" : "admin-item--inactive"}`} key={item.key}><div><strong>{item.name}</strong><small>{item.key} · {item.muscle} · {item.default_sets}×{item.reps_min}–{item.reps_max}</small><small>{item.instructions ? "Orientação cadastrada" : "Orientação pendente"}{item.media_url ? " · mídia vinculada" : ""}</small></div><div><button type="button" onClick={()=>setForm(item)}>Editar</button><button type="button" onClick={async()=>{await setExerciseCatalogItemActive(item.key,!item.active); await refresh();}}>{item.active ? "Desativar" : "Ativar"}</button></div></article>)}</section>
     </section>
   </main>;
 }
