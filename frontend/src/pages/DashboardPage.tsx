@@ -144,9 +144,9 @@ export default function DashboardPage() {
           <span className="brand__mark" aria-hidden="true">E</span>
           <span><strong>EvoAI</strong><small>Fitness</small></span>
         </a>
-        <button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
+        <div className="header-actions"><a className="secondary-button" href="#/perfil">Meu perfil</a><button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
           {submitting ? "Saindo…" : "Sair"}
-        </button>
+        </button></div>
       </header>
 
       <main className="training-dashboard">

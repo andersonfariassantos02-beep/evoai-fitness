@@ -33,3 +33,14 @@ Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, s
 - [x] Restrições informativas não bloqueiam exercícios.
 - [x] A sessão preserva perfil, nome e retrato das restrições aplicadas.
 - [x] Sem perfil vinculado, o fluxo permanece compatível e sem bloqueio.
+
+## 3. Gestão de perfil e restrições no aplicativo
+
+**Status:** pronto para validação em 19 de julho de 2026.
+
+- [x] A rota protegida `#/perfil` permite editar nome e data de nascimento.
+- [x] O usuário pode cadastrar categoria, orientação, período e descrição da restrição.
+- [x] Restrições podem ser pausadas, reativadas ou removidas sem apagar o retrato histórico das sessões.
+- [x] As operações utilizam as políticas RLS existentes de família, perfil e restrições.
+- [x] O aplicativo não presume diagnósticos e informa que a funcionalidade não substitui avaliação profissional.
+- [x] Validação automatizada cobre datas inválidas, descrição obrigatória e acesso à rota autenticada.
