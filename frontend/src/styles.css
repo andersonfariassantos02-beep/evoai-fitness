@@ -813,3 +813,14 @@ main { padding: 64px 0 52px; }
   .restriction-form-grid { grid-template-columns: 1fr; }
   .restriction-item { align-items: stretch; flex-direction: column; }
 }
+.admin-shell { min-height: 100vh; padding: clamp(18px,4vw,42px); background:#f4f7fb; }
+.admin-layout { display:grid; width:min(1100px,100%); margin:18px auto 0; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
+.admin-numbers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.admin-catalog { gap:8px; }
+.admin-item { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:11px; }
+.admin-item div:first-child { display:grid; gap:4px; }
+.admin-item small { color:var(--muted); }
+.admin-item div:last-child { display:flex; gap:6px; }
+.admin-item button { min-height:34px; padding:0 10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--navy); font-weight:800; }
+.admin-item--inactive { opacity:.55; background:#f2f3f5; }
+@media(max-width:760px){.admin-layout{grid-template-columns:1fr}.admin-item{align-items:stretch;flex-direction:column}}

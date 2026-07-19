@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { isExerciseCatalogAdmin } from "../services/exerciseCatalogService";
 import { getAuthErrorMessage } from "../lib/authErrors";
 import {
   addDays,
@@ -46,6 +47,8 @@ function formatShortDate(value: string) {
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
+  const [catalogAdmin, setCatalogAdmin] = useState(false);
+  useEffect(() => { if (user) void isExerciseCatalogAdmin(user.id).then(setCatalogAdmin); }, [user]);
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const storageKey = `evoai:training-calendar:${user?.id ?? "anonymous"}`;
@@ -157,7 +160,7 @@ export default function DashboardPage() {
           <span className="brand__mark" aria-hidden="true">E</span>
           <span><strong>EvoAI</strong><small>Fitness</small></span>
         </a>
-        <div className="header-actions"><a className="secondary-button" href="#/perfil">Meu perfil</a><button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
+        <div className="header-actions">{catalogAdmin && <a className="secondary-button" href="#/admin/exercicios">Catálogo</a>}<a className="secondary-button" href="#/perfil">Meu perfil</a><button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
           {submitting ? "Saindo…" : "Sair"}
         </button></div>
       </header>

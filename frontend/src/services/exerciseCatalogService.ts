@@ -12,6 +12,35 @@ interface ExerciseCatalogRow {
   movement: string;
   equipment: string;
   avoid_when: string[] | null;
+  active?: boolean;
+}
+
+export type ExerciseCatalogAdminItem = Omit<Required<ExerciseCatalogRow>, "avoid_when"> & { avoid_when: string[] };
+
+export async function isExerciseCatalogAdmin(userId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseClient().from("app_admins").select("user_id").eq("user_id", userId).maybeSingle();
+  return !error && Boolean(data);
+}
+
+export async function loadExerciseCatalogAdmin(): Promise<ExerciseCatalogAdminItem[]> {
+  const { data, error } = await getSupabaseClient().from("exercise_catalog")
+    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, avoid_when, active").order("name");
+  if (error) throw error;
+  return (data ?? []) as ExerciseCatalogAdminItem[];
+}
+
+export async function saveExerciseCatalogItem(item: ExerciseCatalogAdminItem): Promise<void> {
+  if (!/^[a-z0-9-]+$/.test(item.key) || item.name.trim().length < 2 || item.default_sets < 1
+    || item.reps_min < 1 || item.reps_max < item.reps_min) throw new Error("Revise a chave, o nome, as séries e as repetições.");
+  const { error } = await getSupabaseClient().from("exercise_catalog").upsert(item, { onConflict: "key" });
+  if (error) throw error;
+  resetExerciseCatalogCache();
+}
+
+export async function setExerciseCatalogItemActive(key: string, active: boolean): Promise<void> {
+  const { error } = await getSupabaseClient().from("exercise_catalog").update({ active }).eq("key", key);
+  if (error) throw error;
+  resetExerciseCatalogCache();
 }
 
 export function mapExerciseCatalogRow(row: ExerciseCatalogRow): WorkoutExerciseTemplate {
