@@ -21,7 +21,7 @@ Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, s
 
 1. [x] Tela administrativa para curadoria do catálogo, fora do cliente público.
 2. Vincular restrições dos perfis automaticamente aos filtros de substituição.
-3. Ampliar o catálogo e cadastrar instruções técnicas, mídia e variações por equipamento.
+3. [x] Ampliar o catálogo e cadastrar instruções técnicas, mídia e variações por equipamento.
 4. [x] Gerar planos semanais por objetivo, disponibilidade e recuperação.
 
 ## 2. Restrições do perfil no planejamento
@@ -44,3 +44,13 @@ Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, s
 - [x] As operações utilizam as políticas RLS existentes de família, perfil e restrições.
 - [x] O aplicativo não presume diagnósticos e informa que a funcionalidade não substitui avaliação profissional.
 - [x] Validação automatizada cobre datas inválidas, descrição obrigatória e acesso à rota autenticada.
+
+## 4. Orientação técnica, mídia e variações
+
+**Status:** pronto para validação em 19 de julho de 2026.
+
+- [x] O Banco Mestre armazena instruções, cautelas e variações por equipamento.
+- [x] A curadoria administrativa edita os novos campos sem alterar o histórico executado.
+- [x] A mídia é opcional e aceita somente URL HTTPS.
+- [x] O treino apresenta orientação técnica de forma progressiva e mantém fallback seguro.
+- [x] A cobertura automatizada valida o mapeamento e a segurança do schema.

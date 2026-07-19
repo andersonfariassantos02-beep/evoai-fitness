@@ -693,6 +693,12 @@ main { padding: 64px 0 52px; }
 .exercise-title h2 { margin: 0; }
 .exercise-title button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--blue); background: white; font-weight: 800; }
 .substitution-note { margin: 8px 0; color: var(--muted); font-size: 11px; }
+.exercise-guidance { margin: 12px 0; padding: 12px 14px; border: 1px solid #c7d8f5; border-radius: 12px; color: var(--navy); background: #f6f9ff; font-size: 12px; line-height: 1.55; }
+.exercise-guidance summary { cursor: pointer; color: var(--blue); font-weight: 900; }
+.exercise-guidance p { margin: 10px 0 0; }
+.exercise-guidance div { margin-top: 10px; }
+.exercise-guidance ul { margin: 5px 0 0; padding-left: 20px; }
+.exercise-guidance a { display: inline-block; margin-top: 10px; color: var(--blue); font-weight: 900; }
 .progression { display: grid; gap: 3px; margin: 12px 0; padding: 11px 13px; border-radius: 11px; background: #edf4ff; color: var(--navy); font-size: 11px; }
 .progression span { color: var(--muted); }
 .progression--increase { background: var(--green-soft); }

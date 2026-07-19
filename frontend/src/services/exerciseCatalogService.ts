@@ -12,10 +12,28 @@ interface ExerciseCatalogRow {
   movement: string;
   equipment: string;
   avoid_when: string[] | null;
+  instructions?: string | null;
+  cautions?: string[] | null;
+  media_url?: string | null;
+  equipment_variants?: string[] | null;
   active?: boolean;
 }
 
-export type ExerciseCatalogAdminItem = Omit<Required<ExerciseCatalogRow>, "avoid_when"> & { avoid_when: string[] };
+export interface ExerciseGuidance {
+  key: string;
+  instructions: string;
+  cautions: string[];
+  mediaUrl: string | null;
+  equipmentVariants: string[];
+}
+
+export type ExerciseCatalogAdminItem = Required<Omit<ExerciseCatalogRow, "avoid_when" | "instructions" | "cautions" | "media_url" | "equipment_variants">> & {
+  avoid_when: string[];
+  instructions: string;
+  cautions: string[];
+  media_url: string | null;
+  equipment_variants: string[];
+};
 
 export async function isExerciseCatalogAdmin(userId: string): Promise<boolean> {
   const { data, error } = await getSupabaseClient().from("app_admins").select("user_id").eq("user_id", userId).maybeSingle();
@@ -24,7 +42,7 @@ export async function isExerciseCatalogAdmin(userId: string): Promise<boolean> {
 
 export async function loadExerciseCatalogAdmin(): Promise<ExerciseCatalogAdminItem[]> {
   const { data, error } = await getSupabaseClient().from("exercise_catalog")
-    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, avoid_when, active").order("name");
+    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, avoid_when, instructions, cautions, media_url, equipment_variants, active").order("name");
   if (error) throw error;
   return (data ?? []) as ExerciseCatalogAdminItem[];
 }
@@ -32,9 +50,24 @@ export async function loadExerciseCatalogAdmin(): Promise<ExerciseCatalogAdminIt
 export async function saveExerciseCatalogItem(item: ExerciseCatalogAdminItem): Promise<void> {
   if (!/^[a-z0-9-]+$/.test(item.key) || item.name.trim().length < 2 || item.default_sets < 1
     || item.reps_min < 1 || item.reps_max < item.reps_min) throw new Error("Revise a chave, o nome, as séries e as repetições.");
-  const { error } = await getSupabaseClient().from("exercise_catalog").upsert(item, { onConflict: "key" });
+  const mediaUrl = item.media_url?.trim() || null;
+  if (mediaUrl && !mediaUrl.startsWith("https://")) throw new Error("Use uma URL HTTPS para a mídia.");
+  const payload = { ...item, media_url: mediaUrl, instructions: item.instructions.trim(), cautions: item.cautions.filter(Boolean), equipment_variants: item.equipment_variants.filter(Boolean) };
+  const { error } = await getSupabaseClient().from("exercise_catalog").upsert(payload, { onConflict: "key" });
   if (error) throw error;
   resetExerciseCatalogCache();
+}
+
+export function mapExerciseGuidanceRow(row: ExerciseCatalogRow): ExerciseGuidance {
+  return { key: row.key, instructions: row.instructions?.trim() ?? "", cautions: row.cautions ?? [], mediaUrl: row.media_url?.trim() || null, equipmentVariants: row.equipment_variants ?? [] };
+}
+
+export async function loadExerciseGuidance(keys: string[]): Promise<Record<string, ExerciseGuidance>> {
+  if (!keys.length) return {};
+  const { data, error } = await getSupabaseClient().from("exercise_catalog")
+    .select("key, instructions, cautions, media_url, equipment_variants").in("key", [...new Set(keys)]);
+  if (error) return {};
+  return Object.fromEntries(((data ?? []) as ExerciseCatalogRow[]).map(mapExerciseGuidanceRow).map(item => [item.key, item]));
 }
 
 export async function setExerciseCatalogItemActive(key: string, active: boolean): Promise<void> {

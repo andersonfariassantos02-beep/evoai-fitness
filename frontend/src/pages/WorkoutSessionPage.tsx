@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
-import { loadSubstitutionCandidates } from "../services/exerciseCatalogService";
+import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
 import { saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
 
@@ -15,6 +15,7 @@ export default function WorkoutSessionPage() {
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [message, setMessage] = useState("Carregando treino…");
   const [profileRestrictions, setProfileRestrictions] = useState<ProfileRestriction[]>([]);
+  const [guidanceByKey, setGuidanceByKey] = useState<Record<string, ExerciseGuidance>>({});
 
   useEffect(() => {
     if (!user || !date) return;
@@ -26,6 +27,15 @@ export default function WorkoutSessionPage() {
           ? "Há mais de um perfil ativo ligado à sua conta. Selecione ou desative um perfil antes de planejar o treino."
           : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
   }, [date, label, user]);
+
+  const exerciseKeys = useMemo(() => session?.exercises.map((exercise) => exercise.exercise_key).join("|") ?? "", [session]);
+  useEffect(() => {
+    const keys = exerciseKeys.split("|").filter(Boolean);
+    if (!keys.length) { setGuidanceByKey({}); return; }
+    void loadExerciseGuidance(keys)
+      .then(setGuidanceByKey)
+      .catch(() => setGuidanceByKey({}));
+  }, [exerciseKeys]);
 
   const allSets = useMemo(() => session?.exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise: exercise.exercise_name, set }))) ?? [], [session]);
   const next = allSets.find((item) => !item.set.completed);
@@ -78,8 +88,17 @@ export default function WorkoutSessionPage() {
     <main className="exercise-list">
       {session.profile_name && <p className="profile-context"><strong>Perfil: {session.profile_name}</strong><span>{session.applied_restrictions.length ? `Restrições aplicadas: ${restrictionText(session.applied_restrictions) || "somente informativas"}` : "Nenhuma restrição ativa"}</span></p>}
       <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>
-      {session.exercises.map((exercise) => <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
+      {session.exercises.map((exercise) => {
+        const guidance = guidanceByKey[exercise.exercise_key];
+        const hasGuidance = Boolean(guidance && (guidance.instructions || guidance.cautions.length || guidance.equipmentVariants.length || guidance.mediaUrl));
+        return <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
         {exercise.original_exercise_key && <p className="substitution-note">Substituição registrada · motivo: {exercise.substitution_reason}</p>}
+        {hasGuidance && <details className="exercise-guidance"><summary>Como executar com segurança</summary>
+          {guidance.instructions && <p>{guidance.instructions}</p>}
+          {guidance.cautions.length > 0 && <div><strong>Pontos de atenção</strong><ul>{guidance.cautions.map((caution) => <li key={caution}>{caution}</li>)}</ul></div>}
+          {guidance.equipmentVariants.length > 0 && <p><strong>Variações de equipamento:</strong> {guidance.equipmentVariants.join(", ")}</p>}
+          {guidance.mediaUrl && <a href={guidance.mediaUrl} target="_blank" rel="noreferrer">Abrir demonstração técnica ↗</a>}
+        </details>}
         <p className={`progression progression--${exercise.recommendation.action}`}><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></p>
         {exercise.sets.map((set) => <div className={`set-row ${set.completed ? "set-row--done" : ""}`} key={set.id}>
           <strong>Série {set.set_number}</strong><label>Reps<input type="number" value={set.actual_reps ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { actual_reps: event.target.value ? Number(event.target.value) : null })} /></label>
@@ -87,7 +106,8 @@ export default function WorkoutSessionPage() {
           <label>RPE<input type="number" min="1" max="10" step="0.5" value={set.rpe ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { rpe: event.target.value ? Number(event.target.value) : null })} /></label>
           <button onClick={() => { const updated = { ...set, completed: !set.completed }; changeSet(exercise.id, set.id, updated); void persistSet(updated); }}>{set.completed ? "✓ Feita" : "Concluir"}</button>
         </div>)}
-      </section>)}
+      </section>;
+      })}
       <label className="session-notes">Observações do treino<textarea value={session.notes} onChange={(event) => setSession({ ...session, notes: event.target.value })} /></label>
       {message && <p className="workout-message">{message}</p>}
       <button className="finish-workout" onClick={finish}>Finalizar treino</button>
