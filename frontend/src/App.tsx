@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import WorkoutSessionPage from "./pages/WorkoutSessionPage";
 
@@ -68,6 +69,7 @@ export default function App() {
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<DashboardPage />} />
+        <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/treino/:date" element={<WorkoutSessionPage />} />
       </Route>
       <Route path="*" element={<RouteFallback />} />

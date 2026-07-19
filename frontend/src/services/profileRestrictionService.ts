@@ -8,6 +8,28 @@ export interface ProfileRestriction {
   description: string;
 }
 
+export interface ManagedProfileRestriction extends ProfileRestriction {
+  starts_on: string | null;
+  ends_on: string | null;
+  active: boolean;
+}
+
+export interface ManagedProfile {
+  id: string;
+  display_name: string;
+  birth_date: string | null;
+  active: boolean;
+  restrictions: ManagedProfileRestriction[];
+}
+
+export interface RestrictionInput {
+  category: ProfileRestriction["category"];
+  severity: ProfileRestriction["severity"];
+  description: string;
+  starts_on: string;
+  ends_on: string;
+}
+
 export interface ActiveProfileContext {
   profileId: string | null;
   profileName: string | null;
@@ -39,6 +61,70 @@ export function exerciseConflictsWithRestrictions(exercise: WorkoutExerciseTempl
 
 export function restrictionSnapshot(context: ActiveProfileContext) {
   return context.restrictions.map(({ id, category, severity, description }) => ({ id, category, severity, description }));
+}
+
+export function validateRestrictionInput(input: RestrictionInput) {
+  const description = input.description.trim();
+  if (!description) return "Descreva a restrição.";
+  if (description.length > 1000) return "Use no máximo 1000 caracteres.";
+  if (input.starts_on && input.ends_on && input.ends_on < input.starts_on) return "A data final não pode ser anterior à inicial.";
+  return "";
+}
+
+export async function loadManagedProfile(userId: string): Promise<ManagedProfile | null> {
+  const supabase = getSupabaseClient();
+  const { data: profiles, error } = await supabase.from("profiles")
+    .select("id, display_name, birth_date, active")
+    .eq("linked_user_id", userId)
+    .order("created_at")
+    .limit(2);
+  if (error) throw error;
+  if ((profiles ?? []).length > 1) throw new Error("MULTIPLE_LINKED_PROFILES");
+  const profile = profiles?.[0];
+  if (!profile) return null;
+  const { data: restrictions, error: restrictionsError } = await supabase.from("profile_restrictions")
+    .select("id, category, severity, description, starts_on, ends_on, active")
+    .eq("profile_id", profile.id)
+    .order("created_at", { ascending: false });
+  if (restrictionsError) throw restrictionsError;
+  return { ...profile, restrictions: (restrictions ?? []) as ManagedProfileRestriction[] } as ManagedProfile;
+}
+
+export async function updateManagedProfile(profileId: string, displayName: string, birthDate: string) {
+  const name = displayName.trim();
+  if (!name || name.length > 120) throw new Error("INVALID_PROFILE_NAME");
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("profiles").update({ display_name: name, birth_date: birthDate || null }).eq("id", profileId);
+  if (error) throw error;
+}
+
+export async function createProfileRestriction(profileId: string, userId: string, input: RestrictionInput) {
+  const validation = validateRestrictionInput(input);
+  if (validation) throw new Error(validation);
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("profile_restrictions").insert({
+    profile_id: profileId,
+    created_by: userId,
+    category: input.category,
+    severity: input.severity,
+    description: input.description.trim(),
+    starts_on: input.starts_on || null,
+    ends_on: input.ends_on || null,
+    active: true,
+  });
+  if (error) throw error;
+}
+
+export async function setProfileRestrictionActive(restrictionId: string, active: boolean) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("profile_restrictions").update({ active }).eq("id", restrictionId);
+  if (error) throw error;
+}
+
+export async function deleteProfileRestriction(restrictionId: string) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("profile_restrictions").delete().eq("id", restrictionId);
+  if (error) throw error;
 }
 
 export async function loadActiveProfileContext(userId: string, onDate: string): Promise<ActiveProfileContext> {
