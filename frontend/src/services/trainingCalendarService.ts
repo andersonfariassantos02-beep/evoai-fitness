@@ -142,3 +142,16 @@ export async function queueCalendarMutation(
     return navigator.onLine ? "error" as const : "offline" as const;
   }
 }
+
+export async function loadLastCompletedWorkoutLabel(userId: string, beforeDate: string) {
+  const { data, error } = await getSupabaseClient().from("workout_sessions")
+    .select("workout_label")
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .lt("training_date", beforeDate)
+    .order("training_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.workout_label ?? null;
+}

@@ -19,7 +19,16 @@ export interface ManagedProfile {
   display_name: string;
   birth_date: string | null;
   active: boolean;
+  training_goal: TrainingGoal;
+  weekly_target: number;
   restrictions: ManagedProfileRestriction[];
+}
+
+export type TrainingGoal = "general_fitness" | "hypertrophy" | "strength" | "conditioning";
+
+export interface PlanningProfile {
+  goal: TrainingGoal;
+  weeklyTarget: number;
 }
 
 export interface RestrictionInput {
@@ -74,7 +83,7 @@ export function validateRestrictionInput(input: RestrictionInput) {
 export async function loadManagedProfile(userId: string): Promise<ManagedProfile | null> {
   const supabase = getSupabaseClient();
   const { data: profiles, error } = await supabase.from("profiles")
-    .select("id, display_name, birth_date, active")
+    .select("id, display_name, birth_date, active, training_goal, weekly_target")
     .eq("linked_user_id", userId)
     .order("created_at")
     .limit(2);
@@ -90,12 +99,24 @@ export async function loadManagedProfile(userId: string): Promise<ManagedProfile
   return { ...profile, restrictions: (restrictions ?? []) as ManagedProfileRestriction[] } as ManagedProfile;
 }
 
-export async function updateManagedProfile(profileId: string, displayName: string, birthDate: string) {
+export async function updateManagedProfile(profileId: string, displayName: string, birthDate: string, trainingGoal: TrainingGoal, weeklyTarget: number) {
   const name = displayName.trim();
   if (!name || name.length > 120) throw new Error("INVALID_PROFILE_NAME");
   const supabase = getSupabaseClient();
-  const { error } = await supabase.from("profiles").update({ display_name: name, birth_date: birthDate || null }).eq("id", profileId);
+  if (!Number.isInteger(weeklyTarget) || weeklyTarget < 1 || weeklyTarget > 7) throw new Error("INVALID_WEEKLY_TARGET");
+  const { error } = await supabase.from("profiles").update({ display_name: name, birth_date: birthDate || null, training_goal: trainingGoal, weekly_target: weeklyTarget }).eq("id", profileId);
   if (error) throw error;
+}
+
+export async function loadPlanningProfile(userId: string): Promise<PlanningProfile> {
+  const { data, error } = await getSupabaseClient().from("profiles")
+    .select("training_goal, weekly_target")
+    .eq("linked_user_id", userId)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return { goal: (data?.training_goal as TrainingGoal | undefined) ?? "general_fitness", weeklyTarget: Number(data?.weekly_target ?? 3) };
 }
 
 export async function createProfileRestriction(profileId: string, userId: string, input: RestrictionInput) {

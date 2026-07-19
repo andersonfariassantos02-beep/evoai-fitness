@@ -657,6 +657,7 @@ main { padding: 64px 0 52px; }
 .week-plan__metrics strong { display: block; color: var(--navy); font-size: 24px; }
 .week-plan__metrics span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; }
 .week-plan__message { margin: 17px 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.week-plan__settings { display: inline-block; margin: -7px 0 16px; color: var(--blue); font-size: 11px; font-weight: 800; }
 .week-plan__days { display: grid; gap: 8px; }
 
 .week-plan__empty {
