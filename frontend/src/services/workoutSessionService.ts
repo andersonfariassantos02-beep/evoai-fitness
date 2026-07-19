@@ -18,7 +18,9 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
   return { ...session, exercises: result };
 }
 
-export async function startOrLoadWorkout(userId: string, date: string, label: string) {
+const workoutLoads = new Map<string, Promise<WorkoutSession>>();
+
+async function startOrLoadWorkoutOnce(userId: string, date: string, label: string): Promise<WorkoutSession> {
   const supabase = getSupabaseClient();
   const { data: existing, error: existingError } = await supabase.from("workout_sessions").select("id, training_date, workout_label, status, notes").eq("user_id", userId).eq("training_date", date).maybeSingle();
   if (existingError) throw existingError;
@@ -38,6 +40,16 @@ export async function startOrLoadWorkout(userId: string, date: string, label: st
   return loadDetails(session as Omit<WorkoutSession, "exercises">);
 }
 
+export function startOrLoadWorkout(userId: string, date: string, label: string): Promise<WorkoutSession> {
+  const key = `${userId}:${date}`;
+  const pending = workoutLoads.get(key);
+  if (pending) return pending;
+
+  const request = startOrLoadWorkoutOnce(userId, date, label).finally(() => workoutLoads.delete(key));
+  workoutLoads.set(key, request);
+  return request;
+}
+
 export async function saveSet(set: SetLog) {
   const { error } = await getSupabaseClient().from("set_logs").update({ actual_reps: set.actual_reps, load_kg: set.load_kg, rpe: set.rpe, notes: set.notes, completed: set.completed, completed_at: set.completed ? new Date().toISOString() : null }).eq("id", set.id);
   if (error) throw error;
@@ -48,4 +60,3 @@ export async function updateSession(id: string, status: WorkoutSession["status"]
   const { error } = await getSupabaseClient().from("workout_sessions").update({ status, notes, paused_at: status === "paused" ? now : null, completed_at: status === "completed" ? now : null }).eq("id", id);
   if (error) throw error;
 }
-

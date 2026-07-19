@@ -66,6 +66,19 @@ set training_date = coalesce(training_date, started_at::date, created_at::date, 
 where training_date is null or workout_label is null or status is null or notes is null
    or started_at is null or created_at is null or updated_at is null;
 
+-- A tabela legada usa `nome` como campo obrigatório. Um padrão mantém
+-- compatibilidade sem obrigar o frontend novo a gravar duas nomenclaturas.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'workout_sessions' and column_name = 'nome'
+  ) then
+    execute 'alter table public.workout_sessions alter column nome set default ''Treino''';
+  end if;
+end
+$$;
+
 alter table public.exercise_logs
   add column if not exists session_id uuid references public.workout_sessions(id) on delete cascade,
   add column if not exists user_id uuid references auth.users(id) on delete cascade,
@@ -90,6 +103,7 @@ alter table public.set_logs
   add column if not exists updated_at timestamptz default now();
 
 create index if not exists workout_sessions_user_date_idx on public.workout_sessions (user_id, training_date desc);
+create unique index if not exists workout_sessions_user_training_date_unique on public.workout_sessions (user_id, training_date);
 create index if not exists exercise_logs_session_idx on public.exercise_logs (session_id, position);
 create index if not exists set_logs_exercise_idx on public.set_logs (exercise_log_id, set_number);
 
@@ -130,31 +144,40 @@ alter table public.workout_sessions enable row level security;
 alter table public.exercise_logs enable row level security;
 alter table public.set_logs enable row level security;
 
+drop policy if exists "users manage own workout sessions" on public.workout_sessions;
 create policy "users manage own workout sessions" on public.workout_sessions for all to authenticated
 using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
+drop policy if exists "users read own exercise logs" on public.exercise_logs;
 create policy "users read own exercise logs" on public.exercise_logs for select to authenticated
 using ((select auth.uid()) = user_id);
+drop policy if exists "users create exercise logs in own active session" on public.exercise_logs;
 create policy "users create exercise logs in own active session" on public.exercise_logs for insert to authenticated
 with check ((select auth.uid()) = user_id and exists (
   select 1 from public.workout_sessions session
   where session.id = session_id and session.user_id = (select auth.uid()) and session.status <> 'completed'
 ));
+drop policy if exists "users change own exercise logs" on public.exercise_logs;
 create policy "users change own exercise logs" on public.exercise_logs for update to authenticated
 using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "users delete own exercise logs" on public.exercise_logs;
 create policy "users delete own exercise logs" on public.exercise_logs for delete to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "users read own set logs" on public.set_logs;
 create policy "users read own set logs" on public.set_logs for select to authenticated
 using ((select auth.uid()) = user_id);
+drop policy if exists "users create set logs in own active session" on public.set_logs;
 create policy "users create set logs in own active session" on public.set_logs for insert to authenticated
 with check ((select auth.uid()) = user_id and exists (
   select 1 from public.exercise_logs exercise
   join public.workout_sessions session on session.id = exercise.session_id
   where exercise.id = exercise_log_id and exercise.user_id = (select auth.uid()) and session.status <> 'completed'
 ));
+drop policy if exists "users change own set logs" on public.set_logs;
 create policy "users change own set logs" on public.set_logs for update to authenticated
 using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "users delete own set logs" on public.set_logs;
 create policy "users delete own set logs" on public.set_logs for delete to authenticated
 using ((select auth.uid()) = user_id);
 
