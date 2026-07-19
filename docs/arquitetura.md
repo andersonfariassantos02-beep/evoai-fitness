@@ -49,6 +49,12 @@ O domínio familiar é persistido nas tabelas `families`, `family_members`, `pro
 - Sessões
 - Séries
 - Progressão
+- Calendário de disponibilidade informado pelo usuário
+- Planejamento semanal adaptativo e ajustes por treino antecipado, extra ou perdido
+
+O aplicativo não fixa nem deduz escala de trabalho. O calendário mensal é a entrada de disponibilidade e o resumo semanal é derivado exclusivamente das datas marcadas. Treinos concluídos permanecem preservados no histórico; quando uma sessão acontece fora do plano, somente as sessões futuras são redistribuídas.
+
+As marcações são locais primeiro e sincronizadas com `training_calendar_entries` no Supabase. Uma fila persistente mantém alterações feitas sem conexão e tenta enviá-las novamente quando a rede retorna. O estado da sincronização fica visível na tela. Reajustes causados por treino fora do plano são registrados de forma append-only em `schedule_adjustments`; suas políticas RLS restringem leitura e escrita ao próprio usuário.
 
 ### Nutrição
 - Refeições
