@@ -3,6 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import WorkoutSessionPage from "./pages/WorkoutSessionPage";
 
 function LoadingScreen() {
   return (
@@ -67,6 +68,7 @@ export default function App() {
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<DashboardPage />} />
+        <Route path="/treino/:date" element={<WorkoutSessionPage />} />
       </Route>
       <Route path="*" element={<RouteFallback />} />
     </Routes>
