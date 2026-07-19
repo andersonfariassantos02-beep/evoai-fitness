@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
-import { getSubstitutionCandidates } from "../lib/workoutTemplates";
+import { loadSubstitutionCandidates } from "../services/exerciseCatalogService";
 import { saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
 
 export default function WorkoutSessionPage() {
@@ -41,7 +41,7 @@ export default function WorkoutSessionPage() {
   async function replaceExercise(exercise: ExerciseLog) {
     const reason = window.prompt("Motivo da substituição: indisponibilidade, desconforto ou restrição?", "indisponibilidade")?.trim();
     if (!reason) return;
-    const candidates = getSubstitutionCandidates(exercise.exercise_key, reason);
+    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason);
     if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
     const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
     const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
