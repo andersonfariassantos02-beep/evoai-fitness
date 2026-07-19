@@ -16,7 +16,7 @@ vi.mock("../services/workoutSessionService", async (importOriginal) => {
   return {
     ...original,
     startOrLoadWorkout: vi.fn().mockResolvedValue({
-      id: "session-1", training_date: "2026-07-20", workout_label: "Full body", status: "active", notes: "",
+      id: "session-1", training_date: "2026-07-20", workout_label: "Full body", status: "active", notes: "", profile_id: null, profile_name: null, applied_restrictions: [],
       exercises: [{ id: "exercise-1", exercise_key: "row", exercise_name: "Remada", original_exercise_key: null, substitution_reason: null, position: 1, recommendation: { action: "initial", loadKg: 0, reason: "Primeira execução" }, sets: [{ id: "set-1", set_number: 1, target_reps_min: 8, target_reps_max: 12, actual_reps: 10, load_kg: 20, rpe: 8, notes: "", completed: false }] }],
     }),
     saveSet: (...args: unknown[]) => saveSet(...args),

@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "../lib/supabase";
 import { exerciseCatalog, type MuscleGroup, type MovementPattern, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
+import { exerciseConflictsWithRestrictions, type ProfileRestriction } from "./profileRestrictionService";
 
 interface ExerciseCatalogRow {
   key: string;
@@ -42,7 +43,7 @@ export async function loadExerciseCatalog(): Promise<WorkoutExerciseTemplate[]> 
   return cachedCatalog;
 }
 
-export async function loadWorkoutTemplate(label: string) {
+export async function loadWorkoutTemplate(label: string, restrictions: ProfileRestriction[] = []) {
   const catalog = await loadExerciseCatalog();
   const byKey = (key: string) => {
     const item = catalog.find((exercise) => exercise.key === key) ?? exerciseCatalog.find((exercise) => exercise.key === key);
@@ -50,13 +51,26 @@ export async function loadWorkoutTemplate(label: string) {
     return item;
   };
   const normalized = label.toLowerCase();
-  if (normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")) return [byKey("squat-pattern"), byKey("leg-press"), byKey("leg-curl"), byKey("calf-raise")];
-  if (normalized.includes("pull")) return [byKey("row"), byKey("pulldown"), byKey("biceps")];
-  if (normalized.includes("push")) return [byKey("chest-press"), byKey("shoulder-press"), byKey("triceps")];
-  return [byKey("chest-press"), byKey("row"), byKey("squat-pattern"), byKey("leg-press")];
+  const planned = normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")
+    ? [byKey("squat-pattern"), byKey("leg-press"), byKey("leg-curl"), byKey("calf-raise")]
+    : normalized.includes("pull")
+      ? [byKey("row"), byKey("pulldown"), byKey("biceps")]
+      : normalized.includes("push")
+        ? [byKey("chest-press"), byKey("shoulder-press"), byKey("triceps")]
+        : [byKey("chest-press"), byKey("row"), byKey("squat-pattern"), byKey("leg-press")];
+  return planned.map((exercise) => {
+    if (!exerciseConflictsWithRestrictions(exercise, restrictions)) return exercise;
+    const replacement = catalog.find((candidate) =>
+      candidate.key !== exercise.key
+      && candidate.muscle === exercise.muscle
+      && candidate.movement === exercise.movement
+      && !exerciseConflictsWithRestrictions(candidate, restrictions));
+    if (!replacement) throw new Error(`PROFILE_RESTRICTION_BLOCKS_PLAN:${exercise.name}`);
+    return replacement;
+  });
 }
 
-export async function loadSubstitutionCandidates(key: string, restriction = "") {
+export async function loadSubstitutionCandidates(key: string, restriction = "", profileRestrictions: ProfileRestriction[] = []) {
   const catalog = await loadExerciseCatalog();
   const source = catalog.find((item) => item.key === key) ?? exerciseCatalog.find((item) => item.key === key);
   if (!source) return [];
@@ -64,8 +78,8 @@ export async function loadSubstitutionCandidates(key: string, restriction = "") 
   return catalog
     .filter((item) => item.key !== key && item.muscle === source.muscle && item.movement === source.movement)
     .filter((item) => !(item.avoidWhen ?? []).some((term) => normalized.includes(term)))
+    .filter((item) => !exerciseConflictsWithRestrictions(item, profileRestrictions))
     .sort((a, b) => Number(b.equipment === source.equipment) - Number(a.equipment === source.equipment));
 }
 
 export function resetExerciseCatalogCache() { cachedCatalog = null; }
-

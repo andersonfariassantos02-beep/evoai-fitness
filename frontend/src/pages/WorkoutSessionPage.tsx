@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadSubstitutionCandidates } from "../services/exerciseCatalogService";
+import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
 import { saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
 
 export default function WorkoutSessionPage() {
@@ -13,10 +14,17 @@ export default function WorkoutSessionPage() {
   const navigate = useNavigate();
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [message, setMessage] = useState("Carregando treino…");
+  const [profileRestrictions, setProfileRestrictions] = useState<ProfileRestriction[]>([]);
 
   useEffect(() => {
     if (!user || !date) return;
-    void startOrLoadWorkout(user.id, date, label).then((data) => { setSession(data); setMessage(""); }).catch(() => setMessage("Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
+    void startOrLoadWorkout(user.id, date, label)
+      .then((data) => { setSession(data); setProfileRestrictions(data.applied_restrictions); setMessage(""); })
+      .catch((error) => setMessage(error instanceof Error && error.message.startsWith("PROFILE_RESTRICTION_BLOCKS_PLAN")
+        ? "As restrições do perfil bloqueiam um exercício sem substituto seguro. Revise o perfil antes de iniciar."
+        : error instanceof Error && error.message === "MULTIPLE_ACTIVE_LINKED_PROFILES"
+          ? "Há mais de um perfil ativo ligado à sua conta. Selecione ou desative um perfil antes de planejar o treino."
+          : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
   }, [date, label, user]);
 
   const allSets = useMemo(() => session?.exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise: exercise.exercise_name, set }))) ?? [], [session]);
@@ -41,7 +49,7 @@ export default function WorkoutSessionPage() {
   async function replaceExercise(exercise: ExerciseLog) {
     const reason = window.prompt("Motivo da substituição: indisponibilidade, desconforto ou restrição?", "indisponibilidade")?.trim();
     if (!reason) return;
-    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason);
+    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason, profileRestrictions);
     if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
     const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
     const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
@@ -68,6 +76,7 @@ export default function WorkoutSessionPage() {
     <div className="workout-progress"><strong>{completed}/{allSets.length} séries</strong><span><i style={{ width: `${allSets.length ? completed / allSets.length * 100 : 0}%` }} /></span></div>
     {next && <aside className="next-set"><span>PRÓXIMA SÉRIE</span><strong>{next.exercise} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></aside>}
     <main className="exercise-list">
+      {session.profile_name && <p className="profile-context"><strong>Perfil: {session.profile_name}</strong><span>{session.applied_restrictions.length ? `Restrições aplicadas: ${restrictionText(session.applied_restrictions) || "somente informativas"}` : "Nenhuma restrição ativa"}</span></p>}
       <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>
       {session.exercises.map((exercise) => <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
         {exercise.original_exercise_key && <p className="substitution-note">Substituição registrada · motivo: {exercise.substitution_reason}</p>}

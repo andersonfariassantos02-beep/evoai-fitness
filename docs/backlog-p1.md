@@ -24,3 +24,12 @@ Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, s
 3. Ampliar o catálogo e cadastrar instruções técnicas, mídia e variações por equipamento.
 4. Gerar planos semanais por objetivo, disponibilidade e recuperação.
 
+## 2. Restrições do perfil no planejamento
+
+**Status:** pronto para validação em 19 de julho de 2026.
+
+- [x] O perfil ativo vinculado ao usuário é resolvido automaticamente.
+- [x] Restrições ativas e vigentes filtram o planejamento e as substituições.
+- [x] Restrições informativas não bloqueiam exercícios.
+- [x] A sessão preserva perfil, nome e retrato das restrições aplicadas.
+- [x] Sem perfil vinculado, o fluxo permanece compatível e sem bloqueio.
