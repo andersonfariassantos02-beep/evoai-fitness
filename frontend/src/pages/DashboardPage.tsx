@@ -278,6 +278,7 @@ export default function DashboardPage() {
                     <strong>{day.label}</strong>
                     {day.adjusted && <em>Semana reajustada</em>}
                   </div>
+                  {day.status === "planned" && <a className="open-workout" href={`#/treino/${day.date}?label=${encodeURIComponent(day.label)}`}>Abrir treino</a>}
                 </article>
               ))}
             </div>

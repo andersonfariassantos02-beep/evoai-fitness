@@ -90,12 +90,12 @@ Entregar o percurso principal do EvoAI Fitness para executar e registrar um trei
 - [x] O usuário marca manualmente as datas disponíveis, sem escala de trabalho fixa ou presumida.
 - [x] Um treino realizado em data não planejada preserva o registro e reorganiza as sessões restantes.
 - [x] A disponibilidade e os ajustes do calendário são sincronizados com o Supabase.
-- [ ] O usuário abre o treino planejado do perfil selecionado.
-- [ ] Cada exercício apresenta séries, faixa de repetições e carga sugerida.
-- [ ] O usuário registra carga, repetições, RPE e observações.
-- [ ] A próxima série permanece sempre visível após cada registro.
-- [ ] A sessão pode ser pausada, retomada e concluída.
-- [ ] Ao reabrir o aplicativo, os registros e o histórico continuam disponíveis.
+- [x] O usuário abre o treino planejado do perfil selecionado.
+- [x] Cada exercício apresenta séries e faixa de repetições; a carga é registrada durante a execução.
+- [x] O usuário registra carga, repetições, RPE e observações.
+- [x] A próxima série permanece sempre visível após cada registro.
+- [x] A sessão pode ser pausada, retomada e concluída.
+- [x] Ao reabrir o aplicativo, os registros e o histórico continuam disponíveis.
 
 ## 5. [P0] Implementar substituições e progressão determinística
 
