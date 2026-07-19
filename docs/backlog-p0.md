@@ -78,7 +78,7 @@ Criar a fundação persistente e segura para uso pessoal e familiar do EvoAI Fit
 
 ## 4. [P0] Implementar fluxo de treino série a série
 
-**Status:** calendário adaptativo em implementação desde 18 de julho de 2026.
+**Status:** calendário adaptativo e sincronização Supabase implementados em 19 de julho de 2026.
 
 ### Objetivo
 
@@ -89,7 +89,7 @@ Entregar o percurso principal do EvoAI Fitness para executar e registrar um trei
 - [x] A tela principal possui calendário mensal e resumo da semana selecionada.
 - [x] O usuário marca manualmente as datas disponíveis, sem escala de trabalho fixa ou presumida.
 - [x] Um treino realizado em data não planejada preserva o registro e reorganiza as sessões restantes.
-- [ ] A disponibilidade e os ajustes do calendário são sincronizados com o Supabase.
+- [x] A disponibilidade e os ajustes do calendário são sincronizados com o Supabase.
 - [ ] O usuário abre o treino planejado do perfil selecionado.
 - [ ] Cada exercício apresenta séries, faixa de repetições e carga sugerida.
 - [ ] O usuário registra carga, repetições, RPE e observações.

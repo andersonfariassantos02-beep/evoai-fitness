@@ -11,6 +11,12 @@ import {
   toDateKey,
   type TrainingCalendarEntry,
 } from "../lib/trainingCalendar";
+import {
+  flushCalendarOutbox,
+  loadSyncedCalendar,
+  queueCalendarMutation,
+  type CalendarSyncState,
+} from "../services/trainingCalendarService";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -49,10 +55,34 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<TrainingCalendarEntry[]>(
     () => loadCalendarEntries(storageKey),
   );
+  const [syncState, setSyncState] = useState<CalendarSyncState>("loading");
 
   useEffect(() => {
-    setEntries(loadCalendarEntries(storageKey));
-  }, [storageKey]);
+    const localEntries = loadCalendarEntries(storageKey);
+    setEntries(localEntries);
+
+    if (!user) return;
+    let active = true;
+    setSyncState("loading");
+    void loadSyncedCalendar(user.id, localEntries).then((result) => {
+      if (!active) return;
+      setEntries(result.entries);
+      setSyncState(result.state);
+    });
+
+    const retry = () => {
+      setSyncState("pending");
+      void flushCalendarOutbox(user.id)
+        .then(() => setSyncState("synced"))
+        .catch(() => setSyncState("error"));
+    };
+    window.addEventListener("online", retry);
+
+    return () => {
+      active = false;
+      window.removeEventListener("online", retry);
+    };
+  }, [storageKey, user]);
 
   useEffect(() => {
     saveCalendarEntries(storageKey, entries);
@@ -66,18 +96,23 @@ export default function DashboardPage() {
   );
 
   function updateEntry(date: string, update: (entry: TrainingCalendarEntry) => TrainingCalendarEntry) {
-    setEntries((current) => {
-      const existing = current.find((entry) => entry.date === date) ?? {
-        date,
-        available: false,
-        completed: false,
-      };
-      const nextEntry = update(existing);
-      const remaining = current.filter((entry) => entry.date !== date);
+    const existing = entries.find((entry) => entry.date === date) ?? {
+      date,
+      available: false,
+      completed: false,
+    };
+    const nextEntry = update(existing);
+    const remaining = entries.filter((entry) => entry.date !== date);
+    const persistedEntry = !nextEntry.available && !nextEntry.completed ? null : nextEntry;
 
-      if (!nextEntry.available && !nextEntry.completed) return remaining;
-      return [...remaining, nextEntry].sort((left, right) => left.date.localeCompare(right.date));
-    });
+    setEntries(persistedEntry
+      ? [...remaining, persistedEntry].sort((left, right) => left.date.localeCompare(right.date))
+      : remaining);
+
+    if (user) {
+      setSyncState("pending");
+      void queueCalendarMutation(user.id, date, persistedEntry).then(setSyncState);
+    }
   }
 
   function toggleAvailability() {
@@ -128,6 +163,15 @@ export default function DashboardPage() {
             <span>O planejamento considera somente o que você marcar no calendário.</span>
           </div>
         </section>
+
+        <div className={`calendar-sync calendar-sync--${syncState}`} role="status" aria-live="polite">
+          <span aria-hidden="true" />
+          {syncState === "loading" && "Carregando calendário…"}
+          {syncState === "synced" && "Calendário sincronizado"}
+          {syncState === "pending" && "Salvando alterações…"}
+          {syncState === "offline" && "Sem conexão — alterações preservadas neste dispositivo"}
+          {syncState === "error" && "Sincronização pendente — tentaremos novamente quando houver conexão"}
+        </div>
 
         <div className="planner-layout">
           <section className="calendar-card" aria-labelledby="calendar-title">

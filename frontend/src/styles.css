@@ -507,6 +507,34 @@ main { padding: 64px 0 52px; }
 .calendar-hero__rule strong { font-size: 14px; }
 .calendar-hero__rule span { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
+.calendar-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin: -12px 0 18px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.calendar-sync span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8ba0ba;
+}
+
+.calendar-sync--synced span { background: var(--green); }
+.calendar-sync--pending span,
+.calendar-sync--loading span { background: var(--blue); }
+.calendar-sync--offline span,
+.calendar-sync--error span { background: #d78b22; }
+
 .planner-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.7fr);
