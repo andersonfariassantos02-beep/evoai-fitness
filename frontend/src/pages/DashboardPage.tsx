@@ -6,6 +6,7 @@ import {
   buildWeeklyPlan,
   fromDateKey,
   getMonthGrid,
+  getWeekStart,
   loadCalendarEntries,
   saveCalendarEntries,
   toDateKey,
@@ -15,8 +16,10 @@ import {
   flushCalendarOutbox,
   loadSyncedCalendar,
   queueCalendarMutation,
+  loadLastCompletedWorkoutLabel,
   type CalendarSyncState,
 } from "../services/trainingCalendarService";
+import { loadPlanningProfile, type PlanningProfile } from "../services/profileRestrictionService";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -56,6 +59,8 @@ export default function DashboardPage() {
     () => loadCalendarEntries(storageKey),
   );
   const [syncState, setSyncState] = useState<CalendarSyncState>("loading");
+  const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", weeklyTarget: 3 });
+  const [lastCompletedLabel, setLastCompletedLabel] = useState<string | null>(null);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -85,14 +90,22 @@ export default function DashboardPage() {
   }, [storageKey, user]);
 
   useEffect(() => {
+    if (!user) return;
+    const weekStart = toDateKey(getWeekStart(fromDateKey(selectedDate)));
+    void Promise.all([loadPlanningProfile(user.id), loadLastCompletedWorkoutLabel(user.id, weekStart)])
+      .then(([profile, lastLabel]) => { setPlanningProfile(profile); setLastCompletedLabel(lastLabel); })
+      .catch(() => { setPlanningProfile({ goal: "general_fitness", weeklyTarget: 3 }); setLastCompletedLabel(null); });
+  }, [selectedDate, user]);
+
+  useEffect(() => {
     saveCalendarEntries(storageKey, entries);
   }, [entries, storageKey]);
 
   const monthDays = useMemo(() => getMonthGrid(calendarCursor), [calendarCursor]);
   const selectedEntry = entries.find((entry) => entry.date === selectedDate);
   const weeklyPlan = useMemo(
-    () => buildWeeklyPlan(entries, fromDateKey(selectedDate)),
-    [entries, selectedDate],
+    () => buildWeeklyPlan(entries, fromDateKey(selectedDate), { ...planningProfile, lastCompletedLabel }),
+    [entries, lastCompletedLabel, planningProfile, selectedDate],
   );
 
   function updateEntry(date: string, update: (entry: TrainingCalendarEntry) => TrainingCalendarEntry) {
@@ -265,6 +278,7 @@ export default function DashboardPage() {
               <div><strong>{weeklyPlan.completedSessions}</strong><span>já realizados</span></div>
             </div>
             <p className="week-plan__message">{weeklyPlan.message}</p>
+            <a className="week-plan__settings" href="#/perfil">Ajustar objetivo e meta semanal</a>
 
             <div className="week-plan__days">
               {weeklyPlan.days.length === 0 && (

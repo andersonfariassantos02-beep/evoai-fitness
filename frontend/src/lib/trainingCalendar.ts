@@ -20,6 +20,15 @@ export interface WeeklyTrainingPlan {
   message: string;
 }
 
+export type TrainingGoal = "general_fitness" | "hypertrophy" | "strength" | "conditioning";
+
+export interface WeeklyPlanOptions {
+  goal?: TrainingGoal;
+  weeklyTarget?: number;
+  lastCompletedLabel?: string | null;
+  today?: Date;
+}
+
 const DAY_IN_MS = 86_400_000;
 
 export function toDateKey(date: Date) {
@@ -57,7 +66,7 @@ export function getMonthGrid(cursor: Date) {
   return Array.from({ length: days }, (_, index) => addDays(gridStart, index));
 }
 
-function getSessionLabels(total: number) {
+function getGeneralLabels(total: number) {
   const templates: Record<number, string[]> = {
     1: ["Full body essencial"],
     2: ["Full body A", "Full body B"],
@@ -71,9 +80,31 @@ function getSessionLabels(total: number) {
   return templates[Math.min(Math.max(total, 1), 7)];
 }
 
+function getGoalLabels(total: number, goal: TrainingGoal) {
+  if (goal === "hypertrophy" && total >= 4) {
+    return ["Superior A", "Inferiores A", "Superior B", "Inferiores B", "Full body C", "Superior C", "Inferiores C"].slice(0, total);
+  }
+  if (goal === "strength") {
+    return ["Full body A", "Full body B", "Inferiores A", "Superior A", "Full body C", "Inferiores B", "Superior B"].slice(0, total);
+  }
+  if (goal === "conditioning") {
+    return ["Full body A", "Recuperação ativa", "Full body B", "Recuperação ativa", "Full body C", "Superior A", "Inferiores A"].slice(0, total);
+  }
+  return getGeneralLabels(total);
+}
+
+function rotateAfterLastCompleted(labels: string[], lastCompletedLabel?: string | null) {
+  if (!lastCompletedLabel || labels.length < 2) return labels;
+  const lastIndex = labels.findIndex((label) => label === lastCompletedLabel);
+  if (lastIndex < 0) return labels;
+  const next = (lastIndex + 1) % labels.length;
+  return [...labels.slice(next), ...labels.slice(0, next)];
+}
+
 export function buildWeeklyPlan(
   entries: TrainingCalendarEntry[],
   referenceDate = new Date(),
+  options: WeeklyPlanOptions = {},
 ): WeeklyTrainingPlan {
   const weekDates = getWeekDates(referenceDate);
   const weekEntries = entries
@@ -82,9 +113,12 @@ export function buildWeeklyPlan(
   const availableCount = weekEntries.filter((entry) => entry.available).length;
   const completed = weekEntries.filter((entry) => entry.completed);
   const completedCount = completed.length;
-  const targetSessions = Math.max(availableCount, completedCount);
-  const labels = targetSessions > 0 ? getSessionLabels(targetSessions) : [];
-  const todayKey = toDateKey(referenceDate);
+  const requestedTarget = Math.min(7, Math.max(1, options.weeklyTarget ?? availableCount));
+  const targetSessions = Math.max(Math.min(availableCount, requestedTarget), completedCount);
+  const labels = targetSessions > 0
+    ? rotateAfterLastCompleted(getGoalLabels(targetSessions, options.goal ?? "general_fitness"), options.lastCompletedLabel)
+    : [];
+  const todayKey = toDateKey(options.today ?? new Date());
   const pendingSlots = Math.max(0, targetSessions - completedCount);
   const futureAvailable = weekEntries.filter(
     (entry) => entry.available && !entry.completed && entry.date >= todayKey,
@@ -113,7 +147,7 @@ export function buildWeeklyPlan(
   if (targetSessions > 0) {
     message = unscheduled > 0
       ? `${unscheduled} treino${unscheduled > 1 ? "s" : ""} ainda sem data futura. Marque outra disponibilidade.`
-      : `${targetSessions} treino${targetSessions > 1 ? "s" : ""} distribuído${targetSessions > 1 ? "s" : ""} conforme sua disponibilidade.`;
+      : `${targetSessions} treino${targetSessions > 1 ? "s" : ""} distribuído${targetSessions > 1 ? "s" : ""} conforme seu objetivo, disponibilidade e recuperação.`;
   }
 
   if (unplannedCompleted > 0) {

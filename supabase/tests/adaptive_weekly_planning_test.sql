@@ -1,0 +1,10 @@
+begin;
+select plan(6);
+select has_column('public', 'profiles', 'training_goal', 'profiles possui objetivo de treino');
+select has_column('public', 'profiles', 'weekly_target', 'profiles possui meta semanal');
+select col_default_is('public', 'profiles', 'training_goal', '''general_fitness''::text', 'objetivo possui default seguro');
+select col_default_is('public', 'profiles', 'weekly_target', '3', 'meta semanal possui default');
+select is((select relrowsecurity from pg_class where oid = 'public.profiles'::regclass), true, 'RLS de profiles permanece habilitada');
+select has_policy('public', 'profiles', 'family managers can update profiles');
+select * from finish();
+rollback;

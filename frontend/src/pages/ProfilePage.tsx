@@ -9,18 +9,22 @@ import {
   updateManagedProfile,
   validateRestrictionInput,
   type ManagedProfile,
+  type TrainingGoal,
   type RestrictionInput,
 } from "../services/profileRestrictionService";
 
 const EMPTY_RESTRICTION: RestrictionInput = { category: "injury", severity: "avoid", description: "", starts_on: "", ends_on: "" };
 const CATEGORY = { medical: "Condição de saúde", injury: "Lesão ou desconforto", equipment: "Equipamento indisponível", preference: "Preferência", other: "Outra" };
 const SEVERITY = { info: "Informativa", avoid: "Evitar", contraindication: "Não utilizar" };
+const GOALS: Record<TrainingGoal, string> = { general_fitness: "Condicionamento geral", hypertrophy: "Hipertrofia", strength: "Força", conditioning: "Condicionamento" };
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<ManagedProfile | null>(null);
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>("general_fitness");
+  const [weeklyTarget, setWeeklyTarget] = useState(3);
   const [draft, setDraft] = useState<RestrictionInput>(EMPTY_RESTRICTION);
   const [message, setMessage] = useState("Carregando perfil…");
   const [busy, setBusy] = useState(false);
@@ -32,6 +36,8 @@ export default function ProfilePage() {
       setProfile(data);
       setName(data?.display_name ?? "");
       setBirthDate(data?.birth_date ?? "");
+      setTrainingGoal(data?.training_goal ?? "general_fitness");
+      setWeeklyTarget(data?.weekly_target ?? 3);
       setMessage(data ? "" : "Nenhum perfil está ligado a esta conta.");
     } catch (error) {
       setMessage(error instanceof Error && error.message === "MULTIPLE_LINKED_PROFILES" ? "Há mais de um perfil ligado à conta. Corrija a duplicidade antes de editar." : "Não foi possível carregar o perfil.");
@@ -45,7 +51,7 @@ export default function ProfilePage() {
     if (!profile) return;
     setBusy(true);
     setMessage("");
-    try { await updateManagedProfile(profile.id, name, birthDate); await refresh(); setMessage("Perfil salvo."); }
+    try { await updateManagedProfile(profile.id, name, birthDate, trainingGoal, weeklyTarget); await refresh(); setMessage("Perfil e planejamento salvos."); }
     catch { setMessage("Revise o nome e tente novamente."); }
     finally { setBusy(false); }
   }
@@ -84,6 +90,9 @@ export default function ProfilePage() {
       <form className="profile-card" onSubmit={saveProfile}><h2>Dados do perfil</h2>
         <label>Nome<input value={name} maxLength={120} required onChange={(event) => setName(event.target.value)} /></label>
         <label>Data de nascimento <small>(opcional)</small><input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
+        <label>Objetivo<select value={trainingGoal} onChange={(event) => setTrainingGoal(event.target.value as TrainingGoal)}>{Object.entries(GOALS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Meta semanal<select value={weeklyTarget} onChange={(event) => setWeeklyTarget(Number(event.target.value))}>{[1, 2, 3, 4, 5, 6, 7].map((value) => <option key={value} value={value}>{value} treino{value > 1 ? "s" : ""}</option>)}</select></label>
+        <p className="profile-safety-note">A meta é um limite de planejamento: o calendário usa somente os dias que você marcar como disponíveis.</p>
         <button disabled={busy}>Salvar perfil</button>
       </form>
 
