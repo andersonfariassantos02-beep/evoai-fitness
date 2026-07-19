@@ -757,3 +757,16 @@ main { padding: 64px 0 52px; }
   .selected-day-actions { display: grid; grid-template-columns: 1fr; }
   .choice-button { width: 100%; }
 }
+.profile-context {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #b9d0f7;
+  border-radius: 1rem;
+  background: #eef5ff;
+  color: #17345f;
+}
+
+.profile-context span {
+  color: #526b8e;
+}

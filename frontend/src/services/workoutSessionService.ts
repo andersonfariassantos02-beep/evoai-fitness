@@ -2,10 +2,11 @@ import { getSupabaseClient } from "../lib/supabase";
 import { getWorkoutTemplate, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogService";
 import { recommendProgression, type ProgressionRecommendation } from "../lib/progression";
+import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
 export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; }
 export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; recommendation: ProgressionRecommendation; sets: SetLog[]; }
-export interface WorkoutSession { id: string; training_date: string; workout_label: string; status: "active" | "paused" | "completed"; notes: string; exercises: ExerciseLog[]; }
+export interface WorkoutSession { id: string; training_date: string; workout_label: string; status: "active" | "paused" | "completed"; notes: string; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
 
 async function getRecommendation(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
   const { data: history } = await getSupabaseClient().from("set_logs").select("actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date))").eq("user_id", userId).eq("exercise_logs.exercise_key", exerciseKey).eq("exercise_logs.workout_sessions.status", "completed").not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(1).maybeSingle();
@@ -35,13 +36,14 @@ const workoutLoads = new Map<string, Promise<WorkoutSession>>();
 
 async function startOrLoadWorkoutOnce(userId: string, date: string, label: string): Promise<WorkoutSession> {
   const supabase = getSupabaseClient();
-  const { data: existing, error: existingError } = await supabase.from("workout_sessions").select("id, training_date, workout_label, status, notes").eq("user_id", userId).eq("training_date", date).maybeSingle();
+  const { data: existing, error: existingError } = await supabase.from("workout_sessions").select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").eq("user_id", userId).eq("training_date", date).maybeSingle();
   if (existingError) throw existingError;
   if (existing) return loadDetails(existing as Omit<WorkoutSession, "exercises">);
 
-  const { data: session, error } = await supabase.from("workout_sessions").insert({ user_id: userId, training_date: date, workout_label: label }).select("id, training_date, workout_label, status, notes").single();
+  const profile = await loadActiveProfileContext(userId, date);
+  const templates = await loadWorkoutTemplate(label, profile.restrictions);
+  const { data: session, error } = await supabase.from("workout_sessions").insert({ user_id: userId, training_date: date, workout_label: label, profile_id: profile.profileId, profile_name: profile.profileName, applied_restrictions: restrictionSnapshot(profile) }).select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").single();
   if (error) throw error;
-  const templates = await loadWorkoutTemplate(label);
   const { data: exercises, error: exerciseError } = await supabase.from("exercise_logs").insert(templates.map((item, index) => ({ session_id: session.id, user_id: userId, exercise_key: item.key, exercise_name: item.name, position: index + 1 }))).select("id, position");
   if (exerciseError) throw exerciseError;
   const setRows = (exercises ?? []).flatMap((exercise) => {
