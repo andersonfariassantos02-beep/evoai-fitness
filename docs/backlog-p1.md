@@ -1,0 +1,26 @@
+# Backlog P1 — EvoAI Fitness
+
+## 1. Banco Mestre de Exercícios
+
+**Status:** pronto para validação em 19 de julho de 2026.
+
+### Objetivo
+
+Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, sessão executada e histórico.
+
+### Critérios de aceite
+
+- [x] O catálogo possui nome, grupo muscular, padrão de movimento, equipamento, séries e faixa de repetições.
+- [x] O frontend lê exercícios ativos do Supabase e mantém fallback local para indisponibilidade temporária.
+- [x] Somente usuários autenticados podem ler o catálogo; o frontend não pode alterá-lo.
+- [x] A criação de treinos usa a prescrição retornada pelo Banco Mestre.
+- [x] Substituições usam equivalências e prescrição do exercício substituto.
+- [x] O histórico permanece vinculado à chave do exercício efetivamente executado.
+
+## Próximas prioridades
+
+1. Tela administrativa para curadoria do catálogo, fora do cliente público.
+2. Vincular restrições dos perfis automaticamente aos filtros de substituição.
+3. Ampliar o catálogo e cadastrar instruções técnicas, mídia e variações por equipamento.
+4. Gerar planos semanais por objetivo, disponibilidade e recuperação.
+

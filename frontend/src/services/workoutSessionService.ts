@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "../lib/supabase";
 import { getWorkoutTemplate, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
+import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogService";
 import { recommendProgression, type ProgressionRecommendation } from "../lib/progression";
 
 export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; }
@@ -13,6 +14,7 @@ async function getRecommendation(userId: string, exerciseKey: string, repsMin: n
 
 async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<WorkoutSession> {
   const supabase = getSupabaseClient();
+  const catalog = await loadExerciseCatalog();
   const { data: exercises, error } = await supabase.from("exercise_logs").select("id, exercise_key, exercise_name, original_exercise_key, substitution_reason, position").eq("session_id", session.id).order("position");
   if (error) throw error;
   const result: ExerciseLog[] = [];
@@ -20,7 +22,9 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
     const { data: sets, error: setsError } = await supabase.from("set_logs").select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed").eq("exercise_log_id", exercise.id).order("set_number");
     if (setsError) throw setsError;
     const currentSets = (sets ?? []) as SetLog[];
-    const template = getWorkoutTemplate(session.workout_label).find((item) => item.key === exercise.exercise_key) ?? { repsMin: currentSets[0]?.target_reps_min ?? 8, repsMax: currentSets[0]?.target_reps_max ?? 12 };
+    const template = catalog.find((item) => item.key === exercise.exercise_key)
+      ?? getWorkoutTemplate(session.workout_label).find((item) => item.key === exercise.exercise_key)
+      ?? { repsMin: currentSets[0]?.target_reps_min ?? 8, repsMax: currentSets[0]?.target_reps_max ?? 12 };
     const recommendation = await getRecommendation((await supabase.auth.getUser()).data.user?.id ?? "", exercise.exercise_key, template.repsMin, template.repsMax);
     result.push({ ...exercise, recommendation, sets: currentSets });
   }
@@ -37,7 +41,7 @@ async function startOrLoadWorkoutOnce(userId: string, date: string, label: strin
 
   const { data: session, error } = await supabase.from("workout_sessions").insert({ user_id: userId, training_date: date, workout_label: label }).select("id, training_date, workout_label, status, notes").single();
   if (error) throw error;
-  const templates = getWorkoutTemplate(label);
+  const templates = await loadWorkoutTemplate(label);
   const { data: exercises, error: exerciseError } = await supabase.from("exercise_logs").insert(templates.map((item, index) => ({ session_id: session.id, user_id: userId, exercise_key: item.key, exercise_name: item.name, position: index + 1 }))).select("id, position");
   if (exerciseError) throw exerciseError;
   const setRows = (exercises ?? []).flatMap((exercise) => {
