@@ -91,3 +91,9 @@ As marcações são locais primeiro e sincronizadas com `training_calendar_entri
 - IA Coach
 - Recomendações automáticas
 - Progressão de carga
+## Curadoria administrativa do catálogo
+
+- A rota `/admin/exercicios` exige sessão e associação explícita em `app_admins`.
+- O navegador usa somente a chave publicável; autorização de leitura e escrita é aplicada por RLS.
+- Usuários comuns leem apenas exercícios ativos. Administradores leem o catálogo completo e podem criar, editar, ativar ou desativar.
+- Exercícios são desativados em vez de excluídos para preservar sessões e histórico.

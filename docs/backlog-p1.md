@@ -19,7 +19,7 @@ Centralizar a prescrição dos exercícios no Supabase sem misturar catálogo, s
 
 ## Próximas prioridades
 
-1. Tela administrativa para curadoria do catálogo, fora do cliente público.
+1. [x] Tela administrativa para curadoria do catálogo, fora do cliente público.
 2. Vincular restrições dos perfis automaticamente aos filtros de substituição.
 3. Ampliar o catálogo e cadastrar instruções técnicas, mídia e variações por equipamento.
 4. [x] Gerar planos semanais por objetivo, disponibilidade e recuperação.
