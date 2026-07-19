@@ -54,7 +54,9 @@ O domínio familiar é persistido nas tabelas `families`, `family_members`, `pro
 
 O aplicativo não fixa nem deduz escala de trabalho. O calendário mensal é a entrada de disponibilidade e o resumo semanal é derivado exclusivamente das datas marcadas. Treinos concluídos permanecem preservados no histórico; quando uma sessão acontece fora do plano, somente as sessões futuras são redistribuídas.
 
-O gerador semanal usa o objetivo e a meta configurados no perfil como limites, nunca como disponibilidade presumida. A distribuição é determinística, respeita apenas os dias marcados e inicia a rotação depois do último treino concluído para reduzir repetições de foco e favorecer recuperação.
+O gerador semanal usa o objetivo e a meta configurados no perfil como limites, nunca como disponibilidade presumida. A distribuição é determinística, respeita apenas os dias marcados e inicia a rotação depois do último treino concluído para reduzir repetições de foco.
+
+Na seleção das datas, o gerador prefere o intervalo mínimo de recuperação definido para o objetivo. Treinos já concluídos são tratados como datas ocupadas e não são movidos. Se não houver combinações suficientes que atendam simultaneamente à meta, à disponibilidade e ao intervalo ideal, o calendário informado pelo usuário prevalece e o plano sinaliza que a recuperação foi comprometida. O mesmo conjunto de entradas sempre produz a mesma distribuição.
 
 As marcações são locais primeiro e sincronizadas com `training_calendar_entries` no Supabase. Uma fila persistente mantém alterações feitas sem conexão e tenta enviá-las novamente quando a rede retorna. O estado da sincronização fica visível na tela. Reajustes causados por treino fora do plano são registrados de forma append-only em `schedule_adjustments`; suas políticas RLS restringem leitura e escrita ao próprio usuário.
 

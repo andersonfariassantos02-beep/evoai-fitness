@@ -18,6 +18,7 @@ export interface WeeklyTrainingPlan {
   completedSessions: number;
   days: PlannedWorkoutDay[];
   message: string;
+  recoveryCompromised: boolean;
 }
 
 export type TrainingGoal = "general_fitness" | "hypertrophy" | "strength" | "conditioning";
@@ -27,9 +28,60 @@ export interface WeeklyPlanOptions {
   weeklyTarget?: number;
   lastCompletedLabel?: string | null;
   today?: Date;
+  minimumRecoveryDays?: number;
 }
 
 const DAY_IN_MS = 86_400_000;
+
+function dateDistance(left: string, right: string): number {
+  return Math.abs(fromDateKey(left).getTime() - fromDateKey(right).getTime()) / DAY_IN_MS;
+}
+
+function defaultRecoveryDays(goal: TrainingGoal): number {
+  return goal === "conditioning" ? 0 : 1;
+}
+
+function selectRecoveryAwareDates(
+  candidates: TrainingCalendarEntry[],
+  slots: number,
+  occupiedDates: string[],
+  minimumRecoveryDays: number,
+): { selected: TrainingCalendarEntry[]; compromised: boolean } {
+  if (slots <= 0) {
+    return { selected: [], compromised: false };
+  }
+
+  const selected: TrainingCalendarEntry[] = [];
+
+  for (const candidate of candidates) {
+    const references = [...occupiedDates, ...selected.map((entry) => entry.date)];
+    const hasRecovery = references.every(
+      (date) => dateDistance(candidate.date, date) > minimumRecoveryDays,
+    );
+
+    if (hasRecovery) {
+      selected.push(candidate);
+    }
+
+    if (selected.length === slots) {
+      return { selected, compromised: false };
+    }
+  }
+
+  const preferredCount = selected.length;
+
+  for (const candidate of candidates) {
+    if (!selected.some((entry) => entry.date === candidate.date)) {
+      selected.push(candidate);
+    }
+
+    if (selected.length === slots) {
+      break;
+    }
+  }
+
+  return { selected, compromised: selected.length > preferredCount };
+}
 
 export function toDateKey(date: Date) {
   const year = date.getFullYear();
@@ -124,6 +176,16 @@ export function buildWeeklyPlan(
     (entry) => entry.available && !entry.completed && entry.date >= todayKey,
   );
   const unplannedCompleted = completed.filter((entry) => entry.completedWasPlanned === false).length;
+  const minimumRecoveryDays = Math.max(
+    0,
+    options.minimumRecoveryDays ?? defaultRecoveryDays(options.goal ?? "general_fitness"),
+  );
+  const recoverySelection = selectRecoveryAwareDates(
+    futureAvailable,
+    pendingSlots,
+    completed.map((entry) => entry.date),
+    minimumRecoveryDays,
+  );
 
   const completedDays: PlannedWorkoutDay[] = completed.map((entry, index) => ({
     date: entry.date,
@@ -132,8 +194,7 @@ export function buildWeeklyPlan(
     adjusted: entry.completedWasPlanned === false,
   }));
 
-  const plannedDays: PlannedWorkoutDay[] = futureAvailable
-    .slice(0, pendingSlots)
+  const plannedDays: PlannedWorkoutDay[] = recoverySelection.selected
     .map((entry, index) => ({
       date: entry.date,
       label: labels[completedCount + index] ?? `Treino ${completedCount + index + 1}`,
@@ -154,12 +215,17 @@ export function buildWeeklyPlan(
     message = `Treino fora do plano registrado. Os ${pendingSlots} treino${pendingSlots !== 1 ? "s" : ""} restante${pendingSlots !== 1 ? "s" : ""} foram reorganizados.`;
   }
 
+  if (recoverySelection.compromised) {
+    message += " A disponibilidade foi priorizada porque o intervalo ideal de recuperação não coube em todos os treinos.";
+  }
+
   return {
     weekStart: weekDates[0],
     targetSessions,
     completedSessions: completedCount,
     days: [...completedDays, ...plannedDays].sort((left, right) => left.date.localeCompare(right.date)),
     message,
+    recoveryCompromised: recoverySelection.compromised,
   };
 }
 
