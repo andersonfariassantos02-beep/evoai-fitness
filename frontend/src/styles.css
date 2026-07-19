@@ -688,6 +688,14 @@ main { padding: 64px 0 52px; }
 .template-notice { padding: 12px 14px; border-radius: 12px; color: #755100; background: var(--amber-soft); font-size: 12px; }
 .exercise-card { margin-top: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: white; }
 .exercise-card h2 { margin: 0 0 14px; color: var(--navy); font-size: 18px; }
+.exercise-title { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.exercise-title h2 { margin: 0; }
+.exercise-title button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--blue); background: white; font-weight: 800; }
+.substitution-note { margin: 8px 0; color: var(--muted); font-size: 11px; }
+.progression { display: grid; gap: 3px; margin: 12px 0; padding: 11px 13px; border-radius: 11px; background: #edf4ff; color: var(--navy); font-size: 11px; }
+.progression span { color: var(--muted); }
+.progression--increase { background: var(--green-soft); }
+.progression--reduce { background: var(--amber-soft); }
 .set-row { display: grid; grid-template-columns: minmax(70px,1fr) repeat(3,80px) 86px; gap: 8px; align-items: end; padding: 10px; border-top: 1px solid #edf1f6; }
 .set-row label { color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .set-row input { width: 100%; min-height: 38px; margin-top: 3px; padding: 5px; border: 1px solid var(--line); border-radius: 9px; }
