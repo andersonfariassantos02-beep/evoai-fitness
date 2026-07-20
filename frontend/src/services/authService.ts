@@ -5,11 +5,13 @@ export function login(email: string, password: string) {
 }
 
 export function register(email: string, password: string) {
+  const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+
   return getSupabaseClient().auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${window.location.origin}/#/login?confirmed=true`,
+      emailRedirectTo: `${appUrl.href}#/login?confirmed=true`,
     },
   });
 }
