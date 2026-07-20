@@ -73,4 +73,35 @@ describe("buildWeeklyPlan", () => {
       ["2026-07-24", "planned"],
     ]);
   });
+
+  it("consome a próxima sessão fora do plano e redistribui apenas o restante", () => {
+    const adaptive: TrainingCalendarEntry[] = [
+      { date: "2026-07-20", available: true, completed: false },
+      { date: "2026-07-21", available: false, completed: true, completedWasPlanned: false, completedLabel: "Superior A" },
+      { date: "2026-07-22", available: true, completed: false },
+      { date: "2026-07-24", available: true, completed: false },
+    ];
+    const plan = buildWeeklyPlan(adaptive, new Date(2026, 6, 20), {
+      weeklyTarget: 3, today: new Date(2026, 6, 21), minimumRecoveryDays: 0,
+    });
+
+    expect(plan.days.map((day) => [day.date, day.label, day.status])).toEqual([
+      ["2026-07-21", "Superior A", "completed"],
+      ["2026-07-22", "Inferiores", "planned"],
+      ["2026-07-24", "Superior B", "planned"],
+    ]);
+    expect(plan.days.find((day) => day.date === "2026-07-20")).toBeUndefined();
+    expect(plan.message).toContain("fora do plano");
+  });
+
+  it("mantém os rótulos reais de todo o histórico concluído", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-20", available: true, completed: true, completedLabel: "Sessão original A" },
+      { date: "2026-07-21", available: false, completed: true, completedWasPlanned: false, completedLabel: "Sessão original B" },
+      { date: "2026-07-23", available: true, completed: false },
+    ], new Date(2026, 6, 20), { weeklyTarget: 3, today: new Date(2026, 6, 21), minimumRecoveryDays: 0 });
+
+    expect(plan.days.filter((day) => day.status === "completed").map((day) => day.label))
+      .toEqual(["Sessão original A", "Sessão original B"]);
+  });
 });

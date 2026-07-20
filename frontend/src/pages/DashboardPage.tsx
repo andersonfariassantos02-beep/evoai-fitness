@@ -18,6 +18,7 @@ import {
   loadSyncedCalendar,
   queueCalendarMutation,
   loadLastCompletedWorkoutLabel,
+  loadCompletedWorkouts,
   type CalendarSyncState,
 } from "../services/trainingCalendarService";
 import { loadPlanningProfile, type PlanningProfile } from "../services/profileRestrictionService";
@@ -64,6 +65,7 @@ export default function DashboardPage() {
   const [syncState, setSyncState] = useState<CalendarSyncState>("loading");
   const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", weeklyTarget: 3 });
   const [lastCompletedLabel, setLastCompletedLabel] = useState<string | null>(null);
+  const [completedWorkouts, setCompletedWorkouts] = useState<{ date: string; label: string }[]>([]);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -95,8 +97,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     const weekStart = toDateKey(getWeekStart(fromDateKey(selectedDate)));
-    void Promise.all([loadPlanningProfile(user.id), loadLastCompletedWorkoutLabel(user.id, weekStart)])
-      .then(([profile, lastLabel]) => { setPlanningProfile(profile); setLastCompletedLabel(lastLabel); })
+    const weekEnd = toDateKey(addDays(fromDateKey(weekStart), 6));
+    void Promise.all([loadPlanningProfile(user.id), loadLastCompletedWorkoutLabel(user.id, weekStart), loadCompletedWorkouts(user.id, weekStart, weekEnd)])
+      .then(([profile, lastLabel, completed]) => {
+        setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setCompletedWorkouts(completed);
+      })
       .catch(() => { setPlanningProfile({ goal: "general_fitness", weeklyTarget: 3 }); setLastCompletedLabel(null); });
   }, [selectedDate, user]);
 
@@ -106,10 +111,22 @@ export default function DashboardPage() {
 
   const monthDays = useMemo(() => getMonthGrid(calendarCursor), [calendarCursor]);
   const selectedEntry = entries.find((entry) => entry.date === selectedDate);
+  const effectiveEntries = useMemo(() => {
+    const byDate = new Map(entries.map((entry) => [entry.date, entry]));
+    completedWorkouts.forEach((workout) => {
+      const entry = byDate.get(workout.date);
+      byDate.set(workout.date, {
+        date: workout.date, available: entry?.available ?? false, completed: true,
+        completedWasPlanned: entry?.completedWasPlanned, completedLabel: workout.label,
+      });
+    });
+    return [...byDate.values()];
+  }, [completedWorkouts, entries]);
   const weeklyPlan = useMemo(
-    () => buildWeeklyPlan(entries, fromDateKey(selectedDate), { ...planningProfile, lastCompletedLabel }),
-    [entries, lastCompletedLabel, planningProfile, selectedDate],
+    () => buildWeeklyPlan(effectiveEntries, fromDateKey(selectedDate), { ...planningProfile, lastCompletedLabel }),
+    [effectiveEntries, lastCompletedLabel, planningProfile, selectedDate],
   );
+  const nextSequenceLabel = weeklyPlan.days.find((day) => day.status === "planned")?.label;
 
   function updateEntry(date: string, update: (entry: TrainingCalendarEntry) => TrainingCalendarEntry) {
     const existing = entries.find((entry) => entry.date === date) ?? {
@@ -269,6 +286,11 @@ export default function DashboardPage() {
                   type="button"
                   onClick={toggleCompleted}
                 >{selectedEntry?.completed ? "✓ Treino realizado" : "+ Registrar treino realizado"}</button>
+                {!effectiveEntries.find((entry) => entry.date === selectedDate)?.completed && nextSequenceLabel && (
+                  <a className="choice-button" href={`#/treino/${selectedDate}?label=${encodeURIComponent(nextSequenceLabel)}&planned=${weeklyPlan.days.some((day) => day.date === selectedDate && day.status === "planned") ? "1" : "0"}`}>
+                    Iniciar próxima sessão
+                  </a>
+                )}
               </div>
             </div>
           </section>
@@ -295,7 +317,7 @@ export default function DashboardPage() {
                     <strong>{day.label}</strong>
                     {day.adjusted && <em>Semana reajustada</em>}
                   </div>
-                  {day.status === "planned" && <a className="open-workout" href={`#/treino/${day.date}?label=${encodeURIComponent(day.label)}`}>Abrir treino</a>}
+                  {day.status === "planned" && <a className="open-workout" href={`#/treino/${day.date}?label=${encodeURIComponent(day.label)}&planned=1`}>Abrir treino</a>}
                 </article>
               ))}
             </div>

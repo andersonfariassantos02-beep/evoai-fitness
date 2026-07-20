@@ -27,12 +27,14 @@ vi.mock("../services/workoutSessionService", async (importOriginal) => {
 describe("percurso principal do treino", () => {
   it("registra a série, conclui a sessão e retorna ao histórico", async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /><Route path="/app" element={<p>Histórico</p>} /></Routes></MemoryRouter>);
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&planned=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /><Route path="/app" element={<p>Histórico</p>} /></Routes></MemoryRouter>);
     await user.click(await screen.findByRole("button", { name: "Concluir" }));
     await waitFor(() => expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ id: "set-1", completed: true })));
     await user.click(screen.getByRole("button", { name: "Finalizar treino" }));
     await waitFor(() => expect(updateSession).toHaveBeenCalledWith("session-1", "completed", ""));
-    expect(queueCalendarMutation).toHaveBeenCalled();
+    expect(queueCalendarMutation).toHaveBeenCalledWith("user-1", "2026-07-20", expect.objectContaining({
+      completed: true, completedWasPlanned: true, completedLabel: "Full body",
+    }));
     expect(await screen.findByText("Histórico")).toBeInTheDocument();
   });
 });
