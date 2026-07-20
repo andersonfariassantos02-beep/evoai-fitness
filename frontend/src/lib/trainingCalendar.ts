@@ -3,6 +3,8 @@ export interface TrainingCalendarEntry {
   available: boolean;
   completed: boolean;
   completedWasPlanned?: boolean;
+  /** Rótulo imutável vindo da sessão concluída, quando existir. */
+  completedLabel?: string;
 }
 
 export interface PlannedWorkoutDay {
@@ -189,7 +191,7 @@ export function buildWeeklyPlan(
 
   const completedDays: PlannedWorkoutDay[] = completed.map((entry, index) => ({
     date: entry.date,
-    label: labels[index] ?? `Treino ${index + 1}`,
+    label: entry.completedLabel ?? labels[index] ?? `Treino ${index + 1}`,
     status: "completed",
     adjusted: entry.completedWasPlanned === false,
   }));

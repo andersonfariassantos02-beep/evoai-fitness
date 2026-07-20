@@ -10,6 +10,7 @@ export default function WorkoutSessionPage() {
   const { date = "" } = useParams();
   const [search] = useSearchParams();
   const label = search.get("label") || "Treino planejado";
+  const completedWasPlanned = search.get("planned") === "1";
   const { user } = useAuth();
   const navigate = useNavigate();
   const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -75,7 +76,10 @@ export default function WorkoutSessionPage() {
   async function finish() {
     if (!session || !user || next) { setMessage("Conclua todas as séries antes de finalizar."); return; }
     await updateSession(session.id, "completed", session.notes);
-    await queueCalendarMutation(user.id, date, { date, available: true, completed: true, completedWasPlanned: true });
+    await queueCalendarMutation(user.id, date, {
+      date, available: completedWasPlanned, completed: true, completedWasPlanned,
+      completedLabel: session.workout_label,
+    });
     navigate("/app");
   }
 
