@@ -29,6 +29,7 @@ export interface WeeklyPlanOptions {
   goal?: TrainingGoal;
   weeklyTarget?: number;
   lastCompletedLabel?: string | null;
+  existingWorkouts?: Array<{ date: string; label: string }>;
   today?: Date;
   minimumRecoveryDays?: number;
 }
@@ -199,7 +200,9 @@ export function buildWeeklyPlan(
   const plannedDays: PlannedWorkoutDay[] = recoverySelection.selected
     .map((entry, index) => ({
       date: entry.date,
-      label: labels[completedCount + index] ?? `Treino ${completedCount + index + 1}`,
+      label: options.existingWorkouts?.find((workout) => workout.date === entry.date)?.label
+        ?? labels[completedCount + index]
+        ?? `Treino ${completedCount + index + 1}`,
       status: "planned",
       adjusted: unplannedCompleted > 0,
     }));

@@ -156,15 +156,19 @@ export async function loadLastCompletedWorkoutLabel(userId: string, beforeDate: 
   return data?.workout_label ?? null;
 }
 
-export interface CompletedWorkoutSummary { date: string; label: string; }
+export interface WorkoutSummary {
+  date: string;
+  label: string;
+  status: "active" | "paused" | "completed";
+}
 
-/** Sessões concluídas são a fonte imutável do histórico do rebalanceamento. */
-export async function loadCompletedWorkouts(userId: string, startDate: string, endDate: string): Promise<CompletedWorkoutSummary[]> {
+/** Sessões persistidas vencem rótulos recalculados para preservar o treino materializado. */
+export async function loadWorkouts(userId: string, startDate: string, endDate: string): Promise<WorkoutSummary[]> {
   const { data, error } = await getSupabaseClient().from("workout_sessions")
-    .select("training_date, workout_label")
-    .eq("user_id", userId).eq("status", "completed")
+    .select("training_date, workout_label, status")
+    .eq("user_id", userId)
     .gte("training_date", startDate).lte("training_date", endDate)
     .order("training_date");
   if (error) throw error;
-  return (data ?? []).map((row) => ({ date: row.training_date, label: row.workout_label }));
+  return (data ?? []).map((row) => ({ date: row.training_date, label: row.workout_label, status: row.status }));
 }
