@@ -18,8 +18,9 @@ import {
   loadSyncedCalendar,
   queueCalendarMutation,
   loadLastCompletedWorkoutLabel,
-  loadCompletedWorkouts,
+  loadWorkouts,
   type CalendarSyncState,
+  type WorkoutSummary,
 } from "../services/trainingCalendarService";
 import { loadPlanningProfile, type PlanningProfile } from "../services/profileRestrictionService";
 
@@ -65,7 +66,7 @@ export default function DashboardPage() {
   const [syncState, setSyncState] = useState<CalendarSyncState>("loading");
   const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", weeklyTarget: 3 });
   const [lastCompletedLabel, setLastCompletedLabel] = useState<string | null>(null);
-  const [completedWorkouts, setCompletedWorkouts] = useState<{ date: string; label: string }[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -98,9 +99,9 @@ export default function DashboardPage() {
     if (!user) return;
     const weekStart = toDateKey(getWeekStart(fromDateKey(selectedDate)));
     const weekEnd = toDateKey(addDays(fromDateKey(weekStart), 6));
-    void Promise.all([loadPlanningProfile(user.id), loadLastCompletedWorkoutLabel(user.id, weekStart), loadCompletedWorkouts(user.id, weekStart, weekEnd)])
-      .then(([profile, lastLabel, completed]) => {
-        setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setCompletedWorkouts(completed);
+    void Promise.all([loadPlanningProfile(user.id), loadLastCompletedWorkoutLabel(user.id, weekStart), loadWorkouts(user.id, weekStart, weekEnd)])
+      .then(([profile, lastLabel, weekWorkouts]) => {
+        setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setWorkouts(weekWorkouts);
       })
       .catch(() => { setPlanningProfile({ goal: "general_fitness", weeklyTarget: 3 }); setLastCompletedLabel(null); });
   }, [selectedDate, user]);
@@ -113,7 +114,7 @@ export default function DashboardPage() {
   const selectedEntry = entries.find((entry) => entry.date === selectedDate);
   const effectiveEntries = useMemo(() => {
     const byDate = new Map(entries.map((entry) => [entry.date, entry]));
-    completedWorkouts.forEach((workout) => {
+    workouts.filter((workout) => workout.status === "completed").forEach((workout) => {
       const entry = byDate.get(workout.date);
       byDate.set(workout.date, {
         date: workout.date, available: entry?.available ?? false, completed: true,
@@ -121,12 +122,17 @@ export default function DashboardPage() {
       });
     });
     return [...byDate.values()];
-  }, [completedWorkouts, entries]);
+  }, [entries, workouts]);
   const weeklyPlan = useMemo(
-    () => buildWeeklyPlan(effectiveEntries, fromDateKey(selectedDate), { ...planningProfile, lastCompletedLabel }),
-    [effectiveEntries, lastCompletedLabel, planningProfile, selectedDate],
+    () => buildWeeklyPlan(effectiveEntries, fromDateKey(selectedDate), {
+      ...planningProfile,
+      lastCompletedLabel,
+      existingWorkouts: workouts,
+    }),
+    [effectiveEntries, lastCompletedLabel, planningProfile, selectedDate, workouts],
   );
-  const nextSequenceLabel = weeklyPlan.days.find((day) => day.status === "planned")?.label;
+  const nextSequenceLabel = workouts.find((workout) => workout.date === selectedDate)?.label
+    ?? weeklyPlan.days.find((day) => day.status === "planned")?.label;
 
   function updateEntry(date: string, update: (entry: TrainingCalendarEntry) => TrainingCalendarEntry) {
     const existing = entries.find((entry) => entry.date === date) ?? {
