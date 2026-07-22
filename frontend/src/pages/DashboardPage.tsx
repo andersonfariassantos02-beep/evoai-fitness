@@ -134,8 +134,7 @@ export default function DashboardPage() {
   const nextSequenceLabel = workouts.find((workout) => workout.date === selectedDate)?.label
     ?? weeklyPlan.days.find((day) => day.status === "planned")?.label;
   const workoutHref = (date: string, label: string, planned: boolean) => {
-    const path = workouts.some((workout) => workout.date === date) ? "treino" : "preparar-treino";
-    return `#/${path}/${date}?label=${encodeURIComponent(label)}&planned=${planned ? "1" : "0"}`;
+    return `#/preparar-treino/${date}?label=${encodeURIComponent(label)}&planned=${planned ? "1" : "0"}`;
   };
 
   function updateEntry(date: string, update: (entry: TrainingCalendarEntry) => TrainingCalendarEntry) {
@@ -298,7 +297,7 @@ export default function DashboardPage() {
                 >{selectedEntry?.completed ? "✓ Treino realizado" : "+ Registrar treino realizado"}</button>
                 {!effectiveEntries.find((entry) => entry.date === selectedDate)?.completed && nextSequenceLabel && (
                   <a className="choice-button" href={workoutHref(selectedDate, nextSequenceLabel, weeklyPlan.days.some((day) => day.date === selectedDate && day.status === "planned"))}>
-                    Iniciar próxima sessão
+                    {workouts.some((workout) => workout.date === selectedDate) ? "Revisar ou continuar" : "Preparar sessão"}
                   </a>
                 )}
               </div>
@@ -327,7 +326,7 @@ export default function DashboardPage() {
                     <strong>{day.label}</strong>
                     {day.adjusted && <em>Semana reajustada</em>}
                   </div>
-                  {day.status === "planned" && <a className="open-workout" href={workoutHref(day.date, day.label, true)}>Abrir treino</a>}
+                  {day.status === "planned" && <a className="open-workout" href={workoutHref(day.date, day.label, true)}>{workouts.some((workout) => workout.date === day.date) ? "Revisar ficha" : "Montar treino"}</a>}
                 </article>
               ))}
             </div>
