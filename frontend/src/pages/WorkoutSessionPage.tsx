@@ -97,6 +97,9 @@ export default function WorkoutSessionPage() {
     {next && <aside className="next-set"><span>PRÓXIMA SÉRIE</span><strong>{next.exercise} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></aside>}
     <main className="exercise-list">
       {session.profile_name && <p className="profile-context"><strong>Perfil: {session.profile_name}</strong><span>{session.applied_restrictions.length ? `Restrições aplicadas: ${restrictionText(session.applied_restrictions) || "somente informativas"}` : "Nenhuma restrição ativa"}</span></p>}
+      {completed === 0
+        ? <div className="workout-edit-banner"><div><strong>Ficha ainda não iniciada</strong><span>Você pode incluir, remover ou reorganizar exercícios antes da primeira série.</span></div><button type="button" onClick={() => navigate(`/preparar-treino/${date}?label=${encodeURIComponent(session.workout_label)}&planned=${completedWasPlanned ? "1" : "0"}`)}>Editar ficha</button></div>
+        : session.status !== "completed" && <p className="workout-structure-lock">Estrutura bloqueada após o início para preservar as séries registradas. Substituições individuais ainda estão disponíveis.</p>}
       <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>
       {session.exercises.map((exercise) => {
         const guidance = guidanceByKey[exercise.exercise_key];

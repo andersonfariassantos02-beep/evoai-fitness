@@ -32,6 +32,19 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
   return { ...session, exercises: result };
 }
 
+export async function loadExistingWorkout(userId: string, date: string): Promise<WorkoutSession | null> {
+  const { data, error } = await getSupabaseClient().from("workout_sessions")
+    .select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions")
+    .eq("user_id", userId).eq("training_date", date).maybeSingle();
+  if (error) throw error;
+  return data ? loadDetails(data as Omit<WorkoutSession, "exercises">) : null;
+}
+
+export async function previewAutomaticWorkout(userId: string, date: string, label: string) {
+  const profile = await loadActiveProfileContext(userId, date);
+  return loadWorkoutTemplate(label, profile.restrictions);
+}
+
 const workoutLoads = new Map<string, Promise<WorkoutSession>>();
 
 async function startOrLoadWorkoutOnce(userId: string, date: string, label: string): Promise<WorkoutSession> {
@@ -78,6 +91,25 @@ export async function createManualWorkout(userId: string, date: string, label: s
   const profile = await loadActiveProfileContext(userId, date);
   if (templates.some((item) => exerciseConflictsWithRestrictions(item, profile.restrictions))) throw new Error("EXERCISE_CONFLICTS_WITH_PROFILE");
   return createWorkoutFromTemplates(userId, date, name, templates, profile);
+}
+
+export async function replaceUnstartedWorkout(userId: string, date: string, sessionId: string, label: string, templates: WorkoutExerciseTemplate[]) {
+  const name = label.trim();
+  if (!name || name.length > 120) throw new Error("INVALID_WORKOUT_NAME");
+  if (!templates.length || templates.length > 12) throw new Error("INVALID_EXERCISE_COUNT");
+  if (new Set(templates.map((item) => item.key)).size !== templates.length) throw new Error("DUPLICATE_EXERCISE");
+  const profile = await loadActiveProfileContext(userId, date);
+  if (templates.some((item) => exerciseConflictsWithRestrictions(item, profile.restrictions))) throw new Error("EXERCISE_CONFLICTS_WITH_PROFILE");
+  const { error } = await getSupabaseClient().rpc("replace_unstarted_workout", {
+    p_session_id: sessionId,
+    p_workout_label: name,
+    p_exercise_keys: templates.map((item) => item.key),
+  });
+  if (error) {
+    if (error.message.includes("WORKOUT_ALREADY_STARTED")) throw new Error("WORKOUT_ALREADY_STARTED");
+    throw error;
+  }
+  return loadExistingWorkout(userId, date);
 }
 
 export function startOrLoadWorkout(userId: string, date: string, label: string): Promise<WorkoutSession> {
