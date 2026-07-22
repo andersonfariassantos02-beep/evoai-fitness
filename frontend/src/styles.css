@@ -823,6 +823,11 @@ main { padding: 64px 0 52px; }
 .admin-layout { display:grid; width:min(1100px,100%); margin:18px auto 0; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
 .admin-numbers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .admin-catalog { gap:8px; }
+.admin-muscle-group { display:grid; gap:8px; padding-top:10px; border-top:1px solid var(--line); }
+.admin-muscle-group:first-of-type { padding-top:0; border-top:0; }
+.admin-muscle-group > header { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:2px 2px 0; }
+.admin-muscle-group > header h3 { margin:0; color:var(--navy); font-size:1.05rem; }
+.admin-muscle-group > header span { color:var(--muted); font-size:.8rem; font-weight:700; }
 .admin-item { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:11px; }
 .admin-item div:first-child { display:grid; gap:4px; }
 .admin-item small { color:var(--muted); }

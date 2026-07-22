@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { isExerciseCatalogAdmin, loadExerciseCatalogAdmin, saveExerciseCatalogItem, setExerciseCatalogItemActive, type ExerciseCatalogAdminItem } from "../services/exerciseCatalogService";
+import { groupExerciseCatalogByMuscle, isExerciseCatalogAdmin, loadExerciseCatalogAdmin, saveExerciseCatalogItem, setExerciseCatalogItemActive, type ExerciseCatalogAdminItem } from "../services/exerciseCatalogService";
 
 const empty: ExerciseCatalogAdminItem = { key: "", name: "", default_sets: 3, reps_min: 8, reps_max: 12, muscle: "", movement: "", equipment: "", avoid_when: [], instructions: "", cautions: [], media_url: null, equipment_variants: [], active: true };
 
@@ -11,6 +11,7 @@ export default function ExerciseCatalogAdminPage() {
   const [items, setItems] = useState<ExerciseCatalogAdminItem[]>([]);
   const [form, setForm] = useState(empty);
   const [message, setMessage] = useState("");
+  const groups = groupExerciseCatalogByMuscle(items);
 
   async function refresh() { setItems(await loadExerciseCatalogAdmin()); }
   useEffect(() => { if (!user) return; void isExerciseCatalogAdmin(user.id).then(async ok => { setAllowed(ok); if (ok) await refresh(); }); }, [user]);
@@ -38,7 +39,7 @@ export default function ExerciseCatalogAdminPage() {
         <label>URL HTTPS da demonstração<input type="url" value={form.media_url ?? ""} onChange={e => setForm({...form, media_url:e.target.value || null})} placeholder="https://…"/></label>
         <button>Salvar exercício</button>
       </form>
-      <section className="profile-card admin-catalog"><h2>Catálogo ({items.length})</h2>{items.map(item => <article className={`admin-item ${item.active ? "" : "admin-item--inactive"}`} key={item.key}><div><strong>{item.name}</strong><small>{item.key} · {item.muscle} · {item.default_sets}×{item.reps_min}–{item.reps_max}</small><small>{item.instructions ? "Orientação cadastrada" : "Orientação pendente"}{item.media_url ? " · mídia vinculada" : ""}</small></div><div><button type="button" onClick={()=>setForm(item)}>Editar</button><button type="button" onClick={async()=>{await setExerciseCatalogItemActive(item.key,!item.active); await refresh();}}>{item.active ? "Desativar" : "Ativar"}</button></div></article>)}</section>
+      <section className="profile-card admin-catalog"><h2>Catálogo ({items.length})</h2>{groups.map(group => <section className="admin-muscle-group" key={group.muscle}><header><h3>{group.label}</h3><span>{group.items.length} exercício{group.items.length === 1 ? "" : "s"}</span></header>{group.items.map(item => <article className={`admin-item ${item.active ? "" : "admin-item--inactive"}`} key={item.key}><div><strong>{item.name}</strong><small>{item.key} · {item.default_sets}×{item.reps_min}–{item.reps_max}</small><small>{item.instructions ? "Orientação cadastrada" : "Orientação pendente"}{item.media_url ? " · mídia vinculada" : ""}</small></div><div><button type="button" onClick={()=>setForm(item)}>Editar</button><button type="button" onClick={async()=>{await setExerciseCatalogItemActive(item.key,!item.active); await refresh();}}>{item.active ? "Desativar" : "Ativar"}</button></div></article>)}</section>)}</section>
     </section>
   </main>;
 }
