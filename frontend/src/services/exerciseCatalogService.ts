@@ -35,6 +35,29 @@ export type ExerciseCatalogAdminItem = Required<Omit<ExerciseCatalogRow, "avoid_
   equipment_variants: string[];
 };
 
+const MUSCLE_ORDER = ["peito", "costas", "ombros", "quadriceps", "posteriores", "panturrilhas", "biceps", "triceps"];
+const MUSCLE_LABELS: Record<string, string> = {
+  peito: "Peito", costas: "Costas", ombros: "Ombros", quadriceps: "Quadríceps",
+  posteriores: "Posteriores de coxa", panturrilhas: "Panturrilhas", biceps: "Bíceps", triceps: "Tríceps",
+};
+
+function muscleLabel(muscle: string) {
+  return MUSCLE_LABELS[muscle] ?? muscle.charAt(0).toUpperCase() + muscle.slice(1);
+}
+
+export function groupExerciseCatalogByMuscle(items: ExerciseCatalogAdminItem[]) {
+  const groups = new Map<string, ExerciseCatalogAdminItem[]>();
+  items.forEach((item) => groups.set(item.muscle, [...(groups.get(item.muscle) ?? []), item]));
+  return [...groups.entries()]
+    .sort(([left], [right]) => {
+      const leftIndex = MUSCLE_ORDER.indexOf(left);
+      const rightIndex = MUSCLE_ORDER.indexOf(right);
+      if (leftIndex >= 0 || rightIndex >= 0) return (leftIndex < 0 ? Number.MAX_SAFE_INTEGER : leftIndex) - (rightIndex < 0 ? Number.MAX_SAFE_INTEGER : rightIndex);
+      return muscleLabel(left).localeCompare(muscleLabel(right), "pt-BR");
+    })
+    .map(([muscle, groupItems]) => ({ muscle, label: muscleLabel(muscle), items: groupItems }));
+}
+
 export async function isExerciseCatalogAdmin(userId: string): Promise<boolean> {
   const { data, error } = await getSupabaseClient().from("app_admins").select("user_id").eq("user_id", userId).maybeSingle();
   return !error && Boolean(data);
@@ -120,25 +143,29 @@ export async function loadWorkoutTemplate(label: string, restrictions: ProfileRe
       : normalized.includes("push")
         ? [byKey("chest-press"), byKey("shoulder-press"), byKey("triceps")]
         : [byKey("chest-press"), byKey("row"), byKey("squat-pattern"), byKey("leg-press")];
+  const reservedKeys = new Set(planned.map((exercise) => exercise.key));
   return planned.map((exercise) => {
     if (!exerciseConflictsWithRestrictions(exercise, restrictions)) return exercise;
     const replacement = catalog.find((candidate) =>
       candidate.key !== exercise.key
+      && !reservedKeys.has(candidate.key)
       && candidate.muscle === exercise.muscle
       && candidate.movement === exercise.movement
       && !exerciseConflictsWithRestrictions(candidate, restrictions));
     if (!replacement) throw new Error(`PROFILE_RESTRICTION_BLOCKS_PLAN:${exercise.name}`);
+    reservedKeys.add(replacement.key);
     return replacement;
   });
 }
 
-export async function loadSubstitutionCandidates(key: string, restriction = "", profileRestrictions: ProfileRestriction[] = []) {
+export async function loadSubstitutionCandidates(key: string, restriction = "", profileRestrictions: ProfileRestriction[] = [], excludedKeys: string[] = []) {
   const catalog = await loadExerciseCatalog();
   const source = catalog.find((item) => item.key === key) ?? exerciseCatalog.find((item) => item.key === key);
   if (!source) return [];
   const normalized = restriction.toLowerCase();
+  const excluded = new Set([key, ...excludedKeys]);
   return catalog
-    .filter((item) => item.key !== key && item.muscle === source.muscle && item.movement === source.movement)
+    .filter((item) => !excluded.has(item.key) && item.muscle === source.muscle && item.movement === source.movement)
     .filter((item) => !(item.avoidWhen ?? []).some((term) => normalized.includes(term)))
     .filter((item) => !exerciseConflictsWithRestrictions(item, profileRestrictions))
     .sort((a, b) => Number(b.equipment === source.equipment) - Number(a.equipment === source.equipment));

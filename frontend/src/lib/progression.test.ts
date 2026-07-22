@@ -22,4 +22,9 @@ describe("substituições equivalentes", () => {
   it("exclui opção incompatível com a restrição", () => {
     expect(getSubstitutionCandidates("row", "desconforto lombar").map((item) => item.key)).not.toContain("dumbbell-row");
   });
+
+  it("exclui exercícios que já fazem parte do treino", () => {
+    const candidates = getSubstitutionCandidates("squat-pattern", "indisponibilidade", ["leg-press"]);
+    expect(candidates.map((item) => item.key)).toEqual(["goblet-squat"]);
+  });
 });

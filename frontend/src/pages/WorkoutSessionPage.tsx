@@ -58,9 +58,15 @@ export default function WorkoutSessionPage() {
   }
 
   async function replaceExercise(exercise: ExerciseLog) {
+    if (!session) return;
     const reason = window.prompt("Motivo da substituição: indisponibilidade, desconforto ou restrição?", "indisponibilidade")?.trim();
     if (!reason) return;
-    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason, profileRestrictions);
+    const candidates = await loadSubstitutionCandidates(
+      exercise.exercise_key,
+      reason,
+      profileRestrictions,
+      session.exercises.map((item) => item.exercise_key),
+    );
     if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
     const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
     const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
