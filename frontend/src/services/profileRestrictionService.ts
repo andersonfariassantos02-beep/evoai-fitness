@@ -20,15 +20,16 @@ export interface ManagedProfile {
   birth_date: string | null;
   active: boolean;
   training_goal: TrainingGoal;
-  weekly_target: number;
+  training_focus: TrainingFocus[];
   restrictions: ManagedProfileRestriction[];
 }
 
-export type TrainingGoal = "general_fitness" | "hypertrophy" | "strength" | "conditioning";
+export type TrainingGoal = "general_fitness" | "weight_loss" | "hypertrophy" | "strength" | "conditioning";
+export type TrainingFocus = "full_body" | "glutes" | "legs" | "chest" | "back" | "shoulders" | "arms" | "core";
 
 export interface PlanningProfile {
   goal: TrainingGoal;
-  weeklyTarget: number;
+  trainingFocus: TrainingFocus[];
 }
 
 export interface RestrictionInput {
@@ -83,7 +84,7 @@ export function validateRestrictionInput(input: RestrictionInput) {
 export async function loadManagedProfile(userId: string): Promise<ManagedProfile | null> {
   const supabase = getSupabaseClient();
   const { data: profiles, error } = await supabase.from("profiles")
-    .select("id, display_name, birth_date, active, training_goal, weekly_target")
+    .select("id, display_name, birth_date, active, training_goal, training_focus")
     .eq("linked_user_id", userId)
     .order("created_at")
     .limit(2);
@@ -99,24 +100,24 @@ export async function loadManagedProfile(userId: string): Promise<ManagedProfile
   return { ...profile, restrictions: (restrictions ?? []) as ManagedProfileRestriction[] } as ManagedProfile;
 }
 
-export async function updateManagedProfile(profileId: string, displayName: string, birthDate: string, trainingGoal: TrainingGoal, weeklyTarget: number) {
+export async function updateManagedProfile(profileId: string, displayName: string, birthDate: string, trainingGoal: TrainingGoal, trainingFocus: TrainingFocus[]) {
   const name = displayName.trim();
   if (!name || name.length > 120) throw new Error("INVALID_PROFILE_NAME");
   const supabase = getSupabaseClient();
-  if (!Number.isInteger(weeklyTarget) || weeklyTarget < 1 || weeklyTarget > 7) throw new Error("INVALID_WEEKLY_TARGET");
-  const { error } = await supabase.from("profiles").update({ display_name: name, birth_date: birthDate || null, training_goal: trainingGoal, weekly_target: weeklyTarget }).eq("id", profileId);
+  if (!trainingFocus.length || trainingFocus.length > 4) throw new Error("INVALID_TRAINING_FOCUS");
+  const { error } = await supabase.from("profiles").update({ display_name: name, birth_date: birthDate || null, training_goal: trainingGoal, training_focus: trainingFocus }).eq("id", profileId);
   if (error) throw error;
 }
 
 export async function loadPlanningProfile(userId: string): Promise<PlanningProfile> {
   const { data, error } = await getSupabaseClient().from("profiles")
-    .select("training_goal, weekly_target")
+    .select("training_goal, training_focus")
     .eq("linked_user_id", userId)
     .eq("active", true)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return { goal: (data?.training_goal as TrainingGoal | undefined) ?? "general_fitness", weeklyTarget: Number(data?.weekly_target ?? 3) };
+  return { goal: (data?.training_goal as TrainingGoal | undefined) ?? "general_fitness", trainingFocus: (data?.training_focus as TrainingFocus[] | undefined) ?? ["full_body"] };
 }
 
 export async function createProfileRestriction(profileId: string, userId: string, input: RestrictionInput) {

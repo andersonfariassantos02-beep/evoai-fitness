@@ -10,13 +10,16 @@ import {
   validateRestrictionInput,
   type ManagedProfile,
   type TrainingGoal,
+  type TrainingFocus,
   type RestrictionInput,
 } from "../services/profileRestrictionService";
+import { isExerciseCatalogAdmin } from "../services/exerciseCatalogService";
 
 const EMPTY_RESTRICTION: RestrictionInput = { category: "injury", severity: "avoid", description: "", starts_on: "", ends_on: "" };
 const CATEGORY = { medical: "Condição de saúde", injury: "Lesão ou desconforto", equipment: "Equipamento indisponível", preference: "Preferência", other: "Outra" };
 const SEVERITY = { info: "Informativa", avoid: "Evitar", contraindication: "Não utilizar" };
-const GOALS: Record<TrainingGoal, string> = { general_fitness: "Condicionamento geral", hypertrophy: "Hipertrofia", strength: "Força", conditioning: "Condicionamento" };
+const GOALS: Record<TrainingGoal, string> = { general_fitness: "Condicionamento geral", weight_loss: "Emagrecimento", hypertrophy: "Hipertrofia", strength: "Força", conditioning: "Condicionamento" };
+const FOCUS: Record<TrainingFocus, string> = { full_body: "Corpo inteiro", glutes: "Glúteos", legs: "Pernas", chest: "Peito", back: "Costas", shoulders: "Ombros", arms: "Braços", core: "Abdômen e core" };
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -24,7 +27,8 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>("general_fitness");
-  const [weeklyTarget, setWeeklyTarget] = useState(3);
+  const [trainingFocus, setTrainingFocus] = useState<TrainingFocus[]>(["full_body"]);
+  const [catalogAdmin, setCatalogAdmin] = useState(false);
   const [draft, setDraft] = useState<RestrictionInput>(EMPTY_RESTRICTION);
   const [message, setMessage] = useState("Carregando perfil…");
   const [busy, setBusy] = useState(false);
@@ -37,7 +41,7 @@ export default function ProfilePage() {
       setName(data?.display_name ?? "");
       setBirthDate(data?.birth_date ?? "");
       setTrainingGoal(data?.training_goal ?? "general_fitness");
-      setWeeklyTarget(data?.weekly_target ?? 3);
+      setTrainingFocus(data?.training_focus ?? ["full_body"]);
       setMessage(data ? "" : "Nenhum perfil está ligado a esta conta.");
     } catch (error) {
       setMessage(error instanceof Error && error.message === "MULTIPLE_LINKED_PROFILES" ? "Há mais de um perfil ligado à conta. Corrija a duplicidade antes de editar." : "Não foi possível carregar o perfil.");
@@ -45,13 +49,23 @@ export default function ProfilePage() {
   }, [user]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (user) void isExerciseCatalogAdmin(user.id).then(setCatalogAdmin); }, [user]);
+
+  function toggleFocus(focus: TrainingFocus) {
+    setTrainingFocus((current) => {
+      if (current.includes(focus)) return current.length === 1 ? current : current.filter((item) => item !== focus);
+      if (focus === "full_body") return ["full_body"];
+      const withoutFullBody = current.filter((item) => item !== "full_body");
+      return withoutFullBody.length < 4 ? [...withoutFullBody, focus] : withoutFullBody;
+    });
+  }
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault();
     if (!profile) return;
     setBusy(true);
     setMessage("");
-    try { await updateManagedProfile(profile.id, name, birthDate, trainingGoal, weeklyTarget); await refresh(); setMessage("Perfil e planejamento salvos."); }
+    try { await updateManagedProfile(profile.id, name, birthDate, trainingGoal, trainingFocus); await refresh(); setMessage("Perfil e preferências de treino salvos."); }
     catch { setMessage("Revise o nome e tente novamente."); }
     finally { setBusy(false); }
   }
@@ -84,15 +98,15 @@ export default function ProfilePage() {
   }
 
   return <div className="profile-shell">
-    <header className="profile-header"><Link to="/app">← Calendário</Link><div><span className="eyebrow">PLANEJAMENTO SEGURO</span><h1>Meu perfil</h1><p>Informe somente restrições confirmadas por você ou por um profissional.</p></div></header>
+    <header className="profile-header"><Link to="/app">← Calendário</Link><div><span className="eyebrow">PLANEJAMENTO SEGURO</span><h1>Meu perfil</h1><p>Informe somente restrições confirmadas por você ou por um profissional.</p>{catalogAdmin && <p className="admin-badge">Administrador · <Link to="/admin/exercicios">Gerenciar catálogo</Link></p>}</div></header>
     {message && <p className="profile-message" role="status">{message}</p>}
     {profile && <main className="profile-layout">
       <form className="profile-card" onSubmit={saveProfile}><h2>Dados do perfil</h2>
         <label>Nome<input value={name} maxLength={120} required onChange={(event) => setName(event.target.value)} /></label>
         <label>Data de nascimento <small>(opcional)</small><input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label>
         <label>Objetivo<select value={trainingGoal} onChange={(event) => setTrainingGoal(event.target.value as TrainingGoal)}>{Object.entries(GOALS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>Meta semanal<select value={weeklyTarget} onChange={(event) => setWeeklyTarget(Number(event.target.value))}>{[1, 2, 3, 4, 5, 6, 7].map((value) => <option key={value} value={value}>{value} treino{value > 1 ? "s" : ""}</option>)}</select></label>
-        <p className="profile-safety-note">A meta é um limite de planejamento: o calendário usa somente os dias que você marcar como disponíveis.</p>
+        <fieldset className="training-focus"><legend>Foco do treino <small>(até 4)</small></legend>{Object.entries(FOCUS).map(([value, label]) => { const focus = value as TrainingFocus; const checked = trainingFocus.includes(focus); return <label key={value}><input type="checkbox" checked={checked} onChange={() => toggleFocus(focus)} />{label}</label>; })}</fieldset>
+        <p className="profile-safety-note">A quantidade de treinos acompanha os dias disponíveis marcados na agenda; o objetivo e o foco definem a prescrição.</p>
         <button disabled={busy}>Salvar perfil</button>
       </form>
 

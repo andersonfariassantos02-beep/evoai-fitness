@@ -798,6 +798,37 @@ main { padding: 64px 0 52px; }
 .profile-card button:disabled { opacity: .55; }
 .restriction-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .profile-safety-note, .empty-restrictions { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.admin-badge { display:inline-flex; width:max-content; gap:4px; margin:8px 0 0; padding:6px 9px; border-radius:999px; color:#0b58cd; background:var(--blue-soft); font-size:11px; font-weight:800; }
+.admin-badge a { color:inherit; }
+.training-focus { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:0; padding:12px; border:1px solid var(--line); border-radius:12px; }
+.training-focus legend { padding:0 5px; color:var(--navy); font-size:12px; font-weight:800; }
+.training-focus legend small { color:var(--muted); font-weight:500; }
+.training-focus label { display:flex; grid-template-columns:none; align-items:center; gap:7px; padding:7px; border-radius:8px; background:#f6f8fb; }
+.training-focus input { width:16px; min-height:16px; margin:0; }
+.workout-setup { min-height:100vh; padding:clamp(18px,4vw,42px); background:#f4f7fb; }
+.workout-setup > header { display:grid; width:min(1000px,100%); margin:0 auto 20px; grid-template-columns:auto 1fr; gap:20px; align-items:start; }
+.workout-setup > header > a { padding:11px 14px; border:1px solid var(--line); border-radius:12px; color:var(--navy); background:white; font-weight:800; text-decoration:none; }
+.workout-setup h1 { margin:5px 0; color:var(--navy); font-size:clamp(30px,5vw,48px); }
+.workout-setup header p, .manual-builder p { margin:0; color:var(--muted); }
+.setup-mode-grid { display:grid; width:min(1000px,100%); margin:0 auto; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.setup-mode-grid article { display:grid; gap:14px; align-content:start; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.setup-mode-grid h2, .manual-builder h2 { margin:0; color:var(--navy); }
+.setup-mode-grid button, .primary-link { display:inline-flex; justify-content:center; align-items:center; min-height:44px; padding:10px 14px; border:0; border-radius:11px; color:white; background:var(--blue); font-weight:900; text-decoration:none; }
+.manual-builder { display:grid; width:min(1000px,100%); margin:0 auto; gap:16px; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.manual-builder__header { display:flex; justify-content:space-between; gap:14px; align-items:start; }
+.manual-builder__header button { padding:8px 12px; border:1px solid var(--line); border-radius:9px; background:white; font-weight:800; }
+.manual-builder > label { display:grid; gap:6px; color:var(--navy); font-size:12px; font-weight:800; }
+.manual-builder > label input { min-height:42px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+.manual-selection { display:grid; gap:4px; padding:12px; border-radius:11px; color:var(--navy); background:var(--blue-soft); }
+.manual-selection span { color:var(--muted); font-size:11px; }
+.manual-muscle { display:grid; gap:8px; }
+.manual-muscle h3 { margin:0; color:var(--navy); text-transform:capitalize; }
+.manual-muscle > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.manual-exercise { display:flex; align-items:center; gap:10px; padding:12px; border:1px solid var(--line); border-radius:11px; cursor:pointer; }
+.manual-exercise--selected { border-color:var(--blue); background:var(--blue-soft); }
+.manual-exercise input { width:17px; height:17px; }
+.manual-exercise span { display:grid; gap:3px; }
+.manual-exercise small { color:var(--muted); }
 .restriction-list { display: grid; gap: 10px; }
 .restriction-item { display: flex; gap: 16px; padding: 14px; border: 1px solid #c7d8f5; border-radius: 13px; justify-content: space-between; background: #f5f8ff; }
 .restriction-item > div:first-child { display: grid; gap: 4px; }
@@ -818,6 +849,9 @@ main { padding: 64px 0 52px; }
   .profile-card--wide { grid-column: 1; }
   .restriction-form-grid { grid-template-columns: 1fr; }
   .restriction-item { align-items: stretch; flex-direction: column; }
+  .workout-setup > header, .setup-mode-grid { grid-template-columns:1fr; }
+  .workout-setup > header > a { justify-self:start; }
+  .manual-muscle > div, .training-focus { grid-template-columns:1fr; }
 }
 .admin-shell { min-height: 100vh; padding: clamp(18px,4vw,42px); background:#f4f7fb; }
 .admin-layout { display:grid; width:min(1100px,100%); margin:18px auto 0; grid-template-columns:340px 1fr; gap:16px; align-items:start; }

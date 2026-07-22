@@ -23,11 +23,12 @@ export interface WeeklyTrainingPlan {
   recoveryCompromised: boolean;
 }
 
-export type TrainingGoal = "general_fitness" | "hypertrophy" | "strength" | "conditioning";
+export type TrainingGoal = "general_fitness" | "weight_loss" | "hypertrophy" | "strength" | "conditioning";
+export type TrainingFocus = "full_body" | "glutes" | "legs" | "chest" | "back" | "shoulders" | "arms" | "core";
 
 export interface WeeklyPlanOptions {
   goal?: TrainingGoal;
-  weeklyTarget?: number;
+  trainingFocus?: TrainingFocus[];
   lastCompletedLabel?: string | null;
   existingWorkouts?: Array<{ date: string; label: string }>;
   today?: Date;
@@ -135,14 +136,23 @@ function getGeneralLabels(total: number) {
   return templates[Math.min(Math.max(total, 1), 7)];
 }
 
-function getGoalLabels(total: number, goal: TrainingGoal) {
+function getGoalLabels(total: number, goal: TrainingGoal, focus: TrainingFocus[] = ["full_body"]) {
+  if (focus.some((item) => item === "glutes" || item === "legs") && total >= 3) {
+    return ["Inferiores A", "Superior A", "Inferiores B", "Superior B", "Inferiores C", "Superior C", "Full body C"].slice(0, total);
+  }
+  if (focus.includes("back") && total >= 3) {
+    return ["Pull A", "Inferiores A", "Push A", "Pull B", "Inferiores B", "Push B", "Full body C"].slice(0, total);
+  }
+  if (focus.some((item) => item === "chest" || item === "shoulders" || item === "arms") && total >= 3) {
+    return ["Push A", "Inferiores A", "Pull A", "Push B", "Inferiores B", "Pull B", "Full body C"].slice(0, total);
+  }
   if (goal === "hypertrophy" && total >= 4) {
     return ["Superior A", "Inferiores A", "Superior B", "Inferiores B", "Full body C", "Superior C", "Inferiores C"].slice(0, total);
   }
   if (goal === "strength") {
     return ["Full body A", "Full body B", "Inferiores A", "Superior A", "Full body C", "Inferiores B", "Superior B"].slice(0, total);
   }
-  if (goal === "conditioning") {
+  if (goal === "conditioning" || goal === "weight_loss") {
     return ["Full body A", "Recuperação ativa", "Full body B", "Recuperação ativa", "Full body C", "Superior A", "Inferiores A"].slice(0, total);
   }
   return getGeneralLabels(total);
@@ -168,10 +178,12 @@ export function buildWeeklyPlan(
   const availableCount = weekEntries.filter((entry) => entry.available).length;
   const completed = weekEntries.filter((entry) => entry.completed);
   const completedCount = completed.length;
-  const requestedTarget = Math.min(7, Math.max(1, options.weeklyTarget ?? availableCount));
-  const targetSessions = Math.max(Math.min(availableCount, requestedTarget), completedCount);
+  // A agenda é a fonte de verdade da frequência: cada dia disponível representa
+  // uma sessão desejada. Objetivo e recuperação alteram a distribuição/conteúdo,
+  // nunca descartam silenciosamente uma data marcada pelo usuário.
+  const targetSessions = Math.max(availableCount, completedCount);
   const labels = targetSessions > 0
-    ? rotateAfterLastCompleted(getGoalLabels(targetSessions, options.goal ?? "general_fitness"), options.lastCompletedLabel)
+    ? rotateAfterLastCompleted(getGoalLabels(targetSessions, options.goal ?? "general_fitness", options.trainingFocus), options.lastCompletedLabel)
     : [];
   const todayKey = toDateKey(options.today ?? new Date());
   const pendingSlots = Math.max(0, targetSessions - completedCount);

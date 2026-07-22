@@ -6,6 +6,7 @@ import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import WorkoutSessionPage from "./pages/WorkoutSessionPage";
 import ExerciseCatalogAdminPage from "./pages/ExerciseCatalogAdminPage";
+import WorkoutSetupPage from "./pages/WorkoutSetupPage";
 
 function LoadingScreen() {
   return (
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/app" element={<DashboardPage />} />
         <Route path="/perfil" element={<ProfilePage />} />
         <Route path="/treino/:date" element={<WorkoutSessionPage />} />
+        <Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} />
         <Route path="/admin/exercicios" element={<ExerciseCatalogAdminPage />} />
       </Route>
       <Route path="*" element={<RouteFallback />} />
