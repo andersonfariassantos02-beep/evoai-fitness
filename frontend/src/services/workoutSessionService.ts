@@ -2,7 +2,7 @@ import { getSupabaseClient } from "../lib/supabase";
 import { getWorkoutTemplate, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogService";
 import { recommendProgression, type ProgressionRecommendation } from "../lib/progression";
-import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
+import { exerciseConflictsWithRestrictions, loadActiveProfileContext, restrictionSnapshot, type ActiveProfileContext, type ProfileRestriction } from "./profileRestrictionService";
 
 export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; }
 export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; recommendation: ProgressionRecommendation; sets: SetLog[]; }
@@ -42,6 +42,17 @@ async function startOrLoadWorkoutOnce(userId: string, date: string, label: strin
 
   const profile = await loadActiveProfileContext(userId, date);
   const templates = await loadWorkoutTemplate(label, profile.restrictions);
+  return createWorkoutFromTemplates(userId, date, label, templates, profile);
+}
+
+async function createWorkoutFromTemplates(
+  userId: string,
+  date: string,
+  label: string,
+  templates: WorkoutExerciseTemplate[],
+  profile: ActiveProfileContext,
+): Promise<WorkoutSession> {
+  const supabase = getSupabaseClient();
   const { data: session, error } = await supabase.from("workout_sessions").insert({ user_id: userId, training_date: date, workout_label: label, profile_id: profile.profileId, profile_name: profile.profileName, applied_restrictions: restrictionSnapshot(profile) }).select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").single();
   if (error) throw error;
   const { data: exercises, error: exerciseError } = await supabase.from("exercise_logs").insert(templates.map((item, index) => ({ session_id: session.id, user_id: userId, exercise_key: item.key, exercise_name: item.name, position: index + 1 }))).select("id, position");
@@ -53,6 +64,20 @@ async function startOrLoadWorkoutOnce(userId: string, date: string, label: strin
   const { error: setError } = await supabase.from("set_logs").insert(setRows);
   if (setError) throw setError;
   return loadDetails(session as Omit<WorkoutSession, "exercises">);
+}
+
+export async function createManualWorkout(userId: string, date: string, label: string, templates: WorkoutExerciseTemplate[]) {
+  const name = label.trim();
+  if (!name || name.length > 120) throw new Error("INVALID_WORKOUT_NAME");
+  if (!templates.length || templates.length > 12) throw new Error("INVALID_EXERCISE_COUNT");
+  if (new Set(templates.map((item) => item.key)).size !== templates.length) throw new Error("DUPLICATE_EXERCISE");
+  const supabase = getSupabaseClient();
+  const { data: existing, error } = await supabase.from("workout_sessions").select("id").eq("user_id", userId).eq("training_date", date).maybeSingle();
+  if (error) throw error;
+  if (existing) throw new Error("WORKOUT_ALREADY_EXISTS");
+  const profile = await loadActiveProfileContext(userId, date);
+  if (templates.some((item) => exerciseConflictsWithRestrictions(item, profile.restrictions))) throw new Error("EXERCISE_CONFLICTS_WITH_PROFILE");
+  return createWorkoutFromTemplates(userId, date, name, templates, profile);
 }
 
 export function startOrLoadWorkout(userId: string, date: string, label: string): Promise<WorkoutSession> {

@@ -64,7 +64,7 @@ export default function DashboardPage() {
     () => loadCalendarEntries(storageKey),
   );
   const [syncState, setSyncState] = useState<CalendarSyncState>("loading");
-  const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", weeklyTarget: 3 });
+  const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", trainingFocus: ["full_body"] });
   const [lastCompletedLabel, setLastCompletedLabel] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
 
@@ -103,7 +103,7 @@ export default function DashboardPage() {
       .then(([profile, lastLabel, weekWorkouts]) => {
         setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setWorkouts(weekWorkouts);
       })
-      .catch(() => { setPlanningProfile({ goal: "general_fitness", weeklyTarget: 3 }); setLastCompletedLabel(null); });
+      .catch(() => { setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"] }); setLastCompletedLabel(null); });
   }, [selectedDate, user]);
 
   useEffect(() => {
@@ -133,6 +133,10 @@ export default function DashboardPage() {
   );
   const nextSequenceLabel = workouts.find((workout) => workout.date === selectedDate)?.label
     ?? weeklyPlan.days.find((day) => day.status === "planned")?.label;
+  const workoutHref = (date: string, label: string, planned: boolean) => {
+    const path = workouts.some((workout) => workout.date === date) ? "treino" : "preparar-treino";
+    return `#/${path}/${date}?label=${encodeURIComponent(label)}&planned=${planned ? "1" : "0"}`;
+  };
 
   function updateEntry(date: string, update: (entry: TrainingCalendarEntry) => TrainingCalendarEntry) {
     const existing = entries.find((entry) => entry.date === date) ?? {
@@ -293,7 +297,7 @@ export default function DashboardPage() {
                   onClick={toggleCompleted}
                 >{selectedEntry?.completed ? "✓ Treino realizado" : "+ Registrar treino realizado"}</button>
                 {!effectiveEntries.find((entry) => entry.date === selectedDate)?.completed && nextSequenceLabel && (
-                  <a className="choice-button" href={`#/treino/${selectedDate}?label=${encodeURIComponent(nextSequenceLabel)}&planned=${weeklyPlan.days.some((day) => day.date === selectedDate && day.status === "planned") ? "1" : "0"}`}>
+                  <a className="choice-button" href={workoutHref(selectedDate, nextSequenceLabel, weeklyPlan.days.some((day) => day.date === selectedDate && day.status === "planned"))}>
                     Iniciar próxima sessão
                   </a>
                 )}
@@ -309,7 +313,7 @@ export default function DashboardPage() {
               <div><strong>{weeklyPlan.completedSessions}</strong><span>já realizados</span></div>
             </div>
             <p className="week-plan__message">{weeklyPlan.message}</p>
-            <a className="week-plan__settings" href="#/perfil">Ajustar objetivo e meta semanal</a>
+            <a className="week-plan__settings" href="#/perfil">Ajustar objetivo e foco do treino</a>
 
             <div className="week-plan__days">
               {weeklyPlan.days.length === 0 && (
@@ -323,7 +327,7 @@ export default function DashboardPage() {
                     <strong>{day.label}</strong>
                     {day.adjusted && <em>Semana reajustada</em>}
                   </div>
-                  {day.status === "planned" && <a className="open-workout" href={`#/treino/${day.date}?label=${encodeURIComponent(day.label)}&planned=1`}>Abrir treino</a>}
+                  {day.status === "planned" && <a className="open-workout" href={workoutHref(day.date, day.label, true)}>Abrir treino</a>}
                 </article>
               ))}
             </div>
