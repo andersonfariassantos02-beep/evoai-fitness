@@ -16,6 +16,7 @@ interface AuthContextValue {
   loading: boolean;
   session: Session | null;
   user: User | null;
+  passwordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -25,6 +26,9 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(
+    () => new URLSearchParams(window.location.search).get("recovery") === "1",
+  );
   const [loading, setLoading] = useState(isSupabaseConfigured);
 
   useEffect(() => {
@@ -40,8 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       setSession(nextSession);
       setLoading(false);
     });
@@ -73,10 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     session,
     user: session?.user ?? null,
+    passwordRecovery,
     signIn,
     signUp,
     signOut,
-  }), [loading, session, signIn, signOut, signUp]);
+  }), [loading, passwordRecovery, session, signIn, signOut, signUp]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/evoai-icon.svg"],
+      includeAssets: ["evoai-fitness-logo.png", "apple-touch-icon-180x180.png", "favicon.ico"],
       manifest: {
         name: "EvoAI Fitness",
         short_name: "EvoAI",
@@ -25,9 +25,10 @@ export default defineConfig(({ mode }) => {
         lang: "pt-BR",
         categories: ["fitness", "health", "lifestyle"],
         icons: [
-          { src: `${base}icons/pwa-192x192.png`, sizes: "192x192", type: "image/png" },
-          { src: `${base}icons/pwa-512x512.png`, sizes: "512x512", type: "image/png" },
-          { src: `${base}icons/maskable-icon-512x512.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: `${base}evoai-fitness-logo.png`, sizes: "1256x1256", type: "image/png", purpose: "any" },
+          { src: `${base}pwa-192x192.png`, sizes: "192x192", type: "image/png" },
+          { src: `${base}pwa-512x512.png`, sizes: "512x512", type: "image/png" },
+          { src: `${base}maskable-icon-512x512.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {

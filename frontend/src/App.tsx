@@ -9,6 +9,7 @@ import ExerciseCatalogAdminPage from "./pages/ExerciseCatalogAdminPage";
 import WorkoutSetupPage from "./pages/WorkoutSetupPage";
 import UserAdminPage from "./pages/UserAdminPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 
 function LoadingScreen() {
   return (
@@ -58,10 +59,10 @@ export function PublicOnlyRoute() {
 }
 
 function RouteFallback() {
-  const { loading, session } = useAuth();
+  const { loading, passwordRecovery, session } = useAuth();
 
   if (loading) return <LoadingScreen />;
-  return <Navigate to={session ? "/app" : "/login"} replace />;
+  return <Navigate to={passwordRecovery ? "/redefinir-senha" : session ? "/app" : "/login"} replace />;
 }
 
 export default function App() {
@@ -70,6 +71,7 @@ export default function App() {
       <Route element={<PublicOnlyRoute />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/cadastro" element={<RegisterPage />} />
+        <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<DashboardPage />} />

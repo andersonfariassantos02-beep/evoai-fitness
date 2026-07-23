@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 interface AuthShellProps {
   eyebrow: string;
@@ -8,6 +8,11 @@ interface AuthShellProps {
 }
 
 export function AuthShell({ eyebrow, title, description, children }: AuthShellProps) {
+  useEffect(() => {
+    document.body.classList.add("auth-screen-active");
+    return () => document.body.classList.remove("auth-screen-active");
+  }, []);
+
   return (
     <main className="auth-layout">
       <section className="auth-intro" aria-labelledby="auth-title">

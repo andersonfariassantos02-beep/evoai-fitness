@@ -23,7 +23,7 @@ export function logout() {
 export function requestPasswordReset(email: string) {
   const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
   return getSupabaseClient().auth.resetPasswordForEmail(email, {
-    redirectTo: `${appUrl.href}#/redefinir-senha`,
+    redirectTo: `${appUrl.href}?recovery=1`,
   });
 }
 
