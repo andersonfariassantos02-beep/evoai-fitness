@@ -183,10 +183,9 @@ export default function DashboardPage() {
     <div className="app-shell">
       <header className="app-header">
         <a className="brand" href="#/app" aria-label="EvoAI Fitness — início">
-          <span className="brand__mark" aria-hidden="true">E</span>
-          <span><strong>EvoAI</strong><small>Fitness</small></span>
+          <img className="brand__logo brand__logo--header" src={`${import.meta.env.BASE_URL}evoai-fitness-logo.png`} alt="" />
         </a>
-        <div className="header-actions">{catalogAdmin && <a className="secondary-button" href="#/admin/exercicios">Catálogo</a>}<a className="secondary-button" href="#/perfil">Meu perfil</a><button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
+        <div className="header-actions">{catalogAdmin && <><a className="secondary-button" href="#/admin/usuarios">Usuários</a><a className="secondary-button" href="#/admin/exercicios">Catálogo</a></>}<a className="secondary-button" href="#/perfil">Meu perfil</a><button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
           {submitting ? "Saindo…" : "Sair"}
         </button></div>
       </header>

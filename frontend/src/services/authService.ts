@@ -20,6 +20,17 @@ export function logout() {
   return getSupabaseClient().auth.signOut();
 }
 
+export function requestPasswordReset(email: string) {
+  const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+  return getSupabaseClient().auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl.href}#/redefinir-senha`,
+  });
+}
+
+export function updatePassword(password: string) {
+  return getSupabaseClient().auth.updateUser({ password });
+}
+
 export async function getCurrentUser() {
   const { data: { user } } = await getSupabaseClient().auth.getUser();
   return user;
