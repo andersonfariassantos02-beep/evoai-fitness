@@ -868,6 +868,15 @@ main { padding: 64px 0 52px; }
 .setup-review__actions { display:flex; flex-wrap:wrap; gap:8px; }
 .setup-review__actions button, .setup-review__actions .primary-link { min-height:42px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; color:var(--navy); background:white; font-weight:850; }
 .setup-review__actions .primary-action, .setup-review__actions .primary-link { border-color:var(--blue); color:white; background:var(--blue); }
+.setup-loading { display:flex; width:min(760px,100%); margin:0 auto; gap:14px; align-items:center; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.setup-loading h2, .setup-loading p { margin:0; }
+.setup-loading h2 { color:var(--navy); font-size:20px; }
+.setup-loading p { margin-top:4px; color:var(--muted); }
+.setup-loading__spinner { width:26px; height:26px; flex:0 0 auto; border:3px solid var(--blue-soft); border-top-color:var(--blue); border-radius:50%; animation:setup-spin .8s linear infinite; }
+.setup-review--warning { border-color:#f0b9bd; box-shadow:0 12px 34px rgba(161,59,67,.09); }
+.setup-review__actions .danger-link { color:#a13b43; border-color:#e8b7bb; }
+.setup-review__actions .danger-action { color:white; border-color:#a13b43; background:#a13b43; }
+@keyframes setup-spin { to { transform:rotate(360deg); } }
 .workout-edit-banner { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:14px 16px; border:1px solid #b9d1fa; border-radius:13px; color:var(--navy); background:var(--blue-soft); }
 .workout-edit-banner div { display:grid; gap:3px; }
 .workout-edit-banner span { color:var(--muted); font-size:12px; }
