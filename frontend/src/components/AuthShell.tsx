@@ -12,8 +12,7 @@ export function AuthShell({ eyebrow, title, description, children }: AuthShellPr
     <main className="auth-layout">
       <section className="auth-intro" aria-labelledby="auth-title">
         <a className="brand brand--light" href="#/login" aria-label="EvoAI Fitness">
-          <span className="brand__mark" aria-hidden="true">E</span>
-          <span><strong>EvoAI</strong><small>Fitness</small></span>
+          <img className="brand__logo brand__logo--auth" src={`${import.meta.env.BASE_URL}evoai-fitness-logo.png`} alt="" />
         </a>
         <div>
           <span className="eyebrow">{eyebrow}</span>

@@ -313,6 +313,9 @@ button:disabled {
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+.brand__logo { display:block; width:auto; object-fit:contain; border-radius:12px; }
+.brand__logo--auth { width:min(280px,72vw); max-height:230px; filter:drop-shadow(0 18px 28px rgba(0,0,0,.35)); }
+.brand__logo--header { width:112px; height:64px; object-fit:cover; object-position:center; }
 
 .version-badge {
   padding: 8px 12px;
@@ -874,6 +877,19 @@ main { padding: 64px 0 52px; }
   .workout-edit-banner { align-items:stretch; flex-direction:column; }
 }
 .admin-shell { min-height: 100vh; padding: clamp(18px,4vw,42px); background:#f4f7fb; }
+.admin-invite { display:flex; width:min(1100px,100%); margin:18px auto; gap:12px; align-items:end; padding:18px; border:1px solid var(--line); border-radius:16px; background:white; }
+.admin-invite label { display:grid; flex:1; gap:7px; color:var(--navy); font-weight:800; }
+.admin-invite input { min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:9px; }
+.admin-invite button,.admin-user-card button { min-height:42px; padding:0 13px; border:1px solid var(--line); border-radius:9px; color:var(--navy); background:white; font-weight:850; }
+.admin-users { display:grid; width:min(1100px,100%); margin:0 auto; gap:10px; }
+.admin-user-card { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:16px; border:1px solid var(--line); border-radius:14px; background:white; }
+.admin-user-card>div:first-child { display:grid; gap:5px; }
+.admin-user-card>div:last-child { display:flex; flex-wrap:wrap; gap:7px; }
+.admin-user-card small { color:var(--muted); }
+.role-badge { width:max-content; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:900; text-transform:uppercase; }
+.role-badge--admin { color:#0b58cd; background:var(--blue-soft); }
+.role-badge--user { color:#50627a; background:#eef1f5; }
+@media(max-width:700px){.admin-invite,.admin-user-card{align-items:stretch;flex-direction:column}.admin-user-card>div:last-child{display:grid}.brand__logo--header{width:82px;height:48px}}
 .admin-layout { display:grid; width:min(1100px,100%); margin:18px auto 0; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
 .admin-numbers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .admin-catalog { gap:8px; }
