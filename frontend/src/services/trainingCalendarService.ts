@@ -167,6 +167,7 @@ export async function loadWorkouts(userId: string, startDate: string, endDate: s
   const { data, error } = await getSupabaseClient().from("workout_sessions")
     .select("training_date, workout_label, status")
     .eq("user_id", userId)
+    .neq("status", "cancelled")
     .gte("training_date", startDate).lte("training_date", endDate)
     .order("training_date");
   if (error) throw error;

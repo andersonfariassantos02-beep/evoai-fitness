@@ -9,7 +9,7 @@ export interface ExerciseLog { id: string; exercise_key: string; exercise_name: 
 export interface WorkoutSession { id: string; training_date: string; workout_label: string; status: "active" | "paused" | "completed"; notes: string; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
 
 async function getRecommendation(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
-  const { data: history } = await getSupabaseClient().from("set_logs").select("actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date))").eq("user_id", userId).eq("exercise_logs.exercise_key", exerciseKey).eq("exercise_logs.workout_sessions.status", "completed").not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(1).maybeSingle();
+  const { data: history } = await getSupabaseClient().from("set_logs").select("actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date))").eq("user_id", userId).eq("exercise_logs.exercise_key", exerciseKey).in("exercise_logs.workout_sessions.status", ["completed", "cancelled"]).not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(1).maybeSingle();
   return recommendProgression(history ? { loadKg: Number(history.load_kg ?? 0), reps: Number(history.actual_reps ?? 0), rpe: Number(history.rpe ?? 0), failed: String(history.notes ?? "").toLowerCase().includes("falha") } : null, repsMin, repsMax);
 }
 
@@ -35,7 +35,7 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
 export async function loadExistingWorkout(userId: string, date: string): Promise<WorkoutSession | null> {
   const { data, error } = await getSupabaseClient().from("workout_sessions")
     .select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions")
-    .eq("user_id", userId).eq("training_date", date).maybeSingle();
+    .eq("user_id", userId).eq("training_date", date).neq("status", "cancelled").maybeSingle();
   if (error) throw error;
   return data ? loadDetails(data as Omit<WorkoutSession, "exercises">) : null;
 }
@@ -49,7 +49,7 @@ const workoutLoads = new Map<string, Promise<WorkoutSession>>();
 
 async function startOrLoadWorkoutOnce(userId: string, date: string, label: string): Promise<WorkoutSession> {
   const supabase = getSupabaseClient();
-  const { data: existing, error: existingError } = await supabase.from("workout_sessions").select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").eq("user_id", userId).eq("training_date", date).maybeSingle();
+  const { data: existing, error: existingError } = await supabase.from("workout_sessions").select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").eq("user_id", userId).eq("training_date", date).neq("status", "cancelled").maybeSingle();
   if (existingError) throw existingError;
   if (existing) return loadDetails(existing as Omit<WorkoutSession, "exercises">);
 
@@ -85,7 +85,7 @@ export async function createManualWorkout(userId: string, date: string, label: s
   if (!templates.length || templates.length > 12) throw new Error("INVALID_EXERCISE_COUNT");
   if (new Set(templates.map((item) => item.key)).size !== templates.length) throw new Error("DUPLICATE_EXERCISE");
   const supabase = getSupabaseClient();
-  const { data: existing, error } = await supabase.from("workout_sessions").select("id").eq("user_id", userId).eq("training_date", date).maybeSingle();
+  const { data: existing, error } = await supabase.from("workout_sessions").select("id").eq("user_id", userId).eq("training_date", date).neq("status", "cancelled").maybeSingle();
   if (error) throw error;
   if (existing) throw new Error("WORKOUT_ALREADY_EXISTS");
   const profile = await loadActiveProfileContext(userId, date);
@@ -110,6 +110,17 @@ export async function replaceUnstartedWorkout(userId: string, date: string, sess
     throw error;
   }
   return loadExistingWorkout(userId, date);
+}
+
+export async function cancelStartedWorkout(sessionId: string) {
+  const { error } = await getSupabaseClient().rpc("cancel_started_workout", {
+    p_session_id: sessionId,
+  });
+  if (error) {
+    if (error.message.includes("WORKOUT_NOT_CANCELLABLE")) throw new Error("WORKOUT_NOT_CANCELLABLE");
+    if (error.message.includes("WORKOUT_NOT_STARTED")) throw new Error("WORKOUT_NOT_STARTED");
+    throw error;
+  }
 }
 
 export function startOrLoadWorkout(userId: string, date: string, label: string): Promise<WorkoutSession> {
