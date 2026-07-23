@@ -5,5 +5,5 @@ import {
 
 export default defineConfig({
   preset,
-  images: ["public/icons/evoai-icon.svg"],
+  images: ["public/evoai-fitness-logo.png"],
 });
