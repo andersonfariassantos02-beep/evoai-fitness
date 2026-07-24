@@ -185,9 +185,14 @@ export default function DashboardPage() {
         <a className="brand" href="#/app" aria-label="EvoAI Fitness — início">
           <img className="brand__logo brand__logo--header" src={`${import.meta.env.BASE_URL}evoai-fitness-logo.png`} alt="" />
         </a>
-        <div className="header-actions">{catalogAdmin && <><a className="secondary-button" href="#/admin/usuarios">Usuários</a><a className="secondary-button" href="#/admin/exercicios">Catálogo</a></>}<a className="secondary-button" href="#/perfil">Meu perfil</a><button className="secondary-button" type="button" onClick={handleSignOut} disabled={submitting}>
-          {submitting ? "Saindo…" : "Sair"}
-        </button></div>
+        <details className="header-menu">
+          <summary>Menu <span aria-hidden="true">⌄</span></summary>
+          <nav aria-label="Menu da conta">
+            {catalogAdmin && <><a href="#/admin/usuarios">Usuários</a><a href="#/admin/exercicios">Catálogo</a></>}
+            <a href="#/perfil">Meu perfil</a>
+            <button type="button" onClick={handleSignOut} disabled={submitting}>{submitting ? "Saindo…" : "Sair"}</button>
+          </nav>
+        </details>
       </header>
 
       <main className="training-dashboard">
@@ -198,10 +203,6 @@ export default function DashboardPage() {
             <span className="eyebrow">PLANEJAMENTO ADAPTATIVO</span>
             <h1 id="dashboard-title">Quando você pode treinar?</h1>
             <p>Marque sua disponibilidade. O EvoAI monta a semana pelas datas escolhidas e reorganiza o restante quando um treino acontece fora do plano.</p>
-          </div>
-          <div className="calendar-hero__rule">
-            <strong>Nenhuma escala é presumida</strong>
-            <span>O planejamento considera somente o que você marcar no calendário.</span>
           </div>
         </section>
 
