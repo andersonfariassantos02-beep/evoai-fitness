@@ -10,6 +10,8 @@ export interface WorkoutExerciseTemplate {
   muscle: MuscleGroup;
   movement: MovementPattern;
   equipment: string;
+  restSeconds?: number;
+  transitionRestSeconds?: number;
   avoidWhen?: string[];
 }
 
@@ -34,13 +36,12 @@ export const exerciseCatalog: WorkoutExerciseTemplate[] = [
 
 export function findExercise(key: string) { return exerciseCatalog.find((item) => item.key === key); }
 
-export function getSubstitutionCandidates(key: string, restriction = "", excludedKeys: string[] = []) {
+export function getSubstitutionCandidates(key: string, restriction = "") {
   const source = findExercise(key);
   if (!source) return [];
   const normalized = restriction.toLowerCase();
-  const excluded = new Set([key, ...excludedKeys]);
   return exerciseCatalog
-    .filter((item) => !excluded.has(item.key) && item.muscle === source.muscle && item.movement === source.movement)
+    .filter((item) => item.key !== key && item.muscle === source.muscle && item.movement === source.movement)
     .filter((item) => !(item.avoidWhen ?? []).some((term) => normalized.includes(term)))
     .sort((a, b) => Number(b.equipment === source.equipment) - Number(a.equipment === source.equipment));
 }
