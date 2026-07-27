@@ -8,6 +8,19 @@ export interface SetLog { id: string; set_number: number; target_reps_min: numbe
 export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; rest_seconds: number; transition_rest_seconds: number; recommendation: ProgressionRecommendation; sets: SetLog[]; }
 export interface WorkoutSession { id: string; training_date: string; workout_label: string; status: "active" | "paused" | "completed"; notes: string; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
 
+function buildSetRows(template: WorkoutExerciseTemplate, exerciseLogId: string, userId: string) {
+  return Array.from({ length: template.sets }, (_, index) => {
+    const range = template.setRepRanges?.[index];
+    return {
+      exercise_log_id: exerciseLogId,
+      user_id: userId,
+      set_number: index + 1,
+      target_reps_min: range?.min ?? template.repsMin,
+      target_reps_max: range?.max ?? template.repsMax,
+    };
+  });
+}
+
 async function getRecommendation(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
   const { data: history } = await getSupabaseClient().from("set_logs").select("actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date))").eq("user_id", userId).eq("exercise_logs.exercise_key", exerciseKey).eq("exercise_logs.workout_sessions.status", "completed").not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(1).maybeSingle();
   return recommendProgression(history ? { loadKg: Number(history.load_kg ?? 0), reps: Number(history.actual_reps ?? 0), rpe: Number(history.rpe ?? 0), failed: String(history.notes ?? "").toLowerCase().includes("falha") } : null, repsMin, repsMax);
@@ -51,7 +64,7 @@ async function startOrLoadWorkoutOnce(userId: string, date: string, label: strin
   if (exerciseError) throw exerciseError;
   const setRows = (exercises ?? []).flatMap((exercise) => {
     const template = templates[exercise.position - 1];
-    return Array.from({ length: template.sets }, (_, index) => ({ exercise_log_id: exercise.id, user_id: userId, set_number: index + 1, target_reps_min: template.repsMin, target_reps_max: template.repsMax }));
+    return buildSetRows(template, exercise.id, userId);
   });
   const { error: setError } = await supabase.from("set_logs").insert(setRows);
   if (setError) throw setError;
@@ -93,7 +106,7 @@ export async function createManualWorkout(userId: string, date: string, label: s
   if (exerciseError) throw exerciseError;
   const setRows = (exercises ?? []).flatMap((exercise) => {
     const template = templates[exercise.position - 1];
-    return Array.from({ length: template.sets }, (_, index) => ({ exercise_log_id: exercise.id, user_id: userId, set_number: index + 1, target_reps_min: template.repsMin, target_reps_max: template.repsMax }));
+    return buildSetRows(template, exercise.id, userId);
   });
   const { error: setError } = await supabase.from("set_logs").insert(setRows);
   if (setError) throw setError;
@@ -148,7 +161,7 @@ export async function substituteExercise(exercise: ExerciseLog, replacement: Wor
   if (error) throw error;
   const { error: deleteError } = await supabase.from("set_logs").delete().eq("exercise_log_id", exercise.id);
   if (deleteError) throw deleteError;
-  const rows = Array.from({ length: replacement.sets }, (_, index) => ({ exercise_log_id: exercise.id, user_id: userId, set_number: index + 1, target_reps_min: replacement.repsMin, target_reps_max: replacement.repsMax }));
+  const rows = buildSetRows(replacement, exercise.id, userId);
   const { data: sets, error: insertError } = await supabase.from("set_logs").insert(rows).select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds").order("set_number");
   if (insertError) throw insertError;
   const recommendation = await getRecommendation(userId, replacement.key, replacement.repsMin, replacement.repsMax);

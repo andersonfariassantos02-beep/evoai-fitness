@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { loadExerciseCatalog, isExerciseCatalogAdmin } from "../services/exerciseCatalogService";
 import { exerciseConflictsWithRestrictions, loadActiveProfileContext, type ProfileRestriction } from "../services/profileRestrictionService";
 import { cancelStartedWorkout, createManualWorkout, loadExistingWorkout, previewAutomaticWorkout, replaceUnstartedWorkout, type WorkoutSession } from "../services/workoutSessionService";
-import type { WorkoutExerciseTemplate } from "../lib/workoutTemplates";
+import { formatWorkoutPrescription, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 
 type SetupMode = "loading" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
 
@@ -91,9 +91,13 @@ export default function WorkoutSetupPage() {
 
   function openManual(keys: string[]) { setSelectedKeys(keys); setMode("manual"); setMessage(""); }
   const selected = selectedKeys.map((key) => available.find((item) => item.key === key)).filter(Boolean) as WorkoutExerciseTemplate[];
+  const changeTrainingDate = (nextDate: string) => {
+    if (!nextDate || nextDate === date) return;
+    navigate(`/preparar-treino/${nextDate}?label=${encodeURIComponent(suggestedLabel)}&planned=${planned ? "1" : "0"}`);
+  };
 
   return <main className="workout-setup">
-    <header><Link to="/app">← Calendário</Link><div><span className="eyebrow">MONTAGEM DA FICHA</span><h1>Revise antes de começar</h1><p>A ficha só é gravada depois da sua confirmação e pode ser editada enquanto nenhuma série tiver sido concluída.</p>{admin && <span className="admin-badge">Conta administradora</span>}</div></header>
+    <header><Link to="/app">← Calendário</Link><div><span className="eyebrow">MONTAGEM DA FICHA</span><h1>Revise antes de começar</h1><p>A ficha só é gravada depois da sua confirmação e pode ser editada enquanto nenhuma série tiver sido concluída.</p>{mode !== "locked" && mode !== "confirm-restart" && <label className="setup-date">Data em que vou treinar<input type="date" value={date} onChange={(event) => changeTrainingDate(event.target.value)} /></label>}{admin && <span className="admin-badge">Conta administradora</span>}</div></header>
     {message && <p className="profile-message" role="status">{message}</p>}
 
     {mode === "loading" && <section className="setup-loading" aria-live="polite"><span className="setup-loading__spinner" aria-hidden="true" /><div><h2>Carregando ficha do dia…</h2><p>Estamos verificando se já existe um treino salvo.</p></div></section>}
@@ -103,7 +107,7 @@ export default function WorkoutSetupPage() {
       <article><h2>Quero montar manualmente</h2><p>Escolha o nome e os exercícios da ficha, inclusive os prescritos pelo seu coach.</p><button type="button" onClick={() => openManual([])}>Montar minha ficha</button></article>
     </section>}
 
-    {mode === "preview" && <section className="setup-review"><span className="setup-status">SUGESTÃO NÃO CONFIRMADA</span><h2>{label}</h2><p>Confira a ficha. Você pode usá-la como está ou personalizar antes de salvar.</p><ol>{preview.map((item) => <li key={item.key}><strong>{item.name}</strong><span>{item.equipment} · {item.sets}×{item.repsMin}–{item.repsMax}</span></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Voltar</button><button type="button" onClick={() => openManual(preview.map((item) => item.key))}>Personalizar</button><button className="primary-action" type="button" disabled={busy} onClick={() => void persist(preview)}>{busy ? "Salvando…" : existing ? "Substituir ficha atual" : "Confirmar e criar treino"}</button></div></section>}
+    {mode === "preview" && <section className="setup-review"><span className="setup-status">SUGESTÃO NÃO CONFIRMADA</span><h2>{label}</h2><p>Confira a ficha. Você pode usá-la como está ou personalizar antes de salvar.</p><ol>{preview.map((item) => <li key={item.key}><span className="setup-exercise-copy"><strong>{item.name}</strong><span>{item.equipment}</span></span><small>{formatWorkoutPrescription(item)}</small></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Voltar</button><button type="button" onClick={() => openManual(preview.map((item) => item.key))}>Personalizar</button><button className="primary-action" type="button" disabled={busy} onClick={() => void persist(preview)}>{busy ? "Salvando…" : existing ? "Substituir ficha atual" : "Confirmar e criar treino"}</button></div></section>}
 
     {mode === "existing" && existing && <section className="setup-review"><span className="setup-status setup-status--ready">FICHA PRONTA · AINDA NÃO INICIADA</span><h2>{existing.workout_label}</h2><p>Você ainda pode editar, trocar pela sugestão do EvoAI ou começar o treino.</p><ol>{existing.exercises.map((item) => <li key={item.id}><strong>{item.exercise_name}</strong><span>{item.sets.length} séries</span></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => openManual(existing.exercises.map((item) => item.exercise_key))}>Editar ficha</button><button type="button" onClick={() => void showAutomaticPreview()}>Ver nova sugestão</button><Link className="primary-link" to={sessionHref}>Começar treino</Link></div></section>}
 
@@ -115,7 +119,7 @@ export default function WorkoutSetupPage() {
       <div className="manual-builder__header"><div><span className="setup-status">EDIÇÃO NÃO CONFIRMADA</span><h2>Minha ficha</h2><p>Selecione de 1 a 12 exercícios. A ordem seguirá a ordem de seleção.</p></div><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Cancelar</button></div>
       <label>Nome do treino<input value={label} maxLength={120} onChange={(event) => setLabel(event.target.value)} /></label>
       <div className="manual-selection"><strong>{selectedKeys.length} exercício{selectedKeys.length === 1 ? "" : "s"} selecionado{selectedKeys.length === 1 ? "" : "s"}</strong>{selectedKeys.length > 0 && <span>{selected.map((item) => item.name).join(" → ")}</span>}</div>
-      {groups.map(([muscle, items]) => <section className="manual-muscle" key={muscle}><h3>{muscle}</h3><div>{items.map((item) => { const checked = selectedKeys.includes(item.key); return <label key={item.key} className={checked ? "manual-exercise manual-exercise--selected" : "manual-exercise"}><input type="checkbox" checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => setSelectedKeys((current) => checked ? current.filter((key) => key !== item.key) : [...current, item.key])} /><span><strong>{item.name}</strong><small>{item.equipment} · {item.sets}×{item.repsMin}–{item.repsMax}</small></span></label>; })}</div></section>)}
+      {groups.map(([muscle, items]) => <section className="manual-muscle" key={muscle}><h3>{muscle}</h3><div>{items.map((item) => { const checked = selectedKeys.includes(item.key); return <label key={item.key} className={checked ? "manual-exercise manual-exercise--selected" : "manual-exercise"}><input type="checkbox" checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => setSelectedKeys((current) => checked ? current.filter((key) => key !== item.key) : [...current, item.key])} /><span><strong>{item.name}</strong><small>{item.equipment}</small><small>{formatWorkoutPrescription(item)}</small></span></label>; })}</div></section>)}
       <button className="finish-workout" type="button" disabled={busy || !label.trim() || !selected.length} onClick={() => void persist(selected)}>{busy ? "Salvando ficha…" : existing ? "Salvar alterações" : "Confirmar e criar treino"}</button>
     </section>}
   </main>;

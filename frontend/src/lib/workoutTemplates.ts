@@ -12,10 +12,17 @@ export interface WorkoutExerciseTemplate {
   equipment: string;
   restSeconds?: number;
   transitionRestSeconds?: number;
+  setRepRanges?: ReadonlyArray<{ min: number; max: number }>;
   avoidWhen?: string[];
 }
 
 export const exerciseCatalog: WorkoutExerciseTemplate[] = [
+  { key: "machine-bench-press", name: "Supino articulado", sets: 4, repsMin: 6, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 10 }, { min: 8, max: 8 }, { min: 6, max: 8 }], muscle: "peito", movement: "empurrar-horizontal", equipment: "máquina articulada" },
+  { key: "incline-dumbbell-bench", name: "Supino inclinado com halteres", sets: 3, repsMin: 8, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 10 }, { min: 8, max: 10 }], muscle: "peito", movement: "empurrar-horizontal", equipment: "halteres" },
+  { key: "cable-crossover", name: "Crossover", sets: 3, repsMin: 10, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 12, max: 12 }, { min: 10, max: 12 }], muscle: "peito", movement: "empurrar-horizontal", equipment: "cabos" },
+  { key: "dumbbell-shoulder-press", name: "Desenvolvimento com halteres", sets: 3, repsMin: 8, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 10 }, { min: 8, max: 8 }], muscle: "ombros", movement: "empurrar-vertical", equipment: "halteres" },
+  { key: "lateral-raise", name: "Elevação lateral", sets: 3, repsMin: 10, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 12, max: 12 }, { min: 10, max: 10 }], muscle: "ombros", movement: "empurrar-vertical", equipment: "halteres" },
+  { key: "rope-triceps", name: "Tríceps corda", sets: 3, repsMin: 8, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 12 }, { min: 8, max: 10 }], muscle: "triceps", movement: "isolar-braco", equipment: "corda no cabo" },
   { key: "chest-press", name: "Press de peito", sets: 3, repsMin: 8, repsMax: 12, muscle: "peito", movement: "empurrar-horizontal", equipment: "máquina" },
   { key: "dumbbell-bench", name: "Supino com halteres", sets: 3, repsMin: 8, repsMax: 12, muscle: "peito", movement: "empurrar-horizontal", equipment: "halteres", avoidWhen: ["ombro"] },
   { key: "cable-chest-press", name: "Press de peito no cabo", sets: 3, repsMin: 8, repsMax: 12, muscle: "peito", movement: "empurrar-horizontal", equipment: "cabos" },
@@ -64,8 +71,23 @@ function byKey(key: string) { const item = findExercise(key); if (!item) throw n
 
 export function getWorkoutTemplate(label: string) {
   const normalized = label.toLowerCase();
+  if (normalized.includes("push pesado")) return [byKey("machine-bench-press"), byKey("incline-dumbbell-bench"), byKey("cable-crossover"), byKey("dumbbell-shoulder-press"), byKey("lateral-raise"), byKey("rope-triceps")];
+  if (normalized.includes("quadr")) return [byKey("squat-pattern"), byKey("leg-press"), byKey("goblet-squat"), byKey("calf-raise")];
+  if (normalized.includes("posterior")) return [byKey("leg-curl"), byKey("calf-raise")];
   if (normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")) return [byKey("squat-pattern"), byKey("leg-press"), byKey("leg-curl"), byKey("calf-raise")];
+  if (normalized.includes("superior") || normalized.includes("upper")) return [byKey("chest-press"), byKey("row"), byKey("shoulder-press"), byKey("pulldown"), byKey("biceps"), byKey("triceps")];
   if (normalized.includes("pull")) return [byKey("row"), byKey("pulldown"), byKey("biceps")];
   if (normalized.includes("push")) return [byKey("chest-press"), byKey("shoulder-press"), byKey("triceps")];
   return [byKey("chest-press"), byKey("row"), byKey("squat-pattern"), byKey("leg-press")];
+}
+
+function formatRange(range: { min: number; max: number }) {
+  return range.min === range.max ? String(range.min) : `${range.min}–${range.max}`;
+}
+
+export function formatWorkoutPrescription(item: WorkoutExerciseTemplate) {
+  if (item.setRepRanges?.length) {
+    return `${item.sets} séries: ${item.setRepRanges.map(formatRange).join(" / ")}`;
+  }
+  return `${item.sets}×${formatRange({ min: item.repsMin, max: item.repsMax })}`;
 }
