@@ -36,16 +36,30 @@ export const exerciseCatalog: WorkoutExerciseTemplate[] = [
 
 export function findExercise(key: string) { return exerciseCatalog.find((item) => item.key === key); }
 
-export function getSubstitutionCandidates(key: string, restriction = "") {
+export function getSubstitutionCandidates(
+  key: string,
+  restriction = "",
+  existingExerciseKeys: string[] = [],
+): WorkoutExerciseTemplate[] {
   const source = findExercise(key);
   if (!source) return [];
-  const normalized = restriction.toLowerCase();
-  return exerciseCatalog
-    .filter((item) => item.key !== key && item.muscle === source.muscle && item.movement === source.movement)
-    .filter((item) => !(item.avoidWhen ?? []).some((term) => normalized.includes(term)))
-    .sort((a, b) => Number(b.equipment === source.equipment) - Number(a.equipment === source.equipment));
-}
 
+  const normalized = restriction.toLowerCase();
+  const excludedKeys = new Set(existingExerciseKeys);
+  excludedKeys.add(key);
+  const prioritizeSameEquipment = (option: WorkoutExerciseTemplate) => option.equipment === source.equipment;
+  const isLombarRestricted = normalized.includes("lombar");
+
+  return exerciseCatalog
+    .filter((option) => {
+      if (excludedKeys.has(option.key)) return false;
+      if (option.muscle !== source.muscle) return false;
+      if (option.movement !== source.movement) return false;
+      if (isLombarRestricted && option.key === "dumbbell-row") return false;
+      return !normalized.includes(option.name.toLowerCase());
+    })
+    .sort((a, b) => Number(prioritizeSameEquipment(b)) - Number(prioritizeSameEquipment(a)));
+}
 function byKey(key: string) { const item = findExercise(key); if (!item) throw new Error(`Exercício ausente: ${key}`); return item; }
 
 export function getWorkoutTemplate(label: string) {

@@ -68,6 +68,54 @@ export function startOrLoadWorkout(userId: string, date: string, label: string):
   return request;
 }
 
+export async function loadExistingWorkout(userId: string, date: string): Promise<WorkoutSession | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from("workout_sessions").select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").eq("user_id", userId).eq("training_date", date).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return loadDetails(data as Omit<WorkoutSession, "exercises">);
+}
+
+export async function previewAutomaticWorkout(userId: string, date: string, label: string): Promise<WorkoutExerciseTemplate[]> {
+  const profile = await loadActiveProfileContext(userId, date);
+  return loadWorkoutTemplate(label, profile.restrictions);
+}
+
+export async function createManualWorkout(userId: string, date: string, label: string, templates: WorkoutExerciseTemplate[]): Promise<WorkoutSession> {
+  const supabase = getSupabaseClient();
+  const profile = await loadActiveProfileContext(userId, date);
+  const { data: session, error } = await supabase.from("workout_sessions").insert({ user_id: userId, training_date: date, workout_label: label, profile_id: profile.profileId, profile_name: profile.profileName, applied_restrictions: restrictionSnapshot(profile) }).select("id, training_date, workout_label, status, notes, profile_id, profile_name, applied_restrictions").single();
+  if (error) throw error;
+  const { data: exercises, error: exerciseError } = await supabase.from("exercise_logs").insert(templates.map((item, index) => ({
+    session_id: session.id, user_id: userId, exercise_key: item.key, exercise_name: item.name, position: index + 1,
+    rest_seconds: item.restSeconds ?? 120, transition_rest_seconds: item.transitionRestSeconds ?? 180,
+  }))).select("id, position");
+  if (exerciseError) throw exerciseError;
+  const setRows = (exercises ?? []).flatMap((exercise) => {
+    const template = templates[exercise.position - 1];
+    return Array.from({ length: template.sets }, (_, index) => ({ exercise_log_id: exercise.id, user_id: userId, set_number: index + 1, target_reps_min: template.repsMin, target_reps_max: template.repsMax }));
+  });
+  const { error: setError } = await supabase.from("set_logs").insert(setRows);
+  if (setError) throw setError;
+  return loadDetails(session as Omit<WorkoutSession, "exercises">);
+}
+
+export async function replaceUnstartedWorkout(userId: string, date: string, sessionId: string, label: string, templates: WorkoutExerciseTemplate[]): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { data: session, error: sessionError } = await supabase.from("workout_sessions").select("id").eq("user_id", userId).eq("id", sessionId).eq("training_date", date).maybeSingle();
+  if (sessionError) throw sessionError;
+  if (!session) throw new Error("WORKOUT_NOT_EDITABLE");
+  const exerciseKeys = templates.map((template) => template.key);
+  const { error } = await supabase.rpc("replace_unstarted_workout", { p_session_id: sessionId, p_workout_label: label, p_exercise_keys: exerciseKeys });
+  if (error) throw error;
+}
+
+export async function cancelStartedWorkout(sessionId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.rpc("cancel_started_workout", { p_session_id: sessionId });
+  if (error) throw error;
+}
+
 export async function saveSet(set: SetLog) {
   const { error } = await getSupabaseClient().from("set_logs").update({
     actual_reps: set.actual_reps, load_kg: set.load_kg, rpe: set.rpe, notes: set.notes,
