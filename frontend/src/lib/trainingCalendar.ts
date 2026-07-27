@@ -37,6 +37,27 @@ export interface WeeklyPlanOptions {
 
 const DAY_IN_MS = 86_400_000;
 
+export const PERIODIZED_WEEK_LABELS = [
+  "PUSH pesado",
+  "QUADRÍCEPS",
+  "PULL",
+  "POSTERIOR",
+  "PUSH leve/moderado",
+] as const;
+
+export function getAdaptiveWeekLabels(total: number): string[] {
+  const divisions: Record<number, string[]> = {
+    1: ["Full body essencial"],
+    2: ["SUPERIOR", "INFERIORES"],
+    3: ["PUSH", "PULL", "LEGS"],
+    4: ["SUPERIOR A", "INFERIORES A", "SUPERIOR B", "INFERIORES B"],
+    5: [...PERIODIZED_WEEK_LABELS],
+    6: ["PUSH A", "PULL A", "LEGS A", "PUSH B", "PULL B", "LEGS B"],
+    7: ["PUSH A", "PULL A", "LEGS A", "PUSH B", "PULL B", "LEGS B", "Recuperação ativa"],
+  };
+  return divisions[Math.min(Math.max(total, 1), 7)];
+}
+
 function dateDistance(left: string, right: string): number {
   return Math.abs(fromDateKey(left).getTime() - fromDateKey(right).getTime()) / DAY_IN_MS;
 }
@@ -175,65 +196,44 @@ export function buildWeeklyPlan(
   const weekEntries = entries
     .filter((entry) => weekDates.includes(entry.date))
     .sort((left, right) => left.date.localeCompare(right.date));
-  const availableCount = weekEntries.filter((entry) => entry.available).length;
   const completed = weekEntries.filter((entry) => entry.completed);
   const completedCount = completed.length;
-  // A agenda é a fonte de verdade da frequência: cada dia disponível representa
-  // uma sessão desejada. Objetivo e recuperação alteram a distribuição/conteúdo,
-  // nunca descartam silenciosamente uma data marcada pelo usuário.
-  const targetSessions = Math.max(availableCount, completedCount);
+  const availableDates = weekEntries.filter((entry) => entry.available);
+  const targetSessions = Math.max(availableDates.length, completedCount);
   const labels = targetSessions > 0
-    ? rotateAfterLastCompleted(getGoalLabels(targetSessions, options.goal ?? "general_fitness", options.trainingFocus), options.lastCompletedLabel)
+    ? rotateAfterLastCompleted(getAdaptiveWeekLabels(targetSessions), options.lastCompletedLabel)
     : [];
   const todayKey = toDateKey(options.today ?? new Date());
-  const pendingSlots = Math.max(0, targetSessions - completedCount);
-  const futureAvailable = weekEntries.filter(
-    (entry) => entry.available && !entry.completed && entry.date >= todayKey,
-  );
   const unplannedCompleted = completed.filter((entry) => entry.completedWasPlanned === false).length;
-  const minimumRecoveryDays = Math.max(
-    0,
-    options.minimumRecoveryDays ?? defaultRecoveryDays(options.goal ?? "general_fitness"),
-  );
-  const recoverySelection = selectRecoveryAwareDates(
-    futureAvailable,
-    pendingSlots,
-    completed.map((entry) => entry.date),
-    minimumRecoveryDays,
-  );
 
   const completedDays: PlannedWorkoutDay[] = completed.map((entry, index) => ({
     date: entry.date,
-    label: entry.completedLabel ?? labels[index] ?? `Treino ${index + 1}`,
+    label: entry.completedLabel
+      ?? labels[index]
+      ?? `Treino ${index + 1}`,
     status: "completed",
     adjusted: entry.completedWasPlanned === false,
   }));
 
-  const plannedDays: PlannedWorkoutDay[] = recoverySelection.selected
+  const completedDates = new Set(completed.map((entry) => entry.date));
+  const pendingSlots = Math.max(0, targetSessions - completedCount);
+  const plannedDays: PlannedWorkoutDay[] = availableDates
+    .filter((entry) => entry.date >= todayKey && !completedDates.has(entry.date))
+    .slice(0, pendingSlots)
     .map((entry, index) => ({
       date: entry.date,
-      label: options.existingWorkouts?.find((workout) => workout.date === entry.date)?.label
-        ?? labels[completedCount + index]
+      label: labels[completedCount + index]
         ?? `Treino ${completedCount + index + 1}`,
       status: "planned",
       adjusted: unplannedCompleted > 0,
     }));
 
-  const unscheduled = pendingSlots - plannedDays.length;
-  let message = "Marque os dias em que poderá treinar para gerar a semana.";
-
-  if (targetSessions > 0) {
-    message = unscheduled > 0
-      ? `${unscheduled} treino${unscheduled > 1 ? "s" : ""} ainda sem data futura. Marque outra disponibilidade.`
-      : `${targetSessions} treino${targetSessions > 1 ? "s" : ""} distribuído${targetSessions > 1 ? "s" : ""} conforme seu objetivo, disponibilidade e recuperação.`;
-  }
+  let message = targetSessions > 0
+    ? `${targetSessions} treino${targetSessions === 1 ? "" : "s"} programado${targetSessions === 1 ? "" : "s"} nos dias disponíveis, seguindo a divisão periodizada.`
+    : "Marque no calendário os dias em que poderá treinar.";
 
   if (unplannedCompleted > 0) {
-    message = `Treino fora do plano registrado. Os ${pendingSlots} treino${pendingSlots !== 1 ? "s" : ""} restante${pendingSlots !== 1 ? "s" : ""} foram reorganizados.`;
-  }
-
-  if (recoverySelection.compromised) {
-    message += " A disponibilidade foi priorizada porque o intervalo ideal de recuperação não coube em todos os treinos.";
+    message += " O treino realizado fora do plano foi preservado no histórico.";
   }
 
   return {
@@ -242,7 +242,7 @@ export function buildWeeklyPlan(
     completedSessions: completedCount,
     days: [...completedDays, ...plannedDays].sort((left, right) => left.date.localeCompare(right.date)),
     message,
-    recoveryCompromised: recoverySelection.compromised,
+    recoveryCompromised: false,
   };
 }
 

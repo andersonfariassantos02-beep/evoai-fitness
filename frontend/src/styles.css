@@ -31,6 +31,8 @@ body {
   background: radial-gradient(circle at 85% 0%, rgba(23, 107, 255, 0.12), transparent 30rem), #f4f7fb;
 }
 
+body.auth-screen-active { height: 100dvh; overflow: hidden; }
+
 a { color: inherit; text-decoration: none; }
 
 button,
@@ -60,7 +62,9 @@ button:disabled {
 .auth-layout {
   display: grid;
   grid-template-columns: minmax(320px, 0.92fr) minmax(420px, 1.08fr);
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
 }
 
@@ -68,7 +72,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 100vh;
+  min-height: 0;
   padding: clamp(34px, 6vw, 76px);
   color: white;
   background:
@@ -104,7 +108,7 @@ button:disabled {
 
 .auth-panel {
   display: grid;
-  min-height: 100vh;
+  min-height: 0;
   padding: 28px;
   place-items: center;
 }
@@ -265,11 +269,28 @@ button:disabled {
 .dashboard-hero strong { color: var(--navy); }
 
 @media (max-width: 860px) {
-  .auth-layout { grid-template-columns: 1fr; }
-  .auth-intro { min-height: 42vh; gap: 70px; padding: 32px 24px; }
+  .auth-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 43%) minmax(0, 57%); }
+  .auth-intro { height: 100%; min-height: 0; gap: 8px; padding: max(12px, env(safe-area-inset-top)) 22px 16px; }
   .auth-intro__footer { display: none; }
-  .auth-panel { min-height: 58vh; padding: 24px 18px 44px; }
-  .auth-card { margin-top: -58px; }
+  .auth-intro h1 { margin: 8px 0; font-size: clamp(28px, 8.5vw, 40px); line-height: .98; }
+  .auth-intro p { font-size: clamp(13px, 3.6vw, 16px); line-height: 1.4; }
+  .brand__logo--auth { width: min(142px, 38vw); max-height: 142px; border-radius: 8px; }
+  .auth-panel { height: 100%; min-height: 0; padding: 12px 18px max(12px, env(safe-area-inset-bottom)); }
+  .auth-card { max-height: 100%; margin: 0; padding: 18px 20px; border-radius: 20px; }
+  .auth-form { gap: 6px; }
+  .auth-form label { margin-top: 4px; }
+  .auth-form input { min-height: 44px; }
+  .primary-button { min-height: 44px; margin-top: 10px; }
+  .auth-help { margin-top: 8px; }
+  .auth-switch { margin-top: 12px; }
+}
+
+@media (max-width: 860px) and (max-height: 700px) {
+  .auth-layout { grid-template-rows: minmax(0, 38%) minmax(0, 62%); }
+  .brand__logo--auth { width: min(104px, 29vw); max-height: 104px; }
+  .auth-intro h1 { font-size: clamp(24px, 7vw, 32px); }
+  .auth-intro p { display: none; }
+  .auth-card { padding: 14px 18px; }
 }
 
 .app-header {
@@ -313,6 +334,21 @@ button:disabled {
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+.auth-help { margin:14px 0 0; text-align:right; }
+.auth-help a { color:var(--blue); font-weight:800; }
+
+.brand__logo { display:block; width:auto; object-fit:contain; border-radius:12px; }
+.brand__logo--auth { width:min(280px,72vw); max-height:230px; filter:drop-shadow(0 18px 28px rgba(0,0,0,.35)); }
+.brand__logo--header { width:112px; height:64px; object-fit:contain; object-position:center; }
+.header-menu { position:relative; z-index:20; }
+.header-menu summary { display:flex; min-width:112px; min-height:44px; align-items:center; justify-content:center; gap:9px; padding:10px 16px; border:1px solid var(--line); border-radius:12px; color:var(--navy); background:rgba(255,255,255,.9); box-shadow:0 8px 22px rgba(7,26,51,.06); font-weight:900; cursor:pointer; list-style:none; }
+.header-menu summary::-webkit-details-marker { display:none; }
+.header-menu summary span { color:var(--blue); transition:transform .18s ease; }
+.header-menu[open] summary span { transform:rotate(180deg); }
+.header-menu nav { position:absolute; top:calc(100% + 8px); right:0; display:grid; width:230px; gap:4px; padding:8px; border:1px solid var(--line); border-radius:14px; background:white; box-shadow:0 20px 45px rgba(7,26,51,.16); }
+.header-menu nav a, .header-menu nav button { display:flex; min-height:44px; align-items:center; padding:10px 12px; border:0; border-radius:9px; color:var(--navy); background:transparent; font-weight:800; text-align:left; }
+.header-menu nav a:hover, .header-menu nav button:hover { background:var(--blue-soft); }
+.header-menu nav button { color:#a13b43; }
 
 .version-badge {
   padding: 8px 12px;
@@ -469,11 +505,7 @@ main { padding: 64px 0 52px; }
 .training-dashboard { padding-top: 46px; }
 
 .calendar-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 36px;
-  margin-bottom: 30px;
+  margin-bottom: 22px;
 }
 
 .calendar-hero h1 {
@@ -493,26 +525,12 @@ main { padding: 64px 0 52px; }
   line-height: 1.6;
 }
 
-.calendar-hero__rule {
-  display: grid;
-  flex: 0 0 270px;
-  gap: 7px;
-  padding: 20px;
-  border: 1px solid #bfd2f5;
-  border-radius: 18px;
-  color: var(--navy);
-  background: rgba(255, 255, 255, 0.82);
-}
-
-.calendar-hero__rule strong { font-size: 14px; }
-.calendar-hero__rule span { color: var(--muted); font-size: 12px; line-height: 1.5; }
-
 .calendar-sync {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 34px;
-  margin: -12px 0 18px;
+  margin: 0 0 18px;
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -771,8 +789,6 @@ main { padding: 64px 0 52px; }
 .planning-note p { margin: 7px 0 0; color: rgba(255, 255, 255, 0.68); font-size: 12px; line-height: 1.55; }
 
 @media (max-width: 900px) {
-  .calendar-hero { align-items: stretch; flex-direction: column; gap: 18px; }
-  .calendar-hero__rule { flex-basis: auto; }
   .planner-layout { grid-template-columns: 1fr; }
   .week-plan { position: static; }
 }
@@ -828,6 +844,69 @@ main { padding: 64px 0 52px; }
 .profile-card button:disabled { opacity: .55; }
 .restriction-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .profile-safety-note, .empty-restrictions { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.admin-badge { display:inline-flex; width:max-content; gap:4px; margin:8px 0 0; padding:6px 9px; border-radius:999px; color:#0b58cd; background:var(--blue-soft); font-size:11px; font-weight:800; }
+.admin-badge a { color:inherit; }
+.training-focus { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:0; padding:12px; border:1px solid var(--line); border-radius:12px; }
+.training-focus legend { padding:0 5px; color:var(--navy); font-size:12px; font-weight:800; }
+.training-focus legend small { color:var(--muted); font-weight:500; }
+.training-focus label { display:flex; grid-template-columns:none; align-items:center; gap:7px; padding:7px; border-radius:8px; background:#f6f8fb; }
+.training-focus input { width:16px; height:16px; min-height:16px; margin:0; flex:0 0 16px; }
+.workout-setup { min-height:100vh; padding:clamp(18px,4vw,42px); background:#f4f7fb; }
+.workout-setup > header { display:grid; width:min(1000px,100%); margin:0 auto 20px; grid-template-columns:auto 1fr; gap:20px; align-items:start; }
+.workout-setup > header > a { padding:11px 14px; border:1px solid var(--line); border-radius:12px; color:var(--navy); background:white; font-weight:800; text-decoration:none; }
+.workout-setup h1 { margin:5px 0; color:var(--navy); font-size:clamp(30px,5vw,48px); }
+.workout-setup header p, .manual-builder p { margin:0; color:var(--muted); }
+.setup-date { display:grid; width:min(260px,100%); gap:6px; margin-top:14px; color:var(--navy); font-size:12px; font-weight:850; }
+.setup-date input { min-height:42px; padding:8px 11px; border:1px solid var(--line); border-radius:10px; color:var(--navy); background:white; font:inherit; }
+.setup-mode-grid { display:grid; width:min(1000px,100%); margin:0 auto; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.setup-mode-grid article { display:grid; gap:14px; align-content:start; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.setup-mode-grid h2, .manual-builder h2 { margin:0; color:var(--navy); }
+.setup-mode-grid button, .primary-link { display:inline-flex; justify-content:center; align-items:center; min-height:44px; padding:10px 14px; border:0; border-radius:11px; color:white; background:var(--blue); font-weight:900; text-decoration:none; }
+.manual-builder { display:grid; width:min(1000px,100%); margin:0 auto; gap:16px; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.manual-builder__header { display:flex; justify-content:space-between; gap:14px; align-items:start; }
+.manual-builder__header button { padding:8px 12px; border:1px solid var(--line); border-radius:9px; background:white; font-weight:800; }
+.manual-builder > label { display:grid; gap:6px; color:var(--navy); font-size:12px; font-weight:800; }
+.manual-builder > label input { min-height:42px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+.manual-selection { display:grid; gap:4px; padding:12px; border-radius:11px; color:var(--navy); background:var(--blue-soft); }
+.manual-selection span { color:var(--muted); font-size:11px; }
+.manual-muscle { display:grid; gap:8px; }
+.manual-muscle h3 { margin:0; color:var(--navy); text-transform:capitalize; }
+.manual-muscle > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.manual-exercise { display:flex; align-items:center; gap:10px; padding:12px; border:1px solid var(--line); border-radius:11px; cursor:pointer; }
+.manual-exercise--selected { border-color:var(--blue); background:var(--blue-soft); }
+.manual-exercise input { width:17px; height:17px; min-height:17px; margin:0; flex:0 0 17px; }
+.manual-exercise span { display:grid; min-width:0; gap:3px; }
+.manual-exercise small { color:var(--muted); }
+.setup-review { display:grid; width:min(760px,100%); margin:0 auto; gap:14px; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.setup-review h2 { margin:0; color:var(--navy); font-size:28px; }
+.setup-review > p { margin:0; color:var(--muted); }
+.setup-review ol { display:grid; gap:8px; margin:0; padding:0; list-style:none; counter-reset:exercise; }
+.setup-review li { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; padding:12px; border:1px solid var(--line); border-radius:11px; counter-increment:exercise; }
+.setup-review li strong::before { content:counter(exercise) ". "; color:var(--blue); }
+.setup-review li span { color:var(--muted); font-size:12px; }
+.setup-exercise-copy { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.setup-exercise-copy strong { color:var(--ink); }
+.setup-review li > small { color:var(--muted); font-weight:800; text-align:right; }
+.setup-status { width:max-content; max-width:100%; padding:6px 9px; border-radius:999px; color:#8a5b00; background:#fff2c9; font-size:10px; font-weight:900; letter-spacing:.04em; }
+.setup-status--ready { color:#0b58cd; background:var(--blue-soft); }
+.setup-status--locked { color:#a13b43; background:#ffebed; }
+.setup-review__actions { display:flex; flex-wrap:wrap; gap:8px; }
+.setup-review__actions button, .setup-review__actions .primary-link { min-height:42px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; color:var(--navy); background:white; font-weight:850; }
+.setup-review__actions .primary-action, .setup-review__actions .primary-link { border-color:var(--blue); color:white; background:var(--blue); }
+.setup-loading { display:flex; width:min(760px,100%); margin:0 auto; gap:14px; align-items:center; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.setup-loading h2, .setup-loading p { margin:0; }
+.setup-loading h2 { color:var(--navy); font-size:20px; }
+.setup-loading p { margin-top:4px; color:var(--muted); }
+.setup-loading__spinner { width:26px; height:26px; flex:0 0 auto; border:3px solid var(--blue-soft); border-top-color:var(--blue); border-radius:50%; animation:setup-spin .8s linear infinite; }
+.setup-review--warning { border-color:#f0b9bd; box-shadow:0 12px 34px rgba(161,59,67,.09); }
+.setup-review__actions .danger-link { color:#a13b43; border-color:#e8b7bb; }
+.setup-review__actions .danger-action { color:white; border-color:#a13b43; background:#a13b43; }
+@keyframes setup-spin { to { transform:rotate(360deg); } }
+.workout-edit-banner { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:14px 16px; border:1px solid #b9d1fa; border-radius:13px; color:var(--navy); background:var(--blue-soft); }
+.workout-edit-banner div { display:grid; gap:3px; }
+.workout-edit-banner span { color:var(--muted); font-size:12px; }
+.workout-edit-banner button { min-height:38px; padding:0 12px; border:1px solid var(--blue); border-radius:9px; color:var(--blue); background:white; font-weight:850; }
+.workout-structure-lock { margin:0; padding:12px 14px; border-radius:11px; color:#7a4d00; background:#fff4d6; font-size:12px; line-height:1.5; }
 .restriction-list { display: grid; gap: 10px; }
 .restriction-item { display: flex; gap: 16px; padding: 14px; border: 1px solid #c7d8f5; border-radius: 13px; justify-content: space-between; background: #f5f8ff; }
 .restriction-item > div:first-child { display: grid; gap: 4px; }
@@ -840,19 +919,51 @@ main { padding: 64px 0 52px; }
 .restriction-item--inactive { opacity: .58; background: #f2f3f5; }
 
 @media (max-width: 720px) {
-  .app-header { align-items: flex-start; }
-  .header-actions { align-items: stretch; flex-direction: column; }
+  .app-header { align-items:center; }
+  .header-menu nav { width:min(280px,calc(100vw - 36px)); }
   .profile-header { grid-template-columns: 1fr; }
   .profile-header > a { justify-self: start; }
   .profile-layout { grid-template-columns: 1fr; }
   .profile-card--wide { grid-column: 1; }
   .restriction-form-grid { grid-template-columns: 1fr; }
   .restriction-item { align-items: stretch; flex-direction: column; }
+  .workout-setup > header, .setup-mode-grid { grid-template-columns:1fr; }
+  .workout-setup > header > a { justify-self:start; }
+  .manual-builder { padding:18px; }
+  .manual-builder__header { flex-direction:column; }
+  .manual-builder__header button { width:100%; min-height:42px; }
+  .manual-muscle > div, .training-focus { grid-template-columns:1fr; }
+  .manual-exercise { align-items:flex-start; min-height:62px; }
+  .setup-review { padding:18px; }
+  .setup-review li { grid-template-columns:1fr; gap:5px; }
+  .setup-review li strong, .setup-review li span { display:block; }
+  .setup-review li > small { text-align:left; }
+  .setup-review__actions { display:grid; grid-template-columns:1fr; }
+  .setup-review__actions button, .setup-review__actions .primary-link { width:100%; }
+  .workout-edit-banner { align-items:stretch; flex-direction:column; }
 }
 .admin-shell { min-height: 100vh; padding: clamp(18px,4vw,42px); background:#f4f7fb; }
+.admin-invite { display:flex; width:min(1100px,100%); margin:18px auto; gap:12px; align-items:end; padding:18px; border:1px solid var(--line); border-radius:16px; background:white; }
+.admin-invite label { display:grid; flex:1; gap:7px; color:var(--navy); font-weight:800; }
+.admin-invite input { width:100%; min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:9px; color:var(--navy); background:white; }
+.admin-invite button,.admin-user-card button { min-height:42px; padding:0 13px; border:1px solid var(--line); border-radius:9px; color:var(--navy); background:white; font-weight:850; }
+.admin-users { display:grid; width:min(1100px,100%); margin:0 auto; gap:10px; }
+.admin-user-card { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:16px; border:1px solid var(--line); border-radius:14px; background:white; }
+.admin-user-card>div:first-child { display:grid; min-width:0; gap:5px; }
+.admin-user-card>div:last-child { display:flex; flex-wrap:wrap; gap:7px; }
+.admin-user-card strong { overflow-wrap:anywhere; }
+.admin-user-card small { color:var(--muted); }
+.role-badge { width:max-content; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:900; text-transform:uppercase; }
+.role-badge--admin { color:#0b58cd; background:var(--blue-soft); }
+.role-badge--user { color:#50627a; background:#eef1f5; }
 .admin-layout { display:grid; width:min(1100px,100%); margin:18px auto 0; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
 .admin-numbers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .admin-catalog { gap:8px; }
+.admin-muscle-group { display:grid; gap:8px; padding-top:10px; border-top:1px solid var(--line); }
+.admin-muscle-group:first-of-type { padding-top:0; border-top:0; }
+.admin-muscle-group > header { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:2px 2px 0; }
+.admin-muscle-group > header h3 { margin:0; color:var(--navy); font-size:1.05rem; }
+.admin-muscle-group > header span { color:var(--muted); font-size:.8rem; font-weight:700; }
 .admin-item { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:11px; }
 .admin-item div:first-child { display:grid; gap:4px; }
 .admin-item small { color:var(--muted); }
@@ -860,3 +971,24 @@ main { padding: 64px 0 52px; }
 .admin-item button { min-height:34px; padding:0 10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--navy); font-weight:800; }
 .admin-item--inactive { opacity:.55; background:#f2f3f5; }
 @media(max-width:760px){.admin-layout{grid-template-columns:1fr}.admin-item{align-items:stretch;flex-direction:column}}
+@media(max-width:700px){.admin-invite,.admin-user-card{align-items:stretch;flex-direction:column}.admin-user-card>div:last-child{display:grid}.brand__logo--header{width:96px;height:54px}}
+
+/* A marca base é declarada depois dos breakpoints antigos. Estas regras finais
+   impedem que a cascata volte a ampliar a tela compacta de autenticação. */
+@media (max-width:860px) {
+  .auth-layout { grid-template-rows:minmax(0,44%) minmax(0,56%); }
+  .auth-intro { justify-content:flex-start; gap:8px; padding:max(10px,env(safe-area-inset-top)) 22px 12px; }
+  .brand__logo--auth { width:min(124px,32vw); height:auto; max-height:124px; }
+  .auth-intro h1 { margin:4px 0; font-size:clamp(27px,8vw,34px); }
+  .auth-intro p { font-size:clamp(12px,3.4vw,15px); line-height:1.35; }
+  .auth-panel { padding:10px 18px max(10px,env(safe-area-inset-bottom)); }
+  .auth-card { padding:16px 20px; border-radius:20px; }
+}
+
+@media (max-width:860px) and (max-height:700px) {
+  .auth-layout { grid-template-rows:minmax(0,36%) minmax(0,64%); }
+  .brand__logo--auth { width:min(88px,24vw); max-height:88px; }
+  .auth-intro h1 { font-size:clamp(22px,6.5vw,28px); }
+  .auth-intro p { display:none; }
+  .auth-card { padding:12px 18px; }
+}

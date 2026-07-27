@@ -1,111 +1,71 @@
 import { describe, expect, it } from "vitest";
-import { buildWeeklyPlan, type TrainingCalendarEntry } from "./trainingCalendar";
+import { buildWeeklyPlan, PERIODIZED_WEEK_LABELS, type TrainingCalendarEntry } from "./trainingCalendar";
 
-const entries: TrainingCalendarEntry[] = [
-  { date: "2026-07-20", available: true, completed: false },
-  { date: "2026-07-22", available: true, completed: false },
-  { date: "2026-07-24", available: true, completed: false },
-  { date: "2026-07-26", available: true, completed: false },
-];
+describe("buildWeeklyPlan periodizado", () => {
+  const week = new Date(2026, 6, 20);
+  const beforeWeek = new Date(2026, 6, 19);
 
-describe("buildWeeklyPlan", () => {
-  it("usa todos os dias disponíveis como meta da semana", () => {
-    const plan = buildWeeklyPlan(entries, new Date(2026, 6, 20), { today: new Date(2026, 6, 19) });
-    expect(plan.targetSessions).toBe(4);
-    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-22", "2026-07-24", "2026-07-26"]);
-  });
-
-  it("usa o objetivo e continua a rotação após o último treino", () => {
-    const plan = buildWeeklyPlan(entries, new Date(2026, 6, 20), { goal: "hypertrophy", lastCompletedLabel: "Superior A", today: new Date(2026, 6, 19) });
-    expect(plan.days.map((day) => day.label)).toEqual(["Inferiores A", "Superior B", "Inferiores B", "Superior A"]);
-  });
-
-  it("prioriza inferiores quando o foco inclui glúteos", () => {
-    const plan = buildWeeklyPlan(entries.slice(0, 3), new Date(2026, 6, 20), {
-      trainingFocus: ["glutes"], today: new Date(2026, 6, 19),
-    });
-    expect(plan.days.map((day) => day.label)).toEqual(["Inferiores A", "Superior A", "Inferiores B"]);
-  });
-
-  it("não trata o dia selecionado no calendário como a data atual", () => {
-    const entries = ["2026-07-20", "2026-07-22", "2026-07-24", "2026-07-25"]
-      .map((date) => ({ date, available: true, completed: false }));
-    const plan = buildWeeklyPlan(entries, new Date(2026, 6, 25), { today: new Date(2026, 6, 19) });
-
-    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-22", "2026-07-24", "2026-07-25"]);
-  });
-
-  it("distribui os treinos preservando recuperação quando há disponibilidade", () => {
-    const available = ["2026-07-20", "2026-07-22", "2026-07-24"]
-      .map((date) => ({ date, available: true, completed: false }));
-    const plan = buildWeeklyPlan(available, new Date(2026, 6, 20), {
-      minimumRecoveryDays: 1,
-      today: new Date(2026, 6, 19),
-    });
-
-    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-22", "2026-07-24"]);
-    expect(plan.recoveryCompromised).toBe(false);
-  });
-
-  it("prioriza a disponibilidade e sinaliza quando a recuperação ideal não cabe", () => {
-    const available = ["2026-07-20", "2026-07-21"]
-      .map((date) => ({ date, available: true, completed: false }));
-    const plan = buildWeeklyPlan(available, new Date(2026, 6, 20), {
-      minimumRecoveryDays: 1,
-      today: new Date(2026, 6, 19),
-    });
-
-    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-20", "2026-07-21"]);
-    expect(plan.recoveryCompromised).toBe(true);
-    expect(plan.message).toContain("disponibilidade foi priorizada");
-  });
-
-  it("preserva treinos concluídos ao distribuir as sessões restantes", () => {
-    const available: TrainingCalendarEntry[] = [
-      { date: "2026-07-20", available: true, completed: true },
-      ...["2026-07-22", "2026-07-24"]
-        .map((date) => ({ date, available: true, completed: false })),
-    ];
-    const plan = buildWeeklyPlan(available, new Date(2026, 6, 20), {
-      minimumRecoveryDays: 1,
-      today: new Date(2026, 6, 19),
-    });
-
-    expect(plan.days.map((day) => [day.date, day.status])).toEqual([
-      ["2026-07-20", "completed"],
-      ["2026-07-22", "planned"],
-      ["2026-07-24", "planned"],
-    ]);
-  });
-
-  it("consome a próxima sessão fora do plano e redistribui apenas o restante", () => {
-    const adaptive: TrainingCalendarEntry[] = [
+  it("programa somente os dias marcados, usando a divisão correspondente ao dia da semana", () => {
+    const entries: TrainingCalendarEntry[] = [
       { date: "2026-07-20", available: true, completed: false },
-      { date: "2026-07-21", available: false, completed: true, completedWasPlanned: false, completedLabel: "Superior A" },
       { date: "2026-07-22", available: true, completed: false },
       { date: "2026-07-24", available: true, completed: false },
     ];
-    const plan = buildWeeklyPlan(adaptive, new Date(2026, 6, 20), {
-      today: new Date(2026, 6, 21), minimumRecoveryDays: 0,
-    });
+    const plan = buildWeeklyPlan(entries, week, { today: beforeWeek });
 
-    expect(plan.days.map((day) => [day.date, day.label, day.status])).toEqual([
-      ["2026-07-21", "Superior A", "completed"],
-      ["2026-07-22", "Inferiores", "planned"],
-      ["2026-07-24", "Superior B", "planned"],
+    expect(plan.targetSessions).toBe(3);
+    expect(plan.days.map((day) => [day.date, day.label])).toEqual([
+      ["2026-07-20", "PUSH"],
+      ["2026-07-22", "PULL"],
+      ["2026-07-24", "LEGS"],
     ]);
-    expect(plan.days.find((day) => day.date === "2026-07-20")).toBeUndefined();
-    expect(plan.message).toContain("fora do plano");
   });
 
-  it("mantém os rótulos reais de todo o histórico concluído", () => {
+  it("mantém exatamente PUSH pesado na segunda e QUADRÍCEPS na terça quando há cinco dias", () => {
     const plan = buildWeeklyPlan([
-      { date: "2026-07-20", available: true, completed: true, completedLabel: "Sessão original A" },
-      { date: "2026-07-21", available: false, completed: true, completedWasPlanned: false, completedLabel: "Sessão original B" },
+      { date: "2026-07-20", available: true, completed: false },
+      { date: "2026-07-21", available: true, completed: false },
+      { date: "2026-07-22", available: true, completed: false },
       { date: "2026-07-23", available: true, completed: false },
-    ], new Date(2026, 6, 20), { today: new Date(2026, 6, 21), minimumRecoveryDays: 0 });
+      { date: "2026-07-24", available: true, completed: false },
+    ], week, { today: beforeWeek });
+    expect(plan.days.slice(0, 2).map(({ date, label }) => [date, label])).toEqual([
+      ["2026-07-20", "PUSH pesado"],
+      ["2026-07-21", "QUADRÍCEPS"],
+    ]);
+  });
 
-    expect(plan.days.filter((day) => day.status === "completed").map((day) => day.label))
-      .toEqual(["Sessão original A", "Sessão original B"]);
+  it("preserva os rótulos reais de sessões concluídas", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-20", available: true, completed: true, completedLabel: "Sessão histórica" },
+    ], week, { today: beforeWeek });
+    expect(plan.days[0]).toMatchObject({
+      date: "2026-07-20", label: "Sessão histórica", status: "completed",
+    });
+  });
+
+  it("não recria dias passados que não foram realizados", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-20", available: true, completed: false },
+      { date: "2026-07-22", available: true, completed: false },
+      { date: "2026-07-24", available: true, completed: false },
+    ], week, { today: new Date(2026, 6, 22) });
+    expect(plan.days.map((day) => day.date)).toEqual(["2026-07-22", "2026-07-24"]);
+  });
+
+  it("um treino extra consome a próxima sessão e reorganiza somente o restante", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-20", available: false, completed: true, completedWasPlanned: false, completedLabel: "PUSH" },
+      { date: "2026-07-21", available: true, completed: false },
+      { date: "2026-07-23", available: true, completed: false },
+      { date: "2026-07-25", available: true, completed: false },
+    ], week, { today: beforeWeek });
+
+    expect(plan.targetSessions).toBe(3);
+    expect(plan.days.map((day) => [day.date, day.label, day.status])).toEqual([
+      ["2026-07-20", "PUSH", "completed"],
+      ["2026-07-21", "PULL", "planned"],
+      ["2026-07-23", "LEGS", "planned"],
+    ]);
   });
 });

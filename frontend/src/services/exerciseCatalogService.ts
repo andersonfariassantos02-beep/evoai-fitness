@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "../lib/supabase";
-import { exerciseCatalog, type MuscleGroup, type MovementPattern, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
+import { exerciseCatalog, getWorkoutTemplate, type MuscleGroup, type MovementPattern, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { exerciseConflictsWithRestrictions, type ProfileRestriction } from "./profileRestrictionService";
 
 interface ExerciseCatalogRow {
@@ -17,6 +17,7 @@ interface ExerciseCatalogRow {
   media_url?: string | null;
   equipment_variants?: string[] | null;
   active?: boolean;
+  set_rep_ranges?: Array<{ min: number; max: number }> | null;
 }
 
 export interface ExerciseGuidance {
@@ -27,7 +28,7 @@ export interface ExerciseGuidance {
   equipmentVariants: string[];
 }
 
-export type ExerciseCatalogAdminItem = Required<Omit<ExerciseCatalogRow, "avoid_when" | "instructions" | "cautions" | "media_url" | "equipment_variants">> & {
+export type ExerciseCatalogAdminItem = Required<Omit<ExerciseCatalogRow, "avoid_when" | "instructions" | "cautions" | "media_url" | "equipment_variants" | "set_rep_ranges">> & {
   avoid_when: string[];
   instructions: string;
   cautions: string[];
@@ -109,6 +110,7 @@ export function mapExerciseCatalogRow(row: ExerciseCatalogRow): WorkoutExerciseT
     muscle: row.muscle as MuscleGroup,
     movement: row.movement as MovementPattern,
     equipment: row.equipment,
+    setRepRanges: row.set_rep_ranges ?? undefined,
     avoidWhen: row.avoid_when ?? [],
   };
 }
@@ -119,7 +121,7 @@ export async function loadExerciseCatalog(): Promise<WorkoutExerciseTemplate[]> 
   if (cachedCatalog) return cachedCatalog;
   const { data, error } = await getSupabaseClient()
     .from("exercise_catalog")
-    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, avoid_when")
+    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, avoid_when, set_rep_ranges")
     .eq("active", true)
     .order("name");
 
@@ -130,19 +132,10 @@ export async function loadExerciseCatalog(): Promise<WorkoutExerciseTemplate[]> 
 
 export async function loadWorkoutTemplate(label: string, restrictions: ProfileRestriction[] = []) {
   const catalog = await loadExerciseCatalog();
-  const byKey = (key: string) => {
-    const item = catalog.find((exercise) => exercise.key === key) ?? exerciseCatalog.find((exercise) => exercise.key === key);
-    if (!item) throw new Error(`Exercício ausente: ${key}`);
-    return item;
-  };
-  const normalized = label.toLowerCase();
-  const planned = normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")
-    ? [byKey("squat-pattern"), byKey("leg-press"), byKey("leg-curl"), byKey("calf-raise")]
-    : normalized.includes("pull")
-      ? [byKey("row"), byKey("pulldown"), byKey("biceps")]
-      : normalized.includes("push")
-        ? [byKey("chest-press"), byKey("shoulder-press"), byKey("triceps")]
-        : [byKey("chest-press"), byKey("row"), byKey("squat-pattern"), byKey("leg-press")];
+  const planned = getWorkoutTemplate(label).map((prescription) => ({
+    ...(catalog.find((exercise) => exercise.key === prescription.key) ?? prescription),
+    ...prescription,
+  }));
   const reservedKeys = new Set(planned.map((exercise) => exercise.key));
   return planned.map((exercise) => {
     if (!exerciseConflictsWithRestrictions(exercise, restrictions)) return exercise;
