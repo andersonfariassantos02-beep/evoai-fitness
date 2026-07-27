@@ -1,10 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
 import { saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
+import { formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
+
+interface ActiveRest {
+  sourceExerciseId: string;
+  sourceSetId: string;
+  kind: RestKind;
+  label: string;
+  nextLabel: string;
+  targetSeconds: number;
+  startedAtMs: number;
+  endsAtMs: number;
+  remainingSeconds: number;
+  paused: boolean;
+  ready: boolean;
+}
 
 export default function WorkoutSessionPage() {
   const { date = "" } = useParams();
@@ -17,6 +32,8 @@ export default function WorkoutSessionPage() {
   const [message, setMessage] = useState("Carregando treino…");
   const [profileRestrictions, setProfileRestrictions] = useState<ProfileRestriction[]>([]);
   const [guidanceByKey, setGuidanceByKey] = useState<Record<string, ExerciseGuidance>>({});
+  const [activeRest, setActiveRest] = useState<ActiveRest | null>(null);
+  const restWasFinalized = useRef(false);
 
   useEffect(() => {
     if (!user || !date) return;
@@ -38,9 +55,29 @@ export default function WorkoutSessionPage() {
       .catch(() => setGuidanceByKey({}));
   }, [exerciseKeys]);
 
-  const allSets = useMemo(() => session?.exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise: exercise.exercise_name, set }))) ?? [], [session]);
+  const allSets = useMemo(() => session?.exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise, set }))) ?? [], [session]);
   const next = allSets.find((item) => !item.set.completed);
   const completed = allSets.filter((item) => item.set.completed).length;
+
+  useEffect(() => {
+    if (!activeRest || activeRest.paused || activeRest.ready) return;
+    const tick = () => {
+      const remainingSeconds = getRemainingSeconds(activeRest.endsAtMs);
+      if (remainingSeconds > 0) {
+        setActiveRest((current) => current ? { ...current, remainingSeconds } : current);
+        return;
+      }
+      setActiveRest((current) => current ? { ...current, remainingSeconds: 0, ready: true } : current);
+      if (!restWasFinalized.current) {
+        restWasFinalized.current = true;
+        void recordActualRest(activeRest.targetSeconds);
+        signalRestFinished();
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, 250);
+    return () => window.clearInterval(interval);
+  }, [activeRest?.endsAtMs, activeRest?.paused, activeRest?.ready]);
 
   function changeSet(exerciseId: string, setId: string, patch: Partial<SetLog>) {
     setSession((current) => current ? { ...current, exercises: current.exercises.map((exercise) => exercise.id === exerciseId ? { ...exercise, sets: exercise.sets.map((set) => set.id === setId ? { ...set, ...patch } : set) } : exercise) } : current);
@@ -50,23 +87,103 @@ export default function WorkoutSessionPage() {
     try { await saveSet(set); setMessage("Série salva"); } catch { setMessage("Série preservada na tela; sincronização pendente"); }
   }
 
+  function signalRestFinished() {
+    setMessage("Descanso concluído. Pode iniciar a próxima série.");
+    if ("vibrate" in navigator) navigator.vibrate([180, 100, 180]);
+    try {
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = new AudioContextClass();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = 880;
+      gain.gain.setValueAtTime(0.12, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.35);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.35);
+    } catch {
+      // O aviso visual permanece disponível quando áudio/vibração são bloqueados.
+    }
+  }
+
+  async function recordActualRest(actualSeconds: number) {
+    if (!activeRest || !session) return;
+    const sourceExercise = session.exercises.find((exercise) => exercise.id === activeRest.sourceExerciseId);
+    const sourceSet = sourceExercise?.sets.find((set) => set.id === activeRest.sourceSetId);
+    if (!sourceExercise || !sourceSet) return;
+    const updated = { ...sourceSet, actual_rest_seconds: Math.max(0, Math.round(actualSeconds)) };
+    changeSet(sourceExercise.id, sourceSet.id, updated);
+    await persistSet(updated);
+  }
+
+  function startRestAfter(exercise: ExerciseLog, set: SetLog) {
+    if (!session) return;
+    const currentIndex = allSets.findIndex((item) => item.set.id === set.id);
+    const nextItem = allSets.slice(currentIndex + 1).find((item) => !item.set.completed);
+    if (!nextItem) {
+      setActiveRest(null);
+      return;
+    }
+    const changesExercise = nextItem.exercise.id !== exercise.id;
+    const prescription = getRestPrescription(exercise.rest_seconds, exercise.transition_rest_seconds, changesExercise);
+    const startedAtMs = Date.now();
+    restWasFinalized.current = false;
+    setActiveRest({
+      sourceExerciseId: exercise.id,
+      sourceSetId: set.id,
+      kind: prescription.kind,
+      label: prescription.label,
+      nextLabel: `${nextItem.exercise.exercise_name} · série ${nextItem.set.set_number}`,
+      targetSeconds: prescription.seconds,
+      startedAtMs,
+      endsAtMs: startedAtMs + prescription.seconds * 1000,
+      remainingSeconds: prescription.seconds,
+      paused: false,
+      ready: false,
+    });
+    return prescription.seconds;
+  }
+
+  function adjustRest(deltaSeconds: number) {
+    setActiveRest((current) => {
+      if (!current || current.ready) return current;
+      const targetSeconds = Math.max(30, Math.min(600, current.targetSeconds + deltaSeconds));
+      return {
+        ...current,
+        targetSeconds,
+        endsAtMs: current.endsAtMs + (targetSeconds - current.targetSeconds) * 1000,
+        remainingSeconds: Math.max(0, current.remainingSeconds + (targetSeconds - current.targetSeconds)),
+      };
+    });
+  }
+
+  async function skipRest() {
+    if (!activeRest) return;
+    const actualSeconds = Math.max(0, Math.round((Date.now() - activeRest.startedAtMs) / 1000));
+    restWasFinalized.current = true;
+    await recordActualRest(actualSeconds);
+    setActiveRest(null);
+    setMessage("Descanso encerrado. Próxima série liberada.");
+  }
+
   async function togglePause() {
     if (!session) return;
     const status = session.status === "paused" ? "active" : "paused";
     await updateSession(session.id, status, session.notes);
     setSession({ ...session, status });
+    setActiveRest((current) => {
+      if (!current) return current;
+      if (status === "paused") return { ...current, paused: true, remainingSeconds: getRemainingSeconds(current.endsAtMs) };
+      return { ...current, paused: false, endsAtMs: Date.now() + current.remainingSeconds * 1000 };
+    });
   }
 
   async function replaceExercise(exercise: ExerciseLog) {
-    if (!session) return;
     const reason = window.prompt("Motivo da substituição: indisponibilidade, desconforto ou restrição?", "indisponibilidade")?.trim();
     if (!reason) return;
-    const candidates = await loadSubstitutionCandidates(
-      exercise.exercise_key,
-      reason,
-      profileRestrictions,
-      session.exercises.map((item) => item.exercise_key),
-    );
+    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason, profileRestrictions);
     if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
     const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
     const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
@@ -94,12 +211,19 @@ export default function WorkoutSessionPage() {
   return <div className="workout-shell">
     <header className="workout-header"><button onClick={() => navigate("/app")}>← Calendário</button><div><small>{date}</small><h1>{session.workout_label}</h1></div><button onClick={togglePause}>{session.status === "paused" ? "Retomar" : "Pausar"}</button></header>
     <div className="workout-progress"><strong>{completed}/{allSets.length} séries</strong><span><i style={{ width: `${allSets.length ? completed / allSets.length * 100 : 0}%` }} /></span></div>
-    {next && <aside className="next-set"><span>PRÓXIMA SÉRIE</span><strong>{next.exercise} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></aside>}
+    {activeRest && <aside className={`rest-timer ${activeRest.ready ? "rest-timer--ready" : ""}`} aria-live="assertive">
+      <div><span>{activeRest.ready ? "DESCANSO CONCLUÍDO" : activeRest.label.toUpperCase()}</span><strong>{activeRest.ready ? "Pode iniciar" : formatRestTime(activeRest.remainingSeconds)}</strong><small>Próxima: {activeRest.nextLabel}</small></div>
+      {!activeRest.ready && <div className="rest-timer__actions">
+        <button onClick={() => adjustRest(-30)} disabled={activeRest.paused}>−30 s</button>
+        <button onClick={() => adjustRest(30)} disabled={activeRest.paused}>+30 s</button>
+        <button onClick={() => void skipRest()}>Pular</button>
+      </div>}
+      {activeRest.ready && <button className="rest-timer__continue" onClick={() => setActiveRest(null)}>Continuar</button>}
+      {activeRest.paused && <em>Relógio pausado junto com o treino</em>}
+    </aside>}
+    {next && !activeRest && <aside className="next-set"><span>PRÓXIMA SÉRIE</span><strong>{next.exercise.exercise_name} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></aside>}
     <main className="exercise-list">
       {session.profile_name && <p className="profile-context"><strong>Perfil: {session.profile_name}</strong><span>{session.applied_restrictions.length ? `Restrições aplicadas: ${restrictionText(session.applied_restrictions) || "somente informativas"}` : "Nenhuma restrição ativa"}</span></p>}
-      {completed === 0
-        ? <div className="workout-edit-banner"><div><strong>Ficha ainda não iniciada</strong><span>Você pode incluir, remover ou reorganizar exercícios antes da primeira série.</span></div><button type="button" onClick={() => navigate(`/preparar-treino/${date}?label=${encodeURIComponent(session.workout_label)}&planned=${completedWasPlanned ? "1" : "0"}`)}>Editar ficha</button></div>
-        : session.status !== "completed" && <p className="workout-structure-lock">Estrutura bloqueada após o início para preservar as séries registradas. Substituições individuais ainda estão disponíveis.</p>}
       <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>
       {session.exercises.map((exercise) => {
         const guidance = guidanceByKey[exercise.exercise_key];
@@ -117,7 +241,14 @@ export default function WorkoutSessionPage() {
           <strong>Série {set.set_number}</strong><label>Reps<input type="number" value={set.actual_reps ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { actual_reps: event.target.value ? Number(event.target.value) : null })} /></label>
           <label>Kg<input type="number" step="0.5" value={set.load_kg ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { load_kg: event.target.value ? Number(event.target.value) : null })} /></label>
           <label>RPE<input type="number" min="1" max="10" step="0.5" value={set.rpe ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { rpe: event.target.value ? Number(event.target.value) : null })} /></label>
-          <button onClick={() => { const updated = { ...set, completed: !set.completed }; changeSet(exercise.id, set.id, updated); void persistSet(updated); }}>{set.completed ? "✓ Feita" : "Concluir"}</button>
+          <button onClick={() => {
+            const completedNow = !set.completed;
+            const targetRestSeconds = completedNow ? startRestAfter(exercise, set) ?? null : null;
+            const updated = { ...set, completed: completedNow, target_rest_seconds: targetRestSeconds, actual_rest_seconds: completedNow ? set.actual_rest_seconds : null };
+            if (!completedNow && activeRest?.sourceSetId === set.id) setActiveRest(null);
+            changeSet(exercise.id, set.id, updated);
+            void persistSet(updated);
+          }}>{set.completed ? "✓ Feita" : "Concluir"}</button>
         </div>)}
       </section>;
       })}
