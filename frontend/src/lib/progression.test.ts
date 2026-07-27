@@ -27,4 +27,15 @@ describe("substituições equivalentes", () => {
     const candidates = getSubstitutionCandidates("squat-pattern", "indisponibilidade", ["leg-press"]);
     expect(candidates.map((item) => item.key)).toEqual(["goblet-squat"]);
   });
+
+  it("mantém o mesmo estímulo e não mistura elevação lateral com desenvolvimento", () => {
+    const candidates = getSubstitutionCandidates("lateral-raise", "máquina ocupada");
+    expect(candidates.map((item) => item.key)).toEqual(["cable-lateral-raise", "machine-lateral-raise"]);
+    expect(candidates.map((item) => item.key)).not.toContain("shoulder-press");
+  });
+
+  it("oferece alternativa equivalente para deltoide posterior", () => {
+    expect(getSubstitutionCandidates("reverse-cable-fly", "cabo indisponível").map((item) => item.key))
+      .toEqual(["reverse-pec-deck"]);
+  });
 });
