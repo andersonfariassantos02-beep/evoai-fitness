@@ -11,6 +11,7 @@ interface ExerciseCatalogRow {
   muscle: string;
   movement: string;
   equipment: string;
+  stimulus?: string | null;
   avoid_when: string[] | null;
   instructions?: string | null;
   cautions?: string[] | null;
@@ -28,7 +29,7 @@ export interface ExerciseGuidance {
   equipmentVariants: string[];
 }
 
-export type ExerciseCatalogAdminItem = Required<Omit<ExerciseCatalogRow, "avoid_when" | "instructions" | "cautions" | "media_url" | "equipment_variants" | "set_rep_ranges">> & {
+export type ExerciseCatalogAdminItem = Required<Omit<ExerciseCatalogRow, "avoid_when" | "instructions" | "cautions" | "media_url" | "equipment_variants" | "set_rep_ranges" | "stimulus">> & {
   avoid_when: string[];
   instructions: string;
   cautions: string[];
@@ -110,6 +111,7 @@ export function mapExerciseCatalogRow(row: ExerciseCatalogRow): WorkoutExerciseT
     muscle: row.muscle as MuscleGroup,
     movement: row.movement as MovementPattern,
     equipment: row.equipment,
+    stimulus: row.stimulus ?? undefined,
     setRepRanges: row.set_rep_ranges ?? undefined,
     avoidWhen: row.avoid_when ?? [],
   };
@@ -121,7 +123,7 @@ export async function loadExerciseCatalog(): Promise<WorkoutExerciseTemplate[]> 
   if (cachedCatalog) return cachedCatalog;
   const { data, error } = await getSupabaseClient()
     .from("exercise_catalog")
-    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, avoid_when, set_rep_ranges")
+    .select("key, name, default_sets, reps_min, reps_max, muscle, movement, equipment, stimulus, avoid_when, set_rep_ranges")
     .eq("active", true)
     .order("name");
 
@@ -143,7 +145,7 @@ export async function loadWorkoutTemplate(label: string, restrictions: ProfileRe
       candidate.key !== exercise.key
       && !reservedKeys.has(candidate.key)
       && candidate.muscle === exercise.muscle
-      && candidate.movement === exercise.movement
+      && (exercise.stimulus ? candidate.stimulus === exercise.stimulus : candidate.movement === exercise.movement)
       && !exerciseConflictsWithRestrictions(candidate, restrictions));
     if (!replacement) throw new Error(`PROFILE_RESTRICTION_BLOCKS_PLAN:${exercise.name}`);
     reservedKeys.add(replacement.key);
@@ -158,7 +160,8 @@ export async function loadSubstitutionCandidates(key: string, restriction = "", 
   const normalized = restriction.toLowerCase();
   const excluded = new Set([key, ...excludedKeys]);
   return catalog
-    .filter((item) => !excluded.has(item.key) && item.muscle === source.muscle && item.movement === source.movement)
+    .filter((item) => !excluded.has(item.key) && item.muscle === source.muscle
+      && (source.stimulus ? item.stimulus === source.stimulus : item.movement === source.movement))
     .filter((item) => !(item.avoidWhen ?? []).some((term) => normalized.includes(term)))
     .filter((item) => !exerciseConflictsWithRestrictions(item, profileRestrictions))
     .sort((a, b) => Number(b.equipment === source.equipment) - Number(a.equipment === source.equipment));

@@ -186,8 +186,8 @@ export default function WorkoutSessionPage() {
     const excludedKeys = (session?.exercises ?? []).filter(Boolean).map((item) => item.exercise_key);
     const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason, profileRestrictions, excludedKeys);
     if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
-    const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
-    const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
+    const options = candidates.map((item, index) => `${index + 1}. ${item.name} — ${item.equipment}`).join("\n");
+    const selected = Number(window.prompt(`Escolha uma opção equivalente para o mesmo estímulo muscular:\n${options}`, "1")) - 1;
     const replacement = candidates[selected];
     if (!replacement) return;
     try {
