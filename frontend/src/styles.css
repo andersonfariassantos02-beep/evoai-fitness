@@ -579,6 +579,25 @@ main { padding: 64px 0 52px; }
 
 .calendar-navigation { display: flex; gap: 7px; }
 
+.calendar-view-toggle { display: flex; gap: 8px; margin-top: 8px; }
+
+.calendar-view-toggle__button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #cbd7e7;
+  border-radius: 11px;
+  color: var(--navy);
+  background: white;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.calendar-view-toggle__button--active {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
 .calendar-navigation button,
 .choice-button {
   min-height: 38px;
