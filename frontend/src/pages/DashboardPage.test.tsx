@@ -86,8 +86,11 @@ describe("painel principal", () => {
     render(<DashboardPage />);
 
     await user.click(screen.getByTestId("view-toggle-weekly"));
-    const selectedButton = screen.getAllByRole("button", { pressed: false }).find((button) => button.textContent?.includes("25"));
-    expect(selectedButton).toBeDefined();
+    const weeklyButton = screen.getByTestId("view-toggle-weekly");
+    expect(weeklyButton).toHaveAttribute("aria-selected", "true");
+
+    const weeklyGrid = await screen.findByTestId("calendar-grid");
+    expect(within(weeklyGrid).getAllByRole("button")).toHaveLength(7);
 
     await user.click(screen.getByTestId("view-toggle-monthly"));
     expect(screen.getByTestId("view-toggle-monthly")).toHaveAttribute("aria-selected", "true");
