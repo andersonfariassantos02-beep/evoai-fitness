@@ -7,6 +7,7 @@ import {
   buildWeeklyPlan,
   fromDateKey,
   getMonthGrid,
+  getWeekDates,
   getWeekStart,
   loadCalendarEntries,
   saveCalendarEntries,
@@ -47,6 +48,12 @@ function formatShortDate(value: string) {
   }).format(fromDateKey(value));
 }
 
+function formatWeekRange(start: Date) {
+  const end = addDays(start, 6);
+  const formatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+  return `Semana de ${formatter.format(start)} a ${formatter.format(end)}`;
+}
+
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
   const [catalogAdmin, setCatalogAdmin] = useState(false);
@@ -60,6 +67,7 @@ export default function DashboardPage() {
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
   const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [viewMode, setViewMode] = useState<"monthly" | "weekly">("monthly");
   const [entries, setEntries] = useState<TrainingCalendarEntry[]>(
     () => loadCalendarEntries(storageKey),
   );
@@ -111,6 +119,13 @@ export default function DashboardPage() {
   }, [entries, storageKey]);
 
   const monthDays = useMemo(() => getMonthGrid(calendarCursor), [calendarCursor]);
+  const weekDates = useMemo(() => getWeekDates(fromDateKey(selectedDate)), [selectedDate]);
+  const calendarDays = viewMode === "weekly"
+    ? weekDates.map((dateKey) => fromDateKey(dateKey))
+    : monthDays;
+  const calendarTitle = viewMode === "weekly"
+    ? formatWeekRange(fromDateKey(weekDates[0]))
+    : formatMonth(calendarCursor);
   const selectedEntry = entries.find((entry) => entry.date === selectedDate);
   const effectiveEntries = useMemo(() => {
     const byDate = new Map(entries.map((entry) => [entry.date, entry]));
@@ -220,13 +235,42 @@ export default function DashboardPage() {
             <div className="calendar-card__header">
               <div>
                 <span className="section-kicker">CALENDÁRIO</span>
-                <h2 id="calendar-title">{formatMonth(calendarCursor)}</h2>
+                <h2 id="calendar-title">{calendarTitle}</h2>
               </div>
-              <div className="calendar-navigation" aria-label="Navegar entre meses">
+              <div className="calendar-view-toggle" role="tablist" aria-label="Selecionar visualização do calendário">
                 <button
                   type="button"
-                  aria-label="Mês anterior"
-                  onClick={() => setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                  role="tab"
+                  aria-selected={viewMode === "weekly"}
+                  className={`calendar-view-toggle__button${viewMode === "weekly" ? " calendar-view-toggle__button--active" : ""}`}
+                  data-testid="view-toggle-weekly"
+                  onClick={() => setViewMode("weekly")}
+                >Semanal</button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={viewMode === "monthly"}
+                  className={`calendar-view-toggle__button${viewMode === "monthly" ? " calendar-view-toggle__button--active" : ""}`}
+                  data-testid="view-toggle-monthly"
+                  onClick={() => {
+                    setViewMode("monthly");
+                    setCalendarCursor(new Date(fromDateKey(selectedDate).getFullYear(), fromDateKey(selectedDate).getMonth(), 1));
+                  }}
+                >Mensal</button>
+              </div>
+              <div className="calendar-navigation" aria-label={viewMode === "weekly" ? "Navegar entre semanas" : "Navegar entre meses"}>
+                <button
+                  type="button"
+                  aria-label={viewMode === "weekly" ? "Semana anterior" : "Mês anterior"}
+                  onClick={() => {
+                    if (viewMode === "weekly") {
+                      const previousWeek = addDays(fromDateKey(selectedDate), -7);
+                      setSelectedDate(toDateKey(previousWeek));
+                      setCalendarCursor(new Date(previousWeek.getFullYear(), previousWeek.getMonth(), 1));
+                    } else {
+                      setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
+                    }
+                  }}
                 >←</button>
                 <button
                   type="button"
@@ -237,8 +281,16 @@ export default function DashboardPage() {
                 >Hoje</button>
                 <button
                   type="button"
-                  aria-label="Próximo mês"
-                  onClick={() => setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                  aria-label={viewMode === "weekly" ? "Próxima semana" : "Próximo mês"}
+                  onClick={() => {
+                    if (viewMode === "weekly") {
+                      const nextWeek = addDays(fromDateKey(selectedDate), 7);
+                      setSelectedDate(toDateKey(nextWeek));
+                      setCalendarCursor(new Date(nextWeek.getFullYear(), nextWeek.getMonth(), 1));
+                    } else {
+                      setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+                    }
+                  }}
                 >→</button>
               </div>
             </div>
@@ -247,11 +299,11 @@ export default function DashboardPage() {
               {WEEK_DAYS.map((day) => <span key={day}>{day}</span>)}
             </div>
 
-            <div className="calendar-grid">
-              {monthDays.map((date) => {
+            <div className="calendar-grid" data-testid="calendar-grid">
+              {calendarDays.map((date) => {
                 const dateKey = toDateKey(date);
                 const entry = entries.find((item) => item.date === dateKey);
-                const outsideMonth = date.getMonth() !== calendarCursor.getMonth();
+                const outsideMonth = viewMode === "monthly" && date.getMonth() !== calendarCursor.getMonth();
                 const classNames = [
                   "calendar-day",
                   outsideMonth ? "calendar-day--outside" : "",
