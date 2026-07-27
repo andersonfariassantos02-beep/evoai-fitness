@@ -46,7 +46,7 @@ export default function WorkoutSessionPage() {
           : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
   }, [date, label, user]);
 
-  const exerciseKeys = useMemo(() => session?.exercises.map((exercise) => exercise.exercise_key).join("|") ?? "", [session]);
+  const exerciseKeys = useMemo(() => (session?.exercises ?? []).filter(Boolean).map((exercise) => exercise.exercise_key).join("|"), [session]);
   useEffect(() => {
     const keys = exerciseKeys.split("|").filter(Boolean);
     if (!keys.length) { setGuidanceByKey({}); return; }
@@ -55,7 +55,7 @@ export default function WorkoutSessionPage() {
       .catch(() => setGuidanceByKey({}));
   }, [exerciseKeys]);
 
-  const allSets = useMemo(() => session?.exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise, set }))) ?? [], [session]);
+  const allSets = useMemo(() => (session?.exercises ?? []).filter(Boolean).flatMap((exercise) => exercise.sets.map((set) => ({ exercise, set }))) ?? [], [session]);
   const next = allSets.find((item) => !item.set.completed);
   const completed = allSets.filter((item) => item.set.completed).length;
 
@@ -183,7 +183,8 @@ export default function WorkoutSessionPage() {
   async function replaceExercise(exercise: ExerciseLog) {
     const reason = window.prompt("Motivo da substituição: indisponibilidade, desconforto ou restrição?", "indisponibilidade")?.trim();
     if (!reason) return;
-    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason, profileRestrictions);
+    const excludedKeys = (session?.exercises ?? []).filter(Boolean).map((item) => item.exercise_key);
+    const candidates = await loadSubstitutionCandidates(exercise.exercise_key, reason, profileRestrictions, excludedKeys);
     if (!candidates.length) { setMessage("Nenhum substituto equivalente atende ao motivo informado."); return; }
     const options = candidates.map((item, index) => `${index + 1}. ${item.name} (${item.equipment})`).join("\n");
     const selected = Number(window.prompt(`Escolha o substituto:\n${options}`, "1")) - 1;
@@ -225,8 +226,8 @@ export default function WorkoutSessionPage() {
     <main className="exercise-list">
       {session.profile_name && <p className="profile-context"><strong>Perfil: {session.profile_name}</strong><span>{session.applied_restrictions.length ? `Restrições aplicadas: ${restrictionText(session.applied_restrictions) || "somente informativas"}` : "Nenhuma restrição ativa"}</span></p>}
       <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>
-      {session.exercises.map((exercise) => {
-        const guidance = guidanceByKey[exercise.exercise_key];
+      {(session.exercises ?? []).filter(Boolean).map((exercise) => {
+        const guidance = guidanceByKey[exercise.exercise_key ?? ""];
         const hasGuidance = Boolean(guidance && (guidance.instructions || guidance.cautions.length || guidance.equipmentVariants.length || guidance.mediaUrl));
         return <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
         {exercise.original_exercise_key && <p className="substitution-note">Substituição registrada · motivo: {exercise.substitution_reason}</p>}
