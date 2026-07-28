@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateWorkoutReport } from "./reportService";
+import { aggregateWorkoutReport, mapUnfinishedWorkouts } from "./reportService";
 
 describe("agregação do relatório", () => {
   it("calcula volume, RPE e séries ignoradas apenas com registros reais recebidos", () => {
@@ -31,5 +31,32 @@ describe("agregação do relatório", () => {
     expect(report.totalReps).toBe(18);
     expect(report.totalVolume).toBe(940);
     expect(report.averageRpe).toBe(8.5);
+  });
+});
+
+describe("treinos aguardando finalização", () => {
+  it("resume o progresso de sessões ativas e pausadas", () => {
+    const workouts = mapUnfinishedWorkouts([{
+      id: "pending-1",
+      training_date: "2026-07-27",
+      workout_label: "PUSH",
+      status: "active",
+      exercise_logs: [{
+        set_logs: [
+          { completed: true, skipped_at: null },
+          { completed: false, skipped_at: "2026-07-27T12:00:00Z" },
+          { completed: false, skipped_at: null },
+        ],
+      }],
+    }]);
+
+    expect(workouts).toEqual([{
+      id: "pending-1",
+      date: "2026-07-27",
+      label: "PUSH",
+      status: "active",
+      completedSets: 2,
+      totalSets: 3,
+    }]);
   });
 });

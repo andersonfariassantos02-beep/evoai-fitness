@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { previousReportRange, reportRange, type ReportPeriod } from "../lib/reportPeriod";
 import { saveReportPdf, shareReportPdf } from "../lib/reportPdf";
-import { loadWorkoutReport, type WorkoutReport } from "../services/reportService";
+import {
+  loadUnfinishedWorkouts,
+  loadWorkoutReport,
+  type UnfinishedWorkout,
+  type WorkoutReport,
+} from "../services/reportService";
 
 function todayKey() {
   const date = new Date();
@@ -32,6 +38,7 @@ export default function ReportsPage() {
   const [anchor, setAnchor] = useState(todayKey);
   const [report, setReport] = useState<WorkoutReport | null>(null);
   const [previous, setPrevious] = useState<WorkoutReport | null>(null);
+  const [unfinished, setUnfinished] = useState<UnfinishedWorkout[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
@@ -44,12 +51,14 @@ export default function ReportsPage() {
     setMessage("");
     try {
       const previousRange = previousReportRange(period, currentRange.startDate);
-      const [currentReport, previousReport] = await Promise.all([
+      const [currentReport, previousReport, unfinishedWorkouts] = await Promise.all([
         loadWorkoutReport(user.id, currentRange.startDate, currentRange.endDate),
         loadWorkoutReport(user.id, previousRange.startDate, previousRange.endDate),
+        loadUnfinishedWorkouts(user.id, currentRange.startDate, currentRange.endDate),
       ]);
       setReport(currentReport);
       setPrevious(previousReport);
+      setUnfinished(unfinishedWorkouts);
       if (!currentReport.completedSessions) setMessage("Nenhum treino real concluído neste período.");
     } catch {
       setMessage("Não foi possível carregar o relatório. Tente novamente.");
@@ -86,8 +95,8 @@ export default function ReportsPage() {
 
       <section className="report-controls" aria-label="Configurar relatório">
         <div className="report-period-toggle" role="tablist" aria-label="Período do relatório">
-          <button type="button" role="tab" aria-selected={period === "weekly"} className={period === "weekly" ? "active" : ""} onClick={() => { setPeriod("weekly"); setReport(null); }}>Semanal</button>
-          <button type="button" role="tab" aria-selected={period === "monthly"} className={period === "monthly" ? "active" : ""} onClick={() => { setPeriod("monthly"); setReport(null); }}>Mensal</button>
+          <button type="button" role="tab" aria-selected={period === "weekly"} className={period === "weekly" ? "active" : ""} onClick={() => { setPeriod("weekly"); setReport(null); setUnfinished([]); }}>Semanal</button>
+          <button type="button" role="tab" aria-selected={period === "monthly"} className={period === "monthly" ? "active" : ""} onClick={() => { setPeriod("monthly"); setReport(null); setUnfinished([]); }}>Mensal</button>
         </div>
         <label>{period === "weekly" ? "Escolha uma data da semana" : "Escolha o mês"}
           <input
@@ -104,6 +113,33 @@ export default function ReportsPage() {
 
       {report && (
         <>
+          {unfinished.length > 0 && (
+            <section className="report-unfinished" aria-labelledby="unfinished-workouts-title">
+              <header>
+                <div>
+                  <span className="eyebrow">AÇÃO NECESSÁRIA</span>
+                  <h2 id="unfinished-workouts-title">Treinos aguardando finalização</h2>
+                  <p>Estes treinos ainda não entram no relatório. Continue a sessão e finalize-a para incluir os dados.</p>
+                </div>
+                <strong>{unfinished.length}</strong>
+              </header>
+              <div className="report-unfinished__list">
+                {unfinished.map((workout) => (
+                  <article key={workout.id}>
+                    <div>
+                      <small>{formatDate(workout.date)} · {workout.status === "paused" ? "Pausado" : "Em andamento"}</small>
+                      <h3>{workout.label}</h3>
+                      <span>{workout.completedSets} de {workout.totalSets} séries registradas</span>
+                    </div>
+                    <Link to={`/preparar-treino/${workout.date}?label=${encodeURIComponent(workout.label)}&planned=0`}>
+                      Continuar e finalizar
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="report-summary" aria-label="Resumo do relatório">
             <article><span>Treinos realizados</span><strong>{report.completedSessions}</strong><ChangeBadge value={change(report.completedSessions, previous?.completedSessions ?? 0)} /></article>
             <article><span>Adesão</span><strong>{report.adherence}%</strong><small>{report.plannedSessions} dia(s) disponível(is)</small></article>
