@@ -1,0 +1,180 @@
+import { getSupabaseClient } from "../lib/supabase";
+
+export interface ReportSet {
+  setNumber: number;
+  reps: number;
+  loadKg: number;
+  rpe: number | null;
+  isExtra: boolean;
+  skipped: boolean;
+  skipReason: string | null;
+}
+
+export interface ReportExercise {
+  key: string;
+  name: string;
+  originalKey: string | null;
+  substitutionReason: string | null;
+  sets: ReportSet[];
+  volume: number;
+}
+
+export interface ReportWorkout {
+  id: string;
+  date: string;
+  label: string;
+  notes: string;
+  startedAt: string;
+  completedAt: string | null;
+  exercises: ReportExercise[];
+  completedSets: number;
+  skippedSets: number;
+  volume: number;
+  averageRpe: number | null;
+}
+
+export interface WorkoutReport {
+  startDate: string;
+  endDate: string;
+  plannedSessions: number;
+  workouts: ReportWorkout[];
+  completedSessions: number;
+  adherence: number;
+  completedSets: number;
+  skippedSets: number;
+  totalReps: number;
+  totalVolume: number;
+  averageRpe: number | null;
+}
+
+interface SetRow {
+  set_number: number;
+  actual_reps: number | null;
+  load_kg: number | null;
+  rpe: number | null;
+  completed: boolean;
+  is_extra: boolean;
+  skipped_at: string | null;
+  skip_reason: string | null;
+}
+
+interface ExerciseRow {
+  exercise_key: string;
+  exercise_name: string;
+  original_exercise_key: string | null;
+  substitution_reason: string | null;
+  position: number;
+  set_logs: SetRow[] | null;
+}
+
+interface SessionRow {
+  id: string;
+  training_date: string;
+  workout_label: string;
+  notes: string;
+  started_at: string;
+  completed_at: string | null;
+  exercise_logs: ExerciseRow[] | null;
+}
+
+function round(value: number, precision = 1) {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
+export function aggregateWorkoutReport(
+  startDate: string,
+  endDate: string,
+  plannedSessions: number,
+  rows: SessionRow[],
+): WorkoutReport {
+  const workouts = rows.map((session): ReportWorkout => {
+    const exercises = [...(session.exercise_logs ?? [])]
+      .sort((left, right) => left.position - right.position)
+      .map((exercise): ReportExercise => {
+        const sets = [...(exercise.set_logs ?? [])]
+          .sort((left, right) => left.set_number - right.set_number)
+          .map((set): ReportSet => ({
+            setNumber: set.set_number,
+            reps: Number(set.actual_reps ?? 0),
+            loadKg: Number(set.load_kg ?? 0),
+            rpe: set.rpe === null ? null : Number(set.rpe),
+            isExtra: Boolean(set.is_extra),
+            skipped: Boolean(set.skipped_at),
+            skipReason: set.skip_reason,
+          }));
+        const volume = sets
+          .filter((set) => !set.skipped)
+          .reduce((total, set) => total + set.reps * set.loadKg, 0);
+        return {
+          key: exercise.exercise_key,
+          name: exercise.exercise_name,
+          originalKey: exercise.original_exercise_key,
+          substitutionReason: exercise.substitution_reason,
+          sets,
+          volume: round(volume),
+        };
+      });
+    const completedSets = exercises.flatMap((exercise) => exercise.sets).filter((set) => !set.skipped && set.reps > 0).length;
+    const skippedSets = exercises.flatMap((exercise) => exercise.sets).filter((set) => set.skipped).length;
+    const rpes = exercises.flatMap((exercise) => exercise.sets).flatMap((set) => set.rpe === null || set.skipped ? [] : [set.rpe]);
+    return {
+      id: session.id,
+      date: session.training_date,
+      label: session.workout_label,
+      notes: session.notes,
+      startedAt: session.started_at,
+      completedAt: session.completed_at,
+      exercises,
+      completedSets,
+      skippedSets,
+      volume: round(exercises.reduce((total, exercise) => total + exercise.volume, 0)),
+      averageRpe: rpes.length ? round(rpes.reduce((total, value) => total + value, 0) / rpes.length) : null,
+    };
+  });
+
+  const allSets = workouts.flatMap((workout) => workout.exercises).flatMap((exercise) => exercise.sets);
+  const validRpes = allSets.flatMap((set) => set.rpe === null || set.skipped ? [] : [set.rpe]);
+  const completedSessions = workouts.length;
+  return {
+    startDate,
+    endDate,
+    plannedSessions,
+    workouts,
+    completedSessions,
+    adherence: plannedSessions ? Math.min(100, round((completedSessions / plannedSessions) * 100)) : completedSessions ? 100 : 0,
+    completedSets: allSets.filter((set) => !set.skipped && set.reps > 0).length,
+    skippedSets: allSets.filter((set) => set.skipped).length,
+    totalReps: allSets.filter((set) => !set.skipped).reduce((total, set) => total + set.reps, 0),
+    totalVolume: round(workouts.reduce((total, workout) => total + workout.volume, 0)),
+    averageRpe: validRpes.length ? round(validRpes.reduce((total, value) => total + value, 0) / validRpes.length) : null,
+  };
+}
+
+export async function loadWorkoutReport(userId: string, startDate: string, endDate: string): Promise<WorkoutReport> {
+  const supabase = getSupabaseClient();
+  const [sessionsResult, calendarResult] = await Promise.all([
+    supabase.from("workout_sessions")
+      .select("id, training_date, workout_label, notes, started_at, completed_at, exercise_logs(exercise_key, exercise_name, original_exercise_key, substitution_reason, position, set_logs(set_number, actual_reps, load_kg, rpe, completed, is_extra, skipped_at, skip_reason))")
+      .eq("user_id", userId)
+      .eq("session_kind", "real")
+      .eq("status", "completed")
+      .gte("training_date", startDate)
+      .lte("training_date", endDate)
+      .order("training_date"),
+    supabase.from("training_calendar_entries")
+      .select("training_date")
+      .eq("user_id", userId)
+      .eq("available", true)
+      .gte("training_date", startDate)
+      .lte("training_date", endDate),
+  ]);
+  if (sessionsResult.error) throw sessionsResult.error;
+  if (calendarResult.error) throw calendarResult.error;
+  return aggregateWorkoutReport(
+    startDate,
+    endDate,
+    calendarResult.data?.length ?? 0,
+    (sessionsResult.data ?? []) as unknown as SessionRow[],
+  );
+}

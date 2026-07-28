@@ -37,6 +37,7 @@ describe("layout autenticado", () => {
     expect(screen.getByText("Conteúdo do painel")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /painel/i }).length).toBeGreaterThan(0);
     expect(await screen.findAllByRole("link", { name: /laboratório/i })).not.toHaveLength(0);
+    expect(screen.getAllByRole("link", { name: /relatórios/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /usuários/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /catálogo/i }).length).toBeGreaterThan(0);
   });
