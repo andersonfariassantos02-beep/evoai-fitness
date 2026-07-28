@@ -33,19 +33,14 @@ describe("painel principal", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => cleanup());
 
-  it("reúne a navegação no menu e remove a explicação repetida", async () => {
-    const user = userEvent.setup();
+  it("apresenta o resumo de treino sem repetir a explicação antiga", async () => {
     render(<DashboardPage />);
 
     expect(screen.queryByText("Nenhuma escala é presumida")).not.toBeInTheDocument();
-    await user.click(screen.getByText("Menu"));
-    expect(await screen.findByRole("navigation", { name: "Menu da conta" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Usuários" })).toHaveAttribute("href", "#/admin/usuarios");
-    expect(screen.getByRole("link", { name: "Catálogo" })).toHaveAttribute("href", "#/admin/exercicios");
-    expect(screen.getByRole("link", { name: "Meu perfil" })).toHaveAttribute("href", "#/perfil");
-
-    await user.click(screen.getByRole("button", { name: "Sair" }));
-    expect(mocks.signOut).toHaveBeenCalledOnce();
+    expect(screen.getByRole("heading", { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(screen.getByText("PRÓXIMO TREINO")).toBeInTheDocument();
+    expect(screen.getByText("PROGRESSO SEMANAL")).toBeInTheDocument();
+    expect(screen.getByText("FOCO MUSCULAR")).toBeInTheDocument();
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {

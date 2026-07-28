@@ -11,6 +11,7 @@ import UserAdminPage from "./pages/UserAdminPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import TestLabPage from "./pages/TestLabPage";
+import AuthenticatedLayout from "./components/AuthenticatedLayout";
 
 function LoadingScreen() {
   return (
@@ -75,13 +76,15 @@ export default function App() {
         <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
       </Route>
       <Route element={<ProtectedRoute />}>
-        <Route path="/app" element={<DashboardPage />} />
-        <Route path="/perfil" element={<ProfilePage />} />
+        <Route element={<AuthenticatedLayout />}>
+          <Route path="/app" element={<DashboardPage />} />
+          <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/admin/exercicios" element={<ExerciseCatalogAdminPage />} />
+          <Route path="/admin/usuarios" element={<UserAdminPage />} />
+          <Route path="/admin/testes" element={<TestLabPage />} />
+        </Route>
         <Route path="/treino/:date" element={<WorkoutSessionPage />} />
         <Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} />
-        <Route path="/admin/exercicios" element={<ExerciseCatalogAdminPage />} />
-        <Route path="/admin/usuarios" element={<UserAdminPage />} />
-        <Route path="/admin/testes" element={<TestLabPage />} />
         <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       </Route>
       <Route path="*" element={<RouteFallback />} />

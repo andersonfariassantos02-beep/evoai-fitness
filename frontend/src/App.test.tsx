@@ -11,6 +11,10 @@ vi.mock("./pages/RegisterPage", () => ({ default: () => <p>Cadastro</p> }));
 vi.mock("./pages/ProfilePage", () => ({ default: () => <p>Meu perfil</p> }));
 vi.mock("./pages/DashboardPage", () => ({ default: () => <p>Área protegida</p> }));
 vi.mock("./pages/WorkoutSessionPage", () => ({ default: () => <p>Treino</p> }));
+vi.mock("./components/AuthenticatedLayout", async () => {
+  const { Outlet } = await import("react-router-dom");
+  return { default: () => <Outlet /> };
+});
 
 describe("autenticação e sessão", () => {
   beforeEach(() => { auth = { configured: true, loading: false, session: null, user: null }; });
