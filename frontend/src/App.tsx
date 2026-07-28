@@ -12,6 +12,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import TestLabPage from "./pages/TestLabPage";
 import AuthenticatedLayout from "./components/AuthenticatedLayout";
+import ReportsPage from "./pages/ReportsPage";
 
 function LoadingScreen() {
   return (
@@ -79,6 +80,7 @@ export default function App() {
         <Route element={<AuthenticatedLayout />}>
           <Route path="/app" element={<DashboardPage />} />
           <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/relatorios" element={<ReportsPage />} />
           <Route path="/admin/exercicios" element={<ExerciseCatalogAdminPage />} />
           <Route path="/admin/usuarios" element={<UserAdminPage />} />
           <Route path="/admin/testes" element={<TestLabPage />} />
