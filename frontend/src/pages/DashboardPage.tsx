@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { isExerciseCatalogAdmin } from "../services/exerciseCatalogService";
-import { getAuthErrorMessage } from "../lib/authErrors";
 import {
   addDays,
   buildWeeklyPlan,
@@ -55,14 +53,10 @@ function formatWeekRange(start: Date) {
 }
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
-  const [catalogAdmin, setCatalogAdmin] = useState(false);
-  useEffect(() => { if (user) void isExerciseCatalogAdmin(user.id).then(setCatalogAdmin); }, [user]);
+  const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const storageKey = `evoai:training-calendar:${user?.id ?? "anonymous"}`;
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [calendarCursor, setCalendarCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
@@ -182,55 +176,74 @@ export default function DashboardPage() {
       : { ...entry, completed: true, completedWasPlanned: entry.available });
   }
 
-  async function handleSignOut() {
-    setError("");
-    setSubmitting(true);
-
-    try {
-      await signOut();
-    } catch (caughtError) {
-      setError(getAuthErrorMessage(caughtError));
-      setSubmitting(false);
-    }
-  }
+  const displayName = String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Atleta")
+    .split(/[._-]/)
+    .map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : "")
+    .filter(Boolean)
+    .join(" ");
+  const nextWorkout = weeklyPlan.days.find((day) => day.status === "planned");
+  const weeklyProgress = weeklyPlan.targetSessions > 0
+    ? Math.round((weeklyPlan.completedSessions / weeklyPlan.targetSessions) * 100)
+    : 0;
+  const focusLabels: Record<string, string> = {
+    full_body: "Corpo inteiro",
+    glutes: "Glúteos",
+    legs: "Pernas",
+    upper_body: "Membros superiores",
+    chest: "Peito",
+    back: "Costas",
+    shoulders: "Ombros",
+    arms: "Braços",
+    core: "Core",
+  };
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <a className="brand" href="#/app" aria-label="EvoAI Fitness — início">
-          <img className="brand__logo brand__logo--header" src={`${import.meta.env.BASE_URL}evoai-fitness-logo.png`} alt="" />
-        </a>
-        <details className="header-menu">
-          <summary>Menu <span aria-hidden="true">⌄</span></summary>
-          <nav aria-label="Menu da conta">
-            {catalogAdmin && <><a href="#/admin/testes">Laboratório</a><a href="#/admin/usuarios">Usuários</a><a href="#/admin/exercicios">Catálogo</a></>}
-            <a href="#/perfil">Meu perfil</a>
-            <button type="button" onClick={handleSignOut} disabled={submitting}>{submitting ? "Saindo…" : "Sair"}</button>
-          </nav>
-        </details>
-      </header>
-
-      <main className="training-dashboard">
-        {error && <div className="form-message form-message--error" role="alert">{error}</div>}
-
-        <section className="calendar-hero" aria-labelledby="dashboard-title">
+    <main className="training-dashboard">
+        <section className="dashboard-welcome" aria-labelledby="dashboard-title">
           <div>
-            <span className="eyebrow">PLANEJAMENTO ADAPTATIVO</span>
-            <h1 id="dashboard-title">Quando você pode treinar?</h1>
-            <p>Marque sua disponibilidade. O EvoAI monta a semana pelas datas escolhidas e reorganiza o restante quando um treino acontece fora do plano.</p>
+            <span className="eyebrow">PAINEL DE TREINO</span>
+            <h1 id="dashboard-title">Bem-vindo, {displayName}!</h1>
+            <p>Seu planejamento acompanha sua disponibilidade e preserva tudo o que você já realizou.</p>
+          </div>
+          <div className={`calendar-sync calendar-sync--${syncState}`} role="status" aria-live="polite">
+            <span aria-hidden="true" />
+            {syncState === "loading" && "Carregando calendário…"}
+            {syncState === "synced" && "Calendário sincronizado"}
+            {syncState === "pending" && "Salvando alterações…"}
+            {syncState === "offline" && "Alterações salvas neste dispositivo"}
+            {syncState === "error" && "Sincronização pendente"}
           </div>
         </section>
 
-        <div className={`calendar-sync calendar-sync--${syncState}`} role="status" aria-live="polite">
-          <span aria-hidden="true" />
-          {syncState === "loading" && "Carregando calendário…"}
-          {syncState === "synced" && "Calendário sincronizado"}
-          {syncState === "pending" && "Salvando alterações…"}
-          {syncState === "offline" && "Sem conexão — alterações preservadas neste dispositivo"}
-          {syncState === "error" && "Sincronização pendente — tentaremos novamente quando houver conexão"}
-        </div>
+        <section className="dashboard-overview" aria-label="Resumo da semana">
+          <article className="overview-card overview-card--primary">
+            <span>PRÓXIMO TREINO</span>
+            <strong>{nextWorkout?.label ?? "Defina sua disponibilidade"}</strong>
+            <small>{nextWorkout ? formatShortDate(nextWorkout.date) : "Marque os dias no calendário para começar"}</small>
+            {nextWorkout && <a href={workoutHref(nextWorkout.date, nextWorkout.label, true)}>Preparar treino <b aria-hidden="true">→</b></a>}
+          </article>
+          <article className="overview-card">
+            <span>PROGRESSO SEMANAL</span>
+            <div className="overview-card__metric"><strong>{weeklyPlan.completedSessions}</strong><small>de {weeklyPlan.targetSessions} treinos</small></div>
+            <div className="overview-progress" aria-label={`${weeklyProgress}% da semana concluída`}><i style={{ width: `${weeklyProgress}%` }} /></div>
+            <small>{weeklyProgress}% concluído</small>
+          </article>
+          <article className="overview-card">
+            <span>FOCO MUSCULAR</span>
+            <div className="focus-tags">
+              {planningProfile.trainingFocus.map((focus) => <strong key={focus}>{focusLabels[focus] ?? focus}</strong>)}
+            </div>
+            <a href="#/perfil">Ajustar foco <b aria-hidden="true">→</b></a>
+          </article>
+        </section>
 
-        <div className="planner-layout">
+        <section className="calendar-hero">
+          <span className="eyebrow">PLANEJAMENTO ADAPTATIVO</span>
+          <h2>Quando você pode treinar?</h2>
+          <p>Marque sua disponibilidade. O EvoAI monta a semana pelas datas escolhidas e reorganiza o restante quando um treino acontece fora do plano.</p>
+        </section>
+
+        <div className="planner-layout" id="training-calendar">
           <section className="calendar-card" aria-labelledby="calendar-title">
             <div className="calendar-card__header">
               <div>
@@ -394,9 +407,6 @@ export default function DashboardPage() {
           <strong>Como o ajuste funciona</strong>
           <p>Um treino realizado em dia não marcado assume a próxima sessão da sequência. O sistema mantém o que já foi feito e redistribui somente os treinos restantes, sem alterar o histórico.</p>
         </section>
-      </main>
-
-      <footer className="app-footer"><span>EvoAI Fitness</span><span>Calendário adaptativo • P0</span></footer>
-    </div>
+    </main>
   );
 }
