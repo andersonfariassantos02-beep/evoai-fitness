@@ -1015,10 +1015,24 @@ main { padding: 64px 0 52px; }
 .confirmation-dialog input { width:100%; min-height:48px; padding:0 12px; border:1px solid var(--line); border-radius:10px; font-size:1rem; }
 .confirmation-dialog form>div { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
 .confirmation-dialog button { min-height:44px; padding:0 14px; border:1px solid var(--line); border-radius:10px; font-weight:850; }
+.set-row__validation { margin:8px 0 0; color:#a13b43; font-size:.78rem; font-weight:800; }
+.set-row input[aria-invalid="true"] { border-color:#cc6972; box-shadow:0 0 0 3px rgb(204 105 114 / 14%); }
+.set-row--skipped { opacity:.72; background:#f4f5f7; }
+.set-row--skipped .set-row__header small { color:#7a4d00; background:#fff0c2; }
+.finish-pending-dialog { width:min(560px,100%); }
+.finish-pending-dialog>ul { display:grid; max-height:240px; gap:8px; margin:14px 0; padding:0; overflow:auto; list-style:none; }
+.finish-pending-dialog>ul li { display:flex; justify-content:space-between; gap:14px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; }
+.finish-pending-dialog>ul span { color:var(--muted); font-size:.82rem; text-align:right; }
+.finish-pending-dialog>label { display:grid; gap:7px; color:var(--navy); font-weight:800; }
+.finish-pending-dialog select { min-height:46px; padding:0 11px; border:1px solid var(--line); border-radius:10px; color:var(--navy); background:white; font:inherit; }
+.finish-pending-dialog__actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
 @media(max-width:700px){
   .test-lab__intro,.test-lab__card { align-items:stretch; flex-direction:column; }
   .test-lab__actions { display:grid; }
   .confirmation-dialog form>div { display:grid; }
+  .finish-pending-dialog>ul li { display:grid; }
+  .finish-pending-dialog>ul span { text-align:left; }
+  .finish-pending-dialog__actions { display:grid; }
 }
 
 /* A marca base é declarada depois dos breakpoints antigos. Estas regras finais

@@ -4,7 +4,7 @@ import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogServi
 import { recommendProgression, type ProgressionRecommendation } from "../lib/progression";
 import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
-export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; }
+export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; skipped_at: string | null; skip_reason: string | null; }
 export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; rest_seconds: number; transition_rest_seconds: number; recommendation: ProgressionRecommendation; sets: SetLog[]; }
 export type WorkoutSessionKind = "real" | "test";
 export interface WorkoutSession { id: string; training_date: string; workout_label: string; session_kind: WorkoutSessionKind; status: "active" | "paused" | "completed"; notes: string; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
@@ -34,7 +34,7 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
   if (error) throw error;
   const result: ExerciseLog[] = [];
   for (const exercise of exercises ?? []) {
-    const { data: sets, error: setsError } = await supabase.from("set_logs").select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra").eq("exercise_log_id", exercise.id).order("set_number");
+    const { data: sets, error: setsError } = await supabase.from("set_logs").select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra, skipped_at, skip_reason").eq("exercise_log_id", exercise.id).order("set_number");
     if (setsError) throw setsError;
     const currentSets = (sets ?? []) as SetLog[];
     const template = catalog.find((item) => item.key === exercise.exercise_key)
@@ -153,7 +153,7 @@ export async function addExtraSet(exercise: ExerciseLog): Promise<SetLog> {
     target_reps_min: lastSet.target_reps_min,
     target_reps_max: lastSet.target_reps_max,
     is_extra: true,
-  }).select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra").single();
+  }).select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra, skipped_at, skip_reason").single();
   if (error) throw error;
   return data as SetLog;
 }
@@ -168,6 +168,16 @@ export async function updateSession(id: string, status: WorkoutSession["status"]
   const now = new Date().toISOString();
   const { error } = await getSupabaseClient().from("workout_sessions").update({ status, notes, paused_at: status === "paused" ? now : null, completed_at: status === "completed" ? now : null }).eq("id", id);
   if (error) throw error;
+}
+
+export async function finishWorkoutWithPending(id: string, notes: string, reason: string): Promise<number> {
+  const { data, error } = await getSupabaseClient().rpc("finish_workout_with_pending", {
+    p_session_id: id,
+    p_notes: notes,
+    p_skip_reason: reason,
+  });
+  if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export async function substituteExercise(exercise: ExerciseLog, replacement: WorkoutExerciseTemplate, reason: string) {
@@ -188,7 +198,7 @@ export async function substituteExercise(exercise: ExerciseLog, replacement: Wor
   const { error: deleteError } = await supabase.from("set_logs").delete().eq("exercise_log_id", exercise.id);
   if (deleteError) throw deleteError;
   const rows = buildSetRows(replacement, exercise.id, userId);
-  const { data: sets, error: insertError } = await supabase.from("set_logs").insert(rows).select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra").order("set_number");
+  const { data: sets, error: insertError } = await supabase.from("set_logs").insert(rows).select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra, skipped_at, skip_reason").order("set_number");
   if (insertError) throw insertError;
   const recommendation = await getRecommendation(userId, replacement.key, replacement.repsMin, replacement.repsMax);
   return {
