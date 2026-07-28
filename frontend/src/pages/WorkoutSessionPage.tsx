@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
-import { addExtraSet, removeExtraSet, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
+import { addExtraSet, finishWorkoutWithPending, removeExtraSet, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
 import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
@@ -34,6 +34,7 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
   const [actualReps, setActualReps] = useState(set.actual_reps?.toString() ?? "");
   const [loadKg, setLoadKg] = useState(set.load_kg?.toString() ?? "");
   const [repsInReserve, setRepsInReserve] = useState(repsInReserveFromRpe(set.rpe));
+  const [validationMessage, setValidationMessage] = useState("");
   const completing = useRef(false);
 
   function draft() {
@@ -50,22 +51,36 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
     await onSave(draft());
   }
 
-  return <div className={`set-row ${set.completed ? "set-row--done" : ""}`}>
+  async function completeDraft() {
+    const nextDraft = draft();
+    if (nextDraft.actual_reps === null || nextDraft.actual_reps < 1) {
+      setValidationMessage("Informe as repetições realizadas.");
+      return;
+    }
+    if (nextDraft.load_kg === null || nextDraft.load_kg < 0) {
+      setValidationMessage("Informe a carga. Para peso corporal, digite 0 kg.");
+      return;
+    }
+    setValidationMessage("");
+    unlockRestAudio();
+    await onComplete(nextDraft);
+  }
+
+  return <div className={`set-row ${set.completed ? "set-row--done" : ""} ${set.skipped_at ? "set-row--skipped" : ""}`}>
     <div className="set-row__header">
-      <strong>Série {set.set_number}{set.is_extra && <small>extra</small>}</strong>
+      <strong>Série {set.set_number}{set.is_extra && <small>extra</small>}{set.skipped_at && <small>não realizada</small>}</strong>
       <div>
-        {set.is_extra && !set.completed && <button className="set-row__remove" type="button" onClick={() => void onRemove(set)}>Excluir</button>}
-        <button type="button" onPointerDown={() => { completing.current = true; }} onClick={async () => {
-          unlockRestAudio();
-          await onComplete(draft());
+        {set.is_extra && !set.completed && !set.skipped_at && <button className="set-row__remove" type="button" onClick={() => void onRemove(set)}>Excluir</button>}
+        <button type="button" disabled={Boolean(set.skipped_at)} onPointerDown={() => { completing.current = true; }} onClick={async () => {
+          await completeDraft();
           completing.current = false;
-        }}>{set.completed ? "✓ Feita" : "Concluir"}</button>
+        }}>{set.completed ? "✓ Feita" : set.skipped_at ? "Não realizada" : "Concluir"}</button>
       </div>
     </div>
     <div className="set-row__fields">
-      <label>Reps<input aria-label={`Repetições da série ${set.set_number}`} inputMode="numeric" type="number" value={actualReps} onChange={(event) => setActualReps(event.target.value)} onBlur={() => void saveDraft()} /></label>
-      <label>Kg<input aria-label={`Carga da série ${set.set_number}`} inputMode="decimal" type="number" step="0.5" value={loadKg} onChange={(event) => setLoadKg(event.target.value)} onBlur={() => void saveDraft()} /></label>
-      <label>RPE automático<select aria-label={`Esforço da série ${set.set_number}`} value={repsInReserve} onChange={(event) => setRepsInReserve(event.target.value)} onBlur={() => void saveDraft()}>
+      <label>Reps<input aria-label={`Repetições da série ${set.set_number}`} aria-invalid={validationMessage.includes("repetições")} disabled={Boolean(set.skipped_at)} min="1" inputMode="numeric" type="number" value={actualReps} onChange={(event) => { setActualReps(event.target.value); setValidationMessage(""); }} onBlur={() => void saveDraft()} /></label>
+      <label>Kg<input aria-label={`Carga da série ${set.set_number}`} aria-invalid={validationMessage.includes("carga")} disabled={Boolean(set.skipped_at)} min="0" inputMode="decimal" type="number" step="0.5" value={loadKg} onChange={(event) => { setLoadKg(event.target.value); setValidationMessage(""); }} onBlur={() => void saveDraft()} /></label>
+      <label>RPE automático<select aria-label={`Esforço da série ${set.set_number}`} disabled={Boolean(set.skipped_at)} value={repsInReserve} onChange={(event) => setRepsInReserve(event.target.value)} onBlur={() => void saveDraft()}>
         <option value="">Esforço</option>
         <option value="4">4+ sobrariam · RPE 6</option>
         <option value="3">3 sobrariam · RPE 7</option>
@@ -74,6 +89,7 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
         <option value="0">Nenhuma · RPE 10</option>
       </select></label>
     </div>
+    {validationMessage && <p className="set-row__validation" role="alert">{validationMessage}</p>}
   </div>;
 }
 
@@ -92,6 +108,9 @@ export default function WorkoutSessionPage() {
   const [activeRest, setActiveRest] = useState<ActiveRest | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("evoai-rest-sound") !== "off");
   const [addingExerciseId, setAddingExerciseId] = useState<string | null>(null);
+  const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
+  const [skipReason, setSkipReason] = useState("Treino encerrado antes do planejado");
+  const [finishing, setFinishing] = useState(false);
   const restWasFinalized = useRef(false);
 
   useEffect(() => {
@@ -115,8 +134,13 @@ export default function WorkoutSessionPage() {
   }, [exerciseKeys]);
 
   const allSets = useMemo(() => (session?.exercises ?? []).filter(Boolean).flatMap((exercise) => exercise.sets.map((set) => ({ exercise, set }))) ?? [], [session]);
-  const next = allSets.find((item) => !item.set.completed);
+  const pendingSets = allSets.filter((item) => !item.set.completed && !item.set.skipped_at);
+  const next = pendingSets[0];
   const completed = allSets.filter((item) => item.set.completed).length;
+  const pendingExercises = useMemo(() => (session?.exercises ?? []).filter(Boolean).map((exercise) => ({
+    exercise,
+    sets: exercise.sets.filter((set) => !set.completed && !set.skipped_at),
+  })).filter((item) => item.sets.length > 0), [session]);
 
   useEffect(() => {
     if (!activeRest || activeRest.paused || activeRest.ready) return;
@@ -274,9 +298,8 @@ export default function WorkoutSessionPage() {
     }
   }
 
-  async function finish() {
-    if (!session || !user || next) { setMessage("Conclua todas as séries antes de finalizar."); return; }
-    await updateSession(session.id, "completed", session.notes);
+  async function completeNavigation() {
+    if (!session || !user) return;
     if (testMode) {
       navigate("/admin/testes");
       return;
@@ -286,6 +309,45 @@ export default function WorkoutSessionPage() {
       completedLabel: session.workout_label,
     });
     navigate("/app");
+  }
+
+  async function finish() {
+    if (!session || !user) return;
+    if (pendingSets.length > 0) {
+      if (completed === 0) {
+        setMessage("Nenhuma série foi realizada. Registre ao menos uma série ou volte ao calendário para cancelar o treino.");
+        return;
+      }
+      setShowFinishConfirmation(true);
+      return;
+    }
+    setFinishing(true);
+    setMessage("");
+    try {
+      await updateSession(session.id, "completed", session.notes);
+      await completeNavigation();
+    } catch {
+      setMessage("Não foi possível finalizar o treino.");
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  async function confirmFinishWithPending() {
+    if (!session) return;
+    setFinishing(true);
+    setMessage("");
+    try {
+      const skippedCount = await finishWorkoutWithPending(session.id, session.notes, skipReason);
+      setShowFinishConfirmation(false);
+      setMessage(`${skippedCount} série${skippedCount === 1 ? "" : "s"} registrada${skippedCount === 1 ? "" : "s"} como não realizada${skippedCount === 1 ? "" : "s"}.`);
+      await completeNavigation();
+    } catch {
+      setMessage("Não foi possível finalizar com pendências. O treino continua aberto.");
+      setShowFinishConfirmation(false);
+    } finally {
+      setFinishing(false);
+    }
   }
 
   if (!session) return <main className="centered-screen"><span className="spinner" /><p>{message}</p></main>;
@@ -347,7 +409,26 @@ export default function WorkoutSessionPage() {
       })}
       <label className="session-notes">Observações do treino<textarea value={session.notes} onChange={(event) => setSession({ ...session, notes: event.target.value })} /></label>
       {message && <p className="workout-message">{message}</p>}
-      <button className="finish-workout" onClick={finish}>{testMode ? "Finalizar teste" : "Finalizar treino"}</button>
+      <button className="finish-workout" disabled={finishing} onClick={finish}>{finishing ? "Finalizando…" : testMode ? "Finalizar teste" : "Finalizar treino"}</button>
     </main>
+    {showFinishConfirmation && <div className="confirmation-backdrop" role="presentation">
+      <section className="confirmation-dialog finish-pending-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-pending-title">
+        <span className="setup-status setup-status--locked">EXISTEM SÉRIES PENDENTES</span>
+        <h2 id="finish-pending-title">Finalizar mesmo assim?</h2>
+        <p>Você concluiu <strong>{completed}</strong> de <strong>{allSets.length}</strong> séries. As demais serão registradas como não realizadas.</p>
+        <ul>{pendingExercises.map(({ exercise, sets }) => <li key={exercise.id}><strong>{exercise.exercise_name}</strong><span>Séries {sets.map((set) => set.set_number).join(", ")}</span></li>)}</ul>
+        <label>Motivo<select value={skipReason} onChange={(event) => setSkipReason(event.target.value)}>
+          <option>Treino encerrado antes do planejado</option>
+          <option>Falta de tempo</option>
+          <option>Aparelho indisponível</option>
+          <option>Desconforto durante o treino</option>
+          <option>Outro motivo</option>
+        </select></label>
+        <div className="finish-pending-dialog__actions">
+          <button type="button" disabled={finishing} onClick={() => setShowFinishConfirmation(false)}>Voltar e continuar</button>
+          <button className="danger-action" type="button" disabled={finishing} onClick={() => void confirmFinishWithPending()}>{finishing ? "Finalizando…" : "Finalizar com pendências"}</button>
+        </div>
+      </section>
+    </div>}
   </div>;
 }
