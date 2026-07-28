@@ -82,6 +82,7 @@ export default function WorkoutSessionPage() {
   const [search] = useSearchParams();
   const label = search.get("label") || "Treino planejado";
   const completedWasPlanned = search.get("planned") === "1";
+  const testMode = search.get("test") === "1";
   const { user } = useAuth();
   const navigate = useNavigate();
   const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -95,14 +96,14 @@ export default function WorkoutSessionPage() {
 
   useEffect(() => {
     if (!user || !date) return;
-    void startOrLoadWorkout(user.id, date, label)
+    void startOrLoadWorkout(user.id, date, label, testMode ? "test" : "real")
       .then((data) => { setSession(data); setProfileRestrictions(data.applied_restrictions); setMessage(""); })
       .catch((error) => setMessage(error instanceof Error && error.message.startsWith("PROFILE_RESTRICTION_BLOCKS_PLAN")
         ? "As restrições do perfil bloqueiam um exercício sem substituto seguro. Revise o perfil antes de iniciar."
         : error instanceof Error && error.message === "MULTIPLE_ACTIVE_LINKED_PROFILES"
           ? "Há mais de um perfil ativo ligado à sua conta. Selecione ou desative um perfil antes de planejar o treino."
           : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
-  }, [date, label, user]);
+  }, [date, label, testMode, user]);
 
   const exerciseKeys = useMemo(() => (session?.exercises ?? []).filter(Boolean).map((exercise) => exercise.exercise_key).join("|"), [session]);
   useEffect(() => {
@@ -276,6 +277,10 @@ export default function WorkoutSessionPage() {
   async function finish() {
     if (!session || !user || next) { setMessage("Conclua todas as séries antes de finalizar."); return; }
     await updateSession(session.id, "completed", session.notes);
+    if (testMode) {
+      navigate("/admin/testes");
+      return;
+    }
     await queueCalendarMutation(user.id, date, {
       date, available: completedWasPlanned, completed: true, completedWasPlanned,
       completedLabel: session.workout_label,
@@ -286,7 +291,7 @@ export default function WorkoutSessionPage() {
   if (!session) return <main className="centered-screen"><span className="spinner" /><p>{message}</p></main>;
 
   return <div className="workout-shell">
-    <header className="workout-header"><button onClick={() => navigate("/app")}>← Calendário</button><div><small>{date}</small><h1>{session.workout_label}</h1></div><button onClick={togglePause}>{session.status === "paused" ? "Retomar" : "Pausar"}</button></header>
+    <header className="workout-header"><button onClick={() => navigate(testMode ? "/admin/testes" : "/app")}>← {testMode ? "Laboratório" : "Calendário"}</button><div><small>{testMode ? "SIMULAÇÃO · sem impacto no histórico real" : date}</small><h1>{session.workout_label}</h1></div><button onClick={togglePause}>{session.status === "paused" ? "Retomar" : "Pausar"}</button></header>
     <div className="workout-progress"><strong>{completed}/{allSets.length} séries</strong><span><i style={{ width: `${allSets.length ? completed / allSets.length * 100 : 0}%` }} /></span></div>
     <div className="workout-tools">
       <button type="button" onClick={() => {
@@ -342,7 +347,7 @@ export default function WorkoutSessionPage() {
       })}
       <label className="session-notes">Observações do treino<textarea value={session.notes} onChange={(event) => setSession({ ...session, notes: event.target.value })} /></label>
       {message && <p className="workout-message">{message}</p>}
-      <button className="finish-workout" onClick={finish}>Finalizar treino</button>
+      <button className="finish-workout" onClick={finish}>{testMode ? "Finalizar teste" : "Finalizar treino"}</button>
     </main>
   </div>;
 }

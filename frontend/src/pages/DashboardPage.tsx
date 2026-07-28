@@ -203,7 +203,7 @@ export default function DashboardPage() {
         <details className="header-menu">
           <summary>Menu <span aria-hidden="true">⌄</span></summary>
           <nav aria-label="Menu da conta">
-            {catalogAdmin && <><a href="#/admin/usuarios">Usuários</a><a href="#/admin/exercicios">Catálogo</a></>}
+            {catalogAdmin && <><a href="#/admin/testes">Laboratório</a><a href="#/admin/usuarios">Usuários</a><a href="#/admin/exercicios">Catálogo</a></>}
             <a href="#/perfil">Meu perfil</a>
             <button type="button" onClick={handleSignOut} disabled={submitting}>{submitting ? "Saindo…" : "Sair"}</button>
           </nav>

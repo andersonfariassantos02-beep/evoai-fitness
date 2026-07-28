@@ -147,6 +147,7 @@ export async function loadLastCompletedWorkoutLabel(userId: string, beforeDate: 
   const { data, error } = await getSupabaseClient().from("workout_sessions")
     .select("workout_label")
     .eq("user_id", userId)
+    .eq("session_kind", "real")
     .eq("status", "completed")
     .lt("training_date", beforeDate)
     .order("training_date", { ascending: false })
@@ -167,6 +168,7 @@ export async function loadWorkouts(userId: string, startDate: string, endDate: s
   const { data, error } = await getSupabaseClient().from("workout_sessions")
     .select("training_date, workout_label, status")
     .eq("user_id", userId)
+    .eq("session_kind", "real")
     .neq("status", "cancelled")
     .gte("training_date", startDate).lte("training_date", endDate)
     .order("training_date");
