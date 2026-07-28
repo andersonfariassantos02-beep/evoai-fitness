@@ -29,6 +29,7 @@ export const exerciseCatalog: WorkoutExerciseTemplate[] = [
   { key: "dumbbell-bench", name: "Supino com halteres", sets: 3, repsMin: 8, repsMax: 12, muscle: "peito", movement: "empurrar-horizontal", equipment: "halteres", stimulus: "peito-press-horizontal", avoidWhen: ["ombro"] },
   { key: "cable-chest-press", name: "Press de peito no cabo", sets: 3, repsMin: 8, repsMax: 12, muscle: "peito", movement: "empurrar-horizontal", equipment: "cabos", stimulus: "peito-press-horizontal" },
   { key: "dumbbell-fly", name: "Crucifixo com halteres", sets: 3, repsMin: 12, repsMax: 15, muscle: "peito", movement: "empurrar-horizontal", equipment: "halteres", stimulus: "peito-aducao-horizontal" },
+  { key: "pec-deck", name: "Fly / Peck Deck", sets: 3, repsMin: 12, repsMax: 15, muscle: "peito", movement: "empurrar-horizontal", equipment: "máquina", stimulus: "peito-aducao-horizontal" },
   { key: "row", name: "Remada", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "máquina" },
   { key: "cable-row", name: "Remada baixa no cabo", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "cabos" },
   { key: "dumbbell-row", name: "Remada unilateral", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "halteres", avoidWhen: ["lombar"] },

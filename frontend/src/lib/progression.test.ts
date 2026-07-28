@@ -38,4 +38,9 @@ describe("substituições equivalentes", () => {
     expect(getSubstitutionCandidates("reverse-cable-fly", "cabo indisponível").map((item) => item.key))
       .toEqual(["reverse-pec-deck"]);
   });
+
+  it("oferece halteres e Peck Deck para substituir o Crossover", () => {
+    expect(getSubstitutionCandidates("cable-crossover", "cabo ocupado").map((item) => item.key))
+      .toEqual(["dumbbell-fly", "pec-deck"]);
+  });
 });

@@ -30,3 +30,12 @@ export function formatRestTime(totalSeconds: number) {
   const seconds = safeSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+
+export function findNextPendingIndex(completed: boolean[], currentIndex: number) {
+  if (!completed.length) return -1;
+  for (let offset = 1; offset <= completed.length; offset += 1) {
+    const index = (currentIndex + offset) % completed.length;
+    if (!completed[index]) return index;
+  }
+  return -1;
+}

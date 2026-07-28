@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRestTime, getRemainingSeconds, getRestPrescription } from "./restTimer";
+import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription } from "./restTimer";
 
 describe("temporizador de descanso", () => {
   it("prescreve tempos distintos entre séries e exercícios", () => {
@@ -21,5 +21,10 @@ describe("temporizador de descanso", () => {
     expect(getRemainingSeconds(12_000, 1_500)).toBe(11);
     expect(getRemainingSeconds(1_000, 2_000)).toBe(0);
     expect(formatRestTime(125)).toBe("2:05");
+  });
+
+  it("volta ao início para localizar uma série pendente fora da ordem planejada", () => {
+    expect(findNextPendingIndex([true, false, true, true], 3)).toBe(1);
+    expect(findNextPendingIndex([true, true], 1)).toBe(-1);
   });
 });
