@@ -6,7 +6,7 @@ import { exerciseConflictsWithRestrictions, loadActiveProfileContext, type Profi
 import { cancelStartedWorkout, createManualWorkout, loadExistingWorkout, previewAutomaticWorkout, replaceUnstartedWorkout, type WorkoutSession } from "../services/workoutSessionService";
 import { formatWorkoutPrescription, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 
-type SetupMode = "loading" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
+type SetupMode = "loading" | "unauthorized" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
 
 export default function WorkoutSetupPage() {
   const { user } = useAuth();
@@ -15,6 +15,8 @@ export default function WorkoutSetupPage() {
   const navigate = useNavigate();
   const suggestedLabel = params.get("label") || "Meu treino";
   const planned = params.get("planned") === "1";
+  const testMode = params.get("test") === "1";
+  const sessionKind = testMode ? "test" : "real";
   const [mode, setMode] = useState<SetupMode>("loading");
   const [label, setLabel] = useState(suggestedLabel);
   const [catalog, setCatalog] = useState<WorkoutExerciseTemplate[]>([]);
@@ -28,9 +30,13 @@ export default function WorkoutSetupPage() {
 
   useEffect(() => {
     if (!user || !date) return;
-    void Promise.all([loadExerciseCatalog(), loadActiveProfileContext(user.id, date), isExerciseCatalogAdmin(user.id), loadExistingWorkout(user.id, date)])
+    void Promise.all([loadExerciseCatalog(), loadActiveProfileContext(user.id, date), isExerciseCatalogAdmin(user.id), loadExistingWorkout(user.id, date, sessionKind)])
       .then(([items, profile, isAdmin, saved]) => {
         setCatalog(items); setRestrictions(profile.restrictions); setAdmin(isAdmin); setExisting(saved);
+        if (testMode && !isAdmin) {
+          setMode("unauthorized");
+          return;
+        }
         if (saved) {
           setLabel(saved.workout_label);
           setSelectedKeys(saved.exercises.map((item) => item.exercise_key));
@@ -38,7 +44,7 @@ export default function WorkoutSetupPage() {
         } else setMode("choice");
       })
       .catch(() => { setMessage("Não foi possível carregar a preparação do treino."); setMode("loading"); });
-  }, [date, user]);
+  }, [date, sessionKind, user]);
 
   const available = useMemo(() => catalog.filter((item) => !exerciseConflictsWithRestrictions(item, restrictions)), [catalog, restrictions]);
   const groups = useMemo(() => {
@@ -46,7 +52,7 @@ export default function WorkoutSetupPage() {
     available.forEach((item) => result.set(item.muscle, [...(result.get(item.muscle) ?? []), item]));
     return [...result.entries()];
   }, [available]);
-  const sessionHref = `/treino/${date}?label=${encodeURIComponent(existing?.workout_label ?? (label.trim() || suggestedLabel))}&planned=${planned ? "1" : "0"}`;
+  const sessionHref = `/treino/${date}?label=${encodeURIComponent(existing?.workout_label ?? (label.trim() || suggestedLabel))}&planned=${planned ? "1" : "0"}${testMode ? "&test=1" : ""}`;
 
   async function showAutomaticPreview() {
     if (!user) return;
@@ -61,8 +67,9 @@ export default function WorkoutSetupPage() {
     setBusy(true); setMessage("");
     try {
       if (existing) await replaceUnstartedWorkout(user.id, date, existing.id, label, templates);
+      else if (testMode) await createManualWorkout(user.id, date, label, templates, "test");
       else await createManualWorkout(user.id, date, label, templates);
-      navigate(`/treino/${date}?label=${encodeURIComponent(label.trim())}&planned=${planned ? "1" : "0"}`);
+      navigate(`/treino/${date}?label=${encodeURIComponent(label.trim())}&planned=${planned ? "1" : "0"}${testMode ? "&test=1" : ""}`);
     } catch (error) {
       setMessage(error instanceof Error && error.message === "WORKOUT_ALREADY_STARTED"
         ? "A ficha foi bloqueada porque o treino já começou. Continue a sessão para preservar o histórico."
@@ -93,14 +100,15 @@ export default function WorkoutSetupPage() {
   const selected = selectedKeys.map((key) => available.find((item) => item.key === key)).filter(Boolean) as WorkoutExerciseTemplate[];
   const changeTrainingDate = (nextDate: string) => {
     if (!nextDate || nextDate === date) return;
-    navigate(`/preparar-treino/${nextDate}?label=${encodeURIComponent(suggestedLabel)}&planned=${planned ? "1" : "0"}`);
+    navigate(`/preparar-treino/${nextDate}?label=${encodeURIComponent(suggestedLabel)}&planned=${planned ? "1" : "0"}${testMode ? "&test=1" : ""}`);
   };
 
   return <main className="workout-setup">
-    <header><Link to="/app">← Calendário</Link><div><span className="eyebrow">MONTAGEM DA FICHA</span><h1>Revise antes de começar</h1><p>A ficha só é gravada depois da sua confirmação e pode ser editada enquanto nenhuma série tiver sido concluída.</p>{mode !== "locked" && mode !== "confirm-restart" && <label className="setup-date">Data em que vou treinar<input type="date" value={date} onChange={(event) => changeTrainingDate(event.target.value)} /></label>}{admin && <span className="admin-badge">Conta administradora</span>}</div></header>
+    <header><Link to={testMode ? "/admin/testes" : "/app"}>← {testMode ? "Laboratório" : "Calendário"}</Link><div><span className="eyebrow">{testMode ? "SIMULAÇÃO ADMINISTRATIVA" : "MONTAGEM DA FICHA"}</span><h1>Revise antes de começar</h1><p>{testMode ? "Esta ficha é isolada e não altera seu calendário, evolução ou recomendações reais." : "A ficha só é gravada depois da sua confirmação e pode ser editada enquanto nenhuma série tiver sido concluída."}</p>{!testMode && mode !== "locked" && mode !== "confirm-restart" && <label className="setup-date">Data em que vou treinar<input type="date" value={date} onChange={(event) => changeTrainingDate(event.target.value)} /></label>}{admin && <span className="admin-badge">{testMode ? "Modo de teste" : "Conta administradora"}</span>}</div></header>
     {message && <p className="profile-message" role="status">{message}</p>}
 
     {mode === "loading" && <section className="setup-loading" aria-live="polite"><span className="setup-loading__spinner" aria-hidden="true" /><div><h2>Carregando ficha do dia…</h2><p>Estamos verificando se já existe um treino salvo.</p></div></section>}
+    {mode === "unauthorized" && <section className="setup-review"><span className="setup-status setup-status--locked">ACESSO RESTRITO</span><h2>Laboratório não autorizado</h2><p>Somente administradores podem criar e executar sessões de teste.</p><div className="setup-review__actions"><Link className="primary-link" to="/app">Voltar ao calendário</Link></div></section>}
 
     {mode === "choice" && <section className="setup-mode-grid">
       <article><h2>EvoAI monta para mim</h2><p>Primeiro você verá uma prévia. Nada será salvo sem confirmação.</p><button type="button" disabled={busy} onClick={() => void showAutomaticPreview()}>{busy ? "Gerando prévia…" : "Ver sugestão"}</button></article>
