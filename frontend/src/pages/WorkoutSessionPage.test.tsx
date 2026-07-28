@@ -10,6 +10,8 @@ const queueCalendarMutation = vi.fn().mockResolvedValue(undefined);
 const loadExerciseGuidance = vi.fn().mockResolvedValue({});
 const loadSubstitutionCandidates = vi.fn().mockResolvedValue([]);
 const substituteExercise = vi.fn().mockResolvedValue(undefined);
+const addExtraSet = vi.fn();
+const removeExtraSet = vi.fn().mockResolvedValue(undefined);
 const authenticatedUser = { id: "user-1" };
 
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: authenticatedUser }) }));
@@ -24,11 +26,13 @@ vi.mock("../services/workoutSessionService", async (importOriginal) => {
     ...original,
     startOrLoadWorkout: vi.fn().mockResolvedValue({
       id: "session-1", training_date: "2026-07-20", workout_label: "Full body", status: "active", notes: "", profile_id: null, profile_name: null, applied_restrictions: [],
-      exercises: [{ id: "exercise-1", exercise_key: "row", exercise_name: "Remada", original_exercise_key: null, substitution_reason: null, position: 1, rest_seconds: 120, transition_rest_seconds: 180, recommendation: { action: "initial", loadKg: 0, reason: "Primeira execução" }, sets: [{ id: "set-1", set_number: 1, target_reps_min: 8, target_reps_max: 12, actual_reps: 10, load_kg: 20, rpe: 8, notes: "", completed: false, target_rest_seconds: null, actual_rest_seconds: null }] }],
+      exercises: [{ id: "exercise-1", exercise_key: "row", exercise_name: "Remada", original_exercise_key: null, substitution_reason: null, position: 1, rest_seconds: 120, transition_rest_seconds: 180, recommendation: { action: "initial", loadKg: 0, reason: "Primeira execução" }, sets: [{ id: "set-1", set_number: 1, target_reps_min: 8, target_reps_max: 12, actual_reps: 10, load_kg: 20, rpe: 8, notes: "", completed: false, target_rest_seconds: null, actual_rest_seconds: null, is_extra: false }] }],
     }),
     saveSet: (...args: unknown[]) => saveSet(...args),
     updateSession: (...args: unknown[]) => updateSession(...args),
     substituteExercise: (...args: unknown[]) => substituteExercise(...args),
+    addExtraSet: (...args: unknown[]) => addExtraSet(...args),
+    removeExtraSet: (...args: unknown[]) => removeExtraSet(...args),
   };
 });
 
@@ -67,7 +71,7 @@ describe("percurso principal do treino", () => {
     substituteExercise.mockResolvedValue({
       id: "exercise-1", exercise_key: "row-alt", exercise_name: "Remada alternativa", original_exercise_key: "row", substitution_reason: "indisponibilidade", position: 1,
       rest_seconds: 120, transition_rest_seconds: 180, recommendation: { action: "initial", loadKg: 0, reason: "Primeira execução" },
-      sets: [{ id: "set-1", set_number: 1, target_reps_min: 8, target_reps_max: 12, actual_reps: 10, load_kg: 20, rpe: 8, notes: "", completed: false, target_rest_seconds: null, actual_rest_seconds: null }],
+      sets: [{ id: "set-1", set_number: 1, target_reps_min: 8, target_reps_max: 12, actual_reps: 10, load_kg: 20, rpe: 8, notes: "", completed: false, target_rest_seconds: null, actual_rest_seconds: null, is_extra: false }],
     });
     window.prompt = vi.fn()
       .mockReturnValueOnce("indisponibilidade")
@@ -78,5 +82,30 @@ describe("percurso principal do treino", () => {
 
     await waitFor(() => expect(substituteExercise).toHaveBeenCalled());
     expect(await screen.findByText(/Substituído por Remada alternativa/)).toBeInTheDocument();
+  });
+
+  it("mantém o foco durante a digitação e calcula o RPE pelo esforço", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&planned=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+    const reps = await screen.findByRole("spinbutton", { name: "Repetições da série 1" });
+    await user.clear(reps);
+    await user.type(reps, "12");
+    expect(reps).toHaveFocus();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Esforço da série 1" }), "2");
+    await user.click(screen.getByRole("button", { name: "Concluir" }));
+    await waitFor(() => expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ actual_reps: 12, rpe: 8, completed: true })));
+  });
+
+  it("adiciona uma série extra ao exercício", async () => {
+    const user = userEvent.setup();
+    addExtraSet.mockResolvedValueOnce({
+      id: "set-extra", set_number: 2, target_reps_min: 8, target_reps_max: 12,
+      actual_reps: null, load_kg: null, rpe: null, notes: "", completed: false,
+      target_rest_seconds: null, actual_rest_seconds: null, is_extra: true,
+    });
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&planned=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "+ Adicionar série" }));
+    expect(await screen.findByText("Série 2")).toBeInTheDocument();
+    expect(screen.getByText("extra")).toBeInTheDocument();
   });
 });

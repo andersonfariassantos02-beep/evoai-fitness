@@ -4,8 +4,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
-import { saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
-import { formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
+import { addExtraSet, removeExtraSet, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
+import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
+import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
+import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
 
 interface ActiveRest {
   sourceExerciseId: string;
@@ -21,6 +23,60 @@ interface ActiveRest {
   ready: boolean;
 }
 
+interface SetEntryRowProps {
+  set: SetLog;
+  onSave: (set: SetLog) => Promise<void>;
+  onComplete: (set: SetLog) => Promise<void>;
+  onRemove: (set: SetLog) => Promise<void>;
+}
+
+function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
+  const [actualReps, setActualReps] = useState(set.actual_reps?.toString() ?? "");
+  const [loadKg, setLoadKg] = useState(set.load_kg?.toString() ?? "");
+  const [repsInReserve, setRepsInReserve] = useState(repsInReserveFromRpe(set.rpe));
+  const completing = useRef(false);
+
+  function draft() {
+    return {
+      ...set,
+      actual_reps: actualReps === "" ? null : Number(actualReps),
+      load_kg: loadKg === "" ? null : Number(loadKg),
+      rpe: repsInReserve === "" ? null : rpeFromRepsInReserve(Number(repsInReserve)),
+    };
+  }
+
+  async function saveDraft() {
+    if (completing.current) return;
+    await onSave(draft());
+  }
+
+  return <div className={`set-row ${set.completed ? "set-row--done" : ""}`}>
+    <div className="set-row__header">
+      <strong>Série {set.set_number}{set.is_extra && <small>extra</small>}</strong>
+      <div>
+        {set.is_extra && !set.completed && <button className="set-row__remove" type="button" onClick={() => void onRemove(set)}>Excluir</button>}
+        <button type="button" onPointerDown={() => { completing.current = true; }} onClick={async () => {
+          unlockRestAudio();
+          await onComplete(draft());
+          completing.current = false;
+        }}>{set.completed ? "✓ Feita" : "Concluir"}</button>
+      </div>
+    </div>
+    <div className="set-row__fields">
+      <label>Reps<input aria-label={`Repetições da série ${set.set_number}`} inputMode="numeric" type="number" value={actualReps} onChange={(event) => setActualReps(event.target.value)} onBlur={() => void saveDraft()} /></label>
+      <label>Kg<input aria-label={`Carga da série ${set.set_number}`} inputMode="decimal" type="number" step="0.5" value={loadKg} onChange={(event) => setLoadKg(event.target.value)} onBlur={() => void saveDraft()} /></label>
+      <label>RPE automático<select aria-label={`Esforço da série ${set.set_number}`} value={repsInReserve} onChange={(event) => setRepsInReserve(event.target.value)} onBlur={() => void saveDraft()}>
+        <option value="">Esforço</option>
+        <option value="4">4+ sobrariam · RPE 6</option>
+        <option value="3">3 sobrariam · RPE 7</option>
+        <option value="2">2 sobrariam · RPE 8</option>
+        <option value="1">1 sobraria · RPE 9</option>
+        <option value="0">Nenhuma · RPE 10</option>
+      </select></label>
+    </div>
+  </div>;
+}
+
 export default function WorkoutSessionPage() {
   const { date = "" } = useParams();
   const [search] = useSearchParams();
@@ -33,6 +89,8 @@ export default function WorkoutSessionPage() {
   const [profileRestrictions, setProfileRestrictions] = useState<ProfileRestriction[]>([]);
   const [guidanceByKey, setGuidanceByKey] = useState<Record<string, ExerciseGuidance>>({});
   const [activeRest, setActiveRest] = useState<ActiveRest | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("evoai-rest-sound") !== "off");
+  const [addingExerciseId, setAddingExerciseId] = useState<string | null>(null);
   const restWasFinalized = useRef(false);
 
   useEffect(() => {
@@ -77,7 +135,7 @@ export default function WorkoutSessionPage() {
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [activeRest?.endsAtMs, activeRest?.paused, activeRest?.ready]);
+  }, [activeRest?.endsAtMs, activeRest?.paused, activeRest?.ready, soundEnabled]);
 
   function changeSet(exerciseId: string, setId: string, patch: Partial<SetLog>) {
     setSession((current) => current ? { ...current, exercises: current.exercises.map((exercise) => exercise.id === exerciseId ? { ...exercise, sets: exercise.sets.map((set) => set.id === setId ? { ...set, ...patch } : set) } : exercise) } : current);
@@ -90,22 +148,7 @@ export default function WorkoutSessionPage() {
   function signalRestFinished() {
     setMessage("Descanso concluído. Pode iniciar a próxima série.");
     if ("vibrate" in navigator) navigator.vibrate([180, 100, 180]);
-    try {
-      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const context = new AudioContextClass();
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.frequency.value = 880;
-      gain.gain.setValueAtTime(0.12, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.35);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.35);
-    } catch {
-      // O aviso visual permanece disponível quando áudio/vibração são bloqueados.
-    }
+    if (soundEnabled) playRestFinishedSound();
   }
 
   async function recordActualRest(actualSeconds: number) {
@@ -121,11 +164,13 @@ export default function WorkoutSessionPage() {
   function startRestAfter(exercise: ExerciseLog, set: SetLog) {
     if (!session) return;
     const currentIndex = allSets.findIndex((item) => item.set.id === set.id);
-    const nextItem = allSets.slice(currentIndex + 1).find((item) => !item.set.completed);
-    if (!nextItem) {
+    const completedState = allSets.map((item) => item.set.id === set.id ? true : item.set.completed);
+    const nextIndex = findNextPendingIndex(completedState, currentIndex);
+    if (nextIndex < 0) {
       setActiveRest(null);
       return;
     }
+    const nextItem = allSets[nextIndex];
     const changesExercise = nextItem.exercise.id !== exercise.id;
     const prescription = getRestPrescription(exercise.rest_seconds, exercise.transition_rest_seconds, changesExercise);
     const startedAtMs = Date.now();
@@ -197,6 +242,37 @@ export default function WorkoutSessionPage() {
     } catch (error) { setMessage(error instanceof Error && error.message === "EXERCISE_ALREADY_STARTED" ? "Substitua somente exercícios ainda não iniciados, para preservar o histórico registrado." : "Não foi possível salvar a substituição."); }
   }
 
+  async function appendExtraSet(exercise: ExerciseLog) {
+    setAddingExerciseId(exercise.id);
+    try {
+      const extraSet = await addExtraSet(exercise);
+      setSession((current) => current ? {
+        ...current,
+        exercises: current.exercises.map((item) => item.id === exercise.id ? { ...item, sets: [...item.sets, extraSet] } : item),
+      } : current);
+      setMessage(`Série extra adicionada em ${exercise.exercise_name}.`);
+    } catch {
+      setMessage("Não foi possível adicionar a série extra.");
+    } finally {
+      setAddingExerciseId(null);
+    }
+  }
+
+  async function deleteExtraSet(exerciseId: string, set: SetLog) {
+    try {
+      await removeExtraSet(set);
+      setSession((current) => current ? {
+        ...current,
+        exercises: current.exercises.map((exercise) => exercise.id === exerciseId
+          ? { ...exercise, sets: exercise.sets.filter((item) => item.id !== set.id) }
+          : exercise),
+      } : current);
+      setMessage("Série extra removida.");
+    } catch {
+      setMessage("Somente séries extras ainda não concluídas podem ser removidas.");
+    }
+  }
+
   async function finish() {
     if (!session || !user || next) { setMessage("Conclua todas as séries antes de finalizar."); return; }
     await updateSession(session.id, "completed", session.notes);
@@ -212,6 +288,15 @@ export default function WorkoutSessionPage() {
   return <div className="workout-shell">
     <header className="workout-header"><button onClick={() => navigate("/app")}>← Calendário</button><div><small>{date}</small><h1>{session.workout_label}</h1></div><button onClick={togglePause}>{session.status === "paused" ? "Retomar" : "Pausar"}</button></header>
     <div className="workout-progress"><strong>{completed}/{allSets.length} séries</strong><span><i style={{ width: `${allSets.length ? completed / allSets.length * 100 : 0}%` }} /></span></div>
+    <div className="workout-tools">
+      <button type="button" onClick={() => {
+        const enabled = !soundEnabled;
+        setSoundEnabled(enabled);
+        localStorage.setItem("evoai-rest-sound", enabled ? "on" : "off");
+        if (enabled) { unlockRestAudio(); playRestFinishedSound(); }
+      }}>{soundEnabled ? "🔊 Som ligado" : "🔇 Som desligado"}</button>
+      <button type="button" disabled={!soundEnabled} onClick={() => { unlockRestAudio(); playRestFinishedSound(); }}>Testar som</button>
+    </div>
     {activeRest && <aside className={`rest-timer ${activeRest.ready ? "rest-timer--ready" : ""}`} aria-live="assertive">
       <div><span>{activeRest.ready ? "DESCANSO CONCLUÍDO" : activeRest.label.toUpperCase()}</span><strong>{activeRest.ready ? "Pode iniciar" : formatRestTime(activeRest.remainingSeconds)}</strong><small>Próxima: {activeRest.nextLabel}</small></div>
       {!activeRest.ready && <div className="rest-timer__actions">
@@ -238,19 +323,21 @@ export default function WorkoutSessionPage() {
           {guidance.mediaUrl && <a href={guidance.mediaUrl} target="_blank" rel="noreferrer">Abrir demonstração técnica ↗</a>}
         </details>}
         <p className={`progression progression--${exercise.recommendation.action}`}><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></p>
-        {exercise.sets.map((set) => <div className={`set-row ${set.completed ? "set-row--done" : ""}`} key={set.id}>
-          <strong>Série {set.set_number}</strong><label>Reps<input type="number" value={set.actual_reps ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { actual_reps: event.target.value ? Number(event.target.value) : null })} /></label>
-          <label>Kg<input type="number" step="0.5" value={set.load_kg ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { load_kg: event.target.value ? Number(event.target.value) : null })} /></label>
-          <label>RPE<input type="number" min="1" max="10" step="0.5" value={set.rpe ?? ""} onChange={(event) => changeSet(exercise.id, set.id, { rpe: event.target.value ? Number(event.target.value) : null })} /></label>
-          <button onClick={() => {
+        {exercise.sets.map((set) => <SetEntryRow key={set.id} set={set}
+          onSave={async (draft) => { changeSet(exercise.id, set.id, draft); await persistSet(draft); }}
+          onRemove={(draft) => deleteExtraSet(exercise.id, draft)}
+          onComplete={async (draft) => {
             const completedNow = !set.completed;
-            const targetRestSeconds = completedNow ? startRestAfter(exercise, set) ?? null : null;
-            const updated = { ...set, completed: completedNow, target_rest_seconds: targetRestSeconds, actual_rest_seconds: completedNow ? set.actual_rest_seconds : null };
+            const targetRestSeconds = completedNow ? startRestAfter(exercise, draft) ?? null : null;
+            const updated = { ...draft, completed: completedNow, target_rest_seconds: targetRestSeconds, actual_rest_seconds: completedNow ? set.actual_rest_seconds : null };
             if (!completedNow && activeRest?.sourceSetId === set.id) setActiveRest(null);
             changeSet(exercise.id, set.id, updated);
-            void persistSet(updated);
-          }}>{set.completed ? "✓ Feita" : "Concluir"}</button>
-        </div>)}
+            await persistSet(updated);
+          }}
+        />)}
+        <button className="add-extra-set" type="button" disabled={addingExerciseId === exercise.id} onClick={() => void appendExtraSet(exercise)}>
+          {addingExerciseId === exercise.id ? "Adicionando…" : "+ Adicionar série"}
+        </button>
       </section>;
       })}
       <label className="session-notes">Observações do treino<textarea value={session.notes} onChange={(event) => setSession({ ...session, notes: event.target.value })} /></label>
