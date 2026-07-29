@@ -28,6 +28,12 @@ vi.mock("../services/trainingCalendarService", () => ({
 vi.mock("../services/profileRestrictionService", () => ({
   loadPlanningProfile: vi.fn().mockResolvedValue({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: "Anderson Farias" }),
 }));
+vi.mock("../services/muscleRecoveryService", () => ({
+  loadMuscleRecovery: vi.fn().mockResolvedValue([
+    { muscle: "peito", status: "recovering", lastStimulusAt: "2026-07-29T10:00:00Z", recoveryHours: 60, remainingHours: 40, completedSets: 8 },
+    { muscle: "costas", status: "ready", lastStimulusAt: null, recoveryHours: 0, remainingHours: 0, completedSets: 0 },
+  ]),
+}));
 
 describe("painel principal", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -42,6 +48,8 @@ describe("painel principal", () => {
     expect(screen.getByText("PRÓXIMO TREINO")).toBeInTheDocument();
     expect(screen.getByText("PROGRESSO SEMANAL")).toBeInTheDocument();
     expect(screen.getByText("FOCO MUSCULAR")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Status dos grupos musculares" })).toBeInTheDocument();
+    expect(screen.getByText("Estimativa: 40h restantes")).toBeInTheDocument();
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {
