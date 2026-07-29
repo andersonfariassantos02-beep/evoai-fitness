@@ -204,13 +204,9 @@ export function buildWeeklyPlan(
   const completed = weekEntries.filter((entry) => entry.completed);
   const completedCount = completed.length;
   const availableDates = weekEntries.filter((entry) => entry.available);
-  const legacyCompletedWithoutAvailability = completed.filter(
-    (entry) => !entry.available && entry.completedWasPlanned === undefined,
-  ).length;
-  const targetSessions = Math.max(
-    availableDates.length + legacyCompletedWithoutAvailability,
-    completedCount,
-  );
+  const completedDates = new Set(completed.map((entry) => entry.date));
+  const pendingAvailableDates = availableDates.filter((entry) => !completedDates.has(entry.date));
+  const targetSessions = completedCount + pendingAvailableDates.length;
   const labels = targetSessions > 0
     ? getAdaptiveWeekLabels(targetSessions, options.trainingFocus)
     : [];
@@ -229,10 +225,9 @@ export function buildWeeklyPlan(
     adjusted: entry.completedWasPlanned === false,
   }));
 
-  const completedDates = new Set(completed.map((entry) => entry.date));
   const pendingSlots = Math.max(0, targetSessions - completedCount);
-  const plannedDays: PlannedWorkoutDay[] = availableDates
-    .filter((entry) => entry.date >= todayKey && !completedDates.has(entry.date))
+  const plannedDays: PlannedWorkoutDay[] = pendingAvailableDates
+    .filter((entry) => entry.date >= todayKey)
     .slice(0, pendingSlots)
     .map((entry, index) => ({
       date: entry.date,
