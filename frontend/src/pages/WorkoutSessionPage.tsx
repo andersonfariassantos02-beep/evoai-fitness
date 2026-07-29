@@ -8,6 +8,7 @@ import { addExtraSet, finishWorkoutWithPending, removeExtraSet, saveSet, startOr
 import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
+import { evaluatePersonalRecord } from "../lib/personalRecord";
 
 interface ActiveRest {
   sourceExerciseId: string;
@@ -409,6 +410,7 @@ export default function WorkoutSessionPage() {
       {(session.exercises ?? []).filter(Boolean).map((exercise) => {
         const guidance = guidanceByKey[exercise.exercise_key ?? ""];
         const hasGuidance = Boolean(guidance && (guidance.instructions || guidance.cautions.length || guidance.equipmentVariants.length || guidance.mediaUrl));
+        const personalRecord = session.session_kind === "real" ? evaluatePersonalRecord(exercise.personalBest, exercise.sets) : null;
         return <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
         {exercise.original_exercise_key && <p className="substitution-note">Substituição registrada · motivo: {exercise.substitution_reason}</p>}
         {hasGuidance && <details className="exercise-guidance"><summary>Como executar com segurança</summary>
@@ -421,6 +423,11 @@ export default function WorkoutSessionPage() {
           <div><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg.toLocaleString("pt-BR")} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></div>
           {exercise.recommendation.loadKg > 0 && <button type="button" onClick={() => void applyRecommendedLoad(exercise)}>Aplicar às séries vazias</button>}
         </div>
+        {personalRecord?.achieved && <div className="personal-record-banner" role="status">
+          <span>RECORDE PESSOAL</span>
+          <strong>{personalRecord.title}</strong>
+          <small>{personalRecord.message}</small>
+        </div>}
         {exercise.sets.map((set) => <SetEntryRow key={set.id} set={set}
           onSave={async (draft) => { changeSet(exercise.id, set.id, draft); await persistSet(draft); }}
           onRemove={(draft) => deleteExtraSet(exercise.id, draft)}

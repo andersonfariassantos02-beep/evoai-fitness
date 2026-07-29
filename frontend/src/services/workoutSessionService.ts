@@ -2,10 +2,11 @@ import { getSupabaseClient } from "../lib/supabase";
 import { getWorkoutTemplate, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogService";
 import { recommendProgressionFromSession, type ProgressionRecommendation } from "../lib/progression";
+import { findPersonalBest, type PersonalBest } from "../lib/personalRecord";
 import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
 export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; skipped_at: string | null; skip_reason: string | null; }
-export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; rest_seconds: number; transition_rest_seconds: number; recommendation: ProgressionRecommendation; sets: SetLog[]; }
+export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; rest_seconds: number; transition_rest_seconds: number; recommendation: ProgressionRecommendation; personalBest: PersonalBest | null; sets: SetLog[]; }
 export type WorkoutSessionKind = "real" | "test";
 export interface WorkoutSession { id: string; training_date: string; workout_label: string; session_kind: WorkoutSessionKind; status: "active" | "paused" | "completed"; notes: string; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
 
@@ -22,7 +23,7 @@ function buildSetRows(template: WorkoutExerciseTemplate, exerciseLogId: string, 
   });
 }
 
-async function getRecommendation(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
+async function getExerciseInsights(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
   const { data: history, error } = await getSupabaseClient().from("set_logs")
     .select("set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date, session_kind))")
     .eq("user_id", userId)
@@ -31,7 +32,7 @@ async function getRecommendation(userId: string, exerciseKey: string, repsMin: n
     .eq("exercise_logs.workout_sessions.session_kind", "real")
     .not("completed_at", "is", null)
     .order("completed_at", { ascending: false })
-    .limit(12);
+    .limit(200);
   if (error) throw error;
   type HistoryRow = {
     set_number: number;
@@ -48,7 +49,7 @@ async function getRecommendation(userId: string, exerciseKey: string, repsMin: n
     ? row.exercise_logs.workout_sessions[0]
     : row.exercise_logs.workout_sessions;
   const sessionDate = rows[0] ? workoutFor(rows[0])?.training_date : null;
-  return recommendProgressionFromSession(rows
+  const recommendation = recommendProgressionFromSession(rows
     .filter((row) => workoutFor(row)?.training_date === sessionDate)
     .map((row) => ({
       setNumber: Number(row.set_number),
@@ -59,6 +60,12 @@ async function getRecommendation(userId: string, exerciseKey: string, repsMin: n
       rpe: row.rpe === null ? null : Number(row.rpe),
       failed: String(row.notes ?? "").toLowerCase().includes("falha"),
     })));
+  const personalBest = findPersonalBest(rows.map((row) => ({
+    loadKg: Number(row.load_kg ?? 0),
+    reps: Number(row.actual_reps ?? 0),
+    date: workoutFor(row)?.training_date ?? "",
+  })));
+  return { recommendation, personalBest };
 }
 
 async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<WorkoutSession> {
@@ -74,8 +81,8 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
     const template = catalog.find((item) => item.key === exercise.exercise_key)
       ?? getWorkoutTemplate(session.workout_label).find((item) => item.key === exercise.exercise_key)
       ?? { repsMin: currentSets[0]?.target_reps_min ?? 8, repsMax: currentSets[0]?.target_reps_max ?? 12 };
-    const recommendation = await getRecommendation((await supabase.auth.getUser()).data.user?.id ?? "", exercise.exercise_key, template.repsMin, template.repsMax);
-    result.push({ ...exercise, rest_seconds: Number(exercise.rest_seconds ?? 120), transition_rest_seconds: Number(exercise.transition_rest_seconds ?? 180), recommendation, sets: currentSets });
+    const insights = await getExerciseInsights((await supabase.auth.getUser()).data.user?.id ?? "", exercise.exercise_key, template.repsMin, template.repsMax);
+    result.push({ ...exercise, rest_seconds: Number(exercise.rest_seconds ?? 120), transition_rest_seconds: Number(exercise.transition_rest_seconds ?? 180), ...insights, sets: currentSets });
   }
   return { ...session, exercises: result };
 }
@@ -234,12 +241,12 @@ export async function substituteExercise(exercise: ExerciseLog, replacement: Wor
   const rows = buildSetRows(replacement, exercise.id, userId);
   const { data: sets, error: insertError } = await supabase.from("set_logs").insert(rows).select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra, skipped_at, skip_reason").order("set_number");
   if (insertError) throw insertError;
-  const recommendation = await getRecommendation(userId, replacement.key, replacement.repsMin, replacement.repsMax);
+  const insights = await getExerciseInsights(userId, replacement.key, replacement.repsMin, replacement.repsMax);
   return {
     ...exercise, exercise_key: replacement.key, exercise_name: replacement.name,
     original_exercise_key: originalKey, substitution_reason: reason,
     rest_seconds: replacement.restSeconds ?? 120,
     transition_rest_seconds: replacement.transitionRestSeconds ?? 180,
-    recommendation, sets: (sets ?? []) as SetLog[],
+    ...insights, sets: (sets ?? []) as SetLog[],
   };
 }
