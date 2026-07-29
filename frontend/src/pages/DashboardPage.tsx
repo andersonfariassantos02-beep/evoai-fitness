@@ -23,6 +23,8 @@ import {
 } from "../services/trainingCalendarService";
 import { loadPlanningProfile, type PlanningProfile } from "../services/profileRestrictionService";
 import { MUSCLE_LABELS, summarizePlannedMuscleVolume } from "../lib/trainingVolume";
+import { loadMuscleRecovery } from "../services/muscleRecoveryService";
+import type { MuscleRecovery } from "../lib/muscleRecovery";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -70,6 +72,8 @@ export default function DashboardPage() {
   const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null });
   const [lastCompletedLabel, setLastCompletedLabel] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
+  const [muscleRecovery, setMuscleRecovery] = useState<MuscleRecovery[]>([]);
+  const [recoveryLoading, setRecoveryLoading] = useState(true);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -108,6 +112,17 @@ export default function DashboardPage() {
       })
       .catch(() => { setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null }); setLastCompletedLabel(null); });
   }, [selectedDate, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    setRecoveryLoading(true);
+    void loadMuscleRecovery(user.id)
+      .then((result) => { if (active) setMuscleRecovery(result); })
+      .catch(() => { if (active) setMuscleRecovery([]); })
+      .finally(() => { if (active) setRecoveryLoading(false); });
+    return () => { active = false; };
+  }, [user]);
 
   useEffect(() => {
     saveCalendarEntries(storageKey, entries);
@@ -240,6 +255,21 @@ export default function DashboardPage() {
             </div>
             <a href="#/perfil">Ajustar foco <b aria-hidden="true">→</b></a>
           </article>
+        </section>
+
+        <section className="muscle-recovery" aria-labelledby="muscle-recovery-title">
+          <div className="muscle-recovery__header">
+            <div><span className="eyebrow">RECUPERAÇÃO ESTIMADA</span><h2 id="muscle-recovery-title">Status dos grupos musculares</h2></div>
+            <div className="muscle-recovery__legend"><span className="recovering">Recuperação</span><span className="attention">Atenção</span><span className="ready">Disponível</span></div>
+          </div>
+          {recoveryLoading && <p className="muscle-recovery__message">Analisando seus últimos treinos…</p>}
+          {!recoveryLoading && !muscleRecovery.length && <p className="muscle-recovery__message">Não foi possível calcular agora. Seu planejamento continua disponível.</p>}
+          <div className="muscle-recovery__grid">
+            {muscleRecovery.map((item) => <article className={`muscle-recovery__item muscle-recovery__item--${item.status}`} key={item.muscle}>
+              <span aria-hidden="true" /><div><strong>{MUSCLE_LABELS[item.muscle]}</strong><small>{item.lastStimulusAt === null ? "Sem estímulo recente" : item.status === "ready" ? "Janela de recuperação concluída" : `Estimativa: ${item.remainingHours}h restantes`}</small></div>
+            </article>)}
+          </div>
+          <p className="muscle-recovery__disclaimer">Estimativa baseada nas séries concluídas, RPE e tempo desde o último estímulo direto. Dor, sono e fadiga percebida devem prevalecer.</p>
         </section>
 
         <section className="calendar-hero">
