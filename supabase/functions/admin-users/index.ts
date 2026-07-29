@@ -17,12 +17,23 @@ Deno.serve(async req => {
     const {data:membership}=await admin.from("app_admins").select("user_id").eq("user_id",user.id).maybeSingle();
     if(!membership)return json({error:"Acesso administrativo não autorizado."},403,origin);
     const body=await req.json();const action=String(body.action??"");
+
     if(action==="list"){
       const [{data:authData,error:listError},{data:admins,error:rolesError}]=await Promise.all([admin.auth.admin.listUsers({page:1,perPage:200}),admin.from("app_admins").select("user_id")]);
       if(listError||rolesError)throw listError??rolesError;
       const adminIds=new Set((admins??[]).map(item=>item.user_id));
-      return json({users:authData.users.map(item=>({id:item.id,email:item.email??"Sem e-mail",role:adminIds.has(item.id)?"admin":"user",createdAt:item.created_at,lastSignInAt:item.last_sign_in_at??null,emailConfirmedAt:item.email_confirmed_at??null}))},200,origin);
+      return json({users:authData.users.map(item=>({
+        id:item.id,
+        email:item.email??"Sem e-mail",
+        role:adminIds.has(item.id)?"admin":"user",
+        createdAt:item.created_at,
+        lastSignInAt:item.last_sign_in_at??null,
+        emailConfirmedAt:item.email_confirmed_at??null,
+        disabled:Boolean(item.banned_until&&new Date(item.banned_until).getTime()>Date.now()),
+        testUser:item.app_metadata?.evoai_test_user===true,
+      }))},200,origin);
     }
+
     if(action==="set-role"){
       const userId=String(body.userId??"");const role=String(body.role??"");
       if(!userId||!(["admin","user"].includes(role)))return json({error:"Dados de acesso inválidos."},400,origin);
@@ -32,8 +43,47 @@ Deno.serve(async req => {
       await admin.from("user_admin_audit").insert({actor_user_id:user.id,target_user_id:userId,action:role==="admin"?"grant_admin":"revoke_admin"});
       return json({message:"Acesso atualizado."},200,origin);
     }
-    const email=String(body.email??"").trim().toLowerCase();if(!email||!email.includes("@"))return json({error:"Informe um e-mail válido."},400,origin);
+
+    if(action==="set-disabled"){
+      const userId=String(body.userId??"");const disabled=body.disabled===true;
+      if(!userId)return json({error:"Usuário inválido."},400,origin);
+      if(userId===user.id)return json({error:"Você não pode desativar a própria conta."},400,origin);
+      const {error}=await admin.auth.admin.updateUserById(userId,{ban_duration:disabled?"876000h":"none"});
+      if(error)throw error;
+      await admin.from("user_admin_audit").insert({actor_user_id:user.id,target_user_id:userId,action:disabled?"disable_user":"enable_user"});
+      return json({message:disabled?"Usuário desativado.":"Usuário reativado."},200,origin);
+    }
+
+    if(action==="delete-user"){
+      const userId=String(body.userId??"");const confirmationEmail=String(body.confirmationEmail??"").trim().toLowerCase();
+      if(!userId||!confirmationEmail)return json({error:"Confirmação obrigatória."},400,origin);
+      if(userId===user.id)return json({error:"Você não pode excluir a própria conta."},400,origin);
+      const {data:targetData,error:targetError}=await admin.auth.admin.getUserById(userId);
+      if(targetError||!targetData.user)throw targetError??new Error("Usuário não encontrado.");
+      if((targetData.user.email??"").toLowerCase()!==confirmationEmail)return json({error:"O e-mail de confirmação não corresponde ao usuário."},400,origin);
+      const {data:auditData,error:auditError}=await admin.from("user_admin_audit").insert({actor_user_id:user.id,target_user_id:userId,action:"delete_user"}).select("id").single();
+      if(auditError)throw auditError;
+      const {error}=await admin.auth.admin.deleteUser(userId);
+      if(error){
+        await admin.from("user_admin_audit").delete().eq("id",auditData.id);
+        throw error;
+      }
+      return json({message:"Usuário excluído definitivamente."},200,origin);
+    }
+
+    const email=String(body.email??"").trim().toLowerCase();
+    if(!email||!email.includes("@"))return json({error:"Informe um e-mail válido."},400,origin);
     const appUrl="https://andersonfariassantos02-beep.github.io/evoai-fitness/";
+
+    if(action==="create-test-user"){
+      const password=String(body.password??"");
+      if(password.length<8)return json({error:"A senha temporária deve ter pelo menos 8 caracteres."},400,origin);
+      const {data:created,error}=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{evoai_test_user:true}});
+      if(error||!created.user)throw error??new Error("Usuário de teste não criado.");
+      await admin.from("user_admin_audit").insert({actor_user_id:user.id,target_user_id:created.user.id,action:"create_test_user"});
+      return json({message:"Conta de teste criada.",email:created.user.email},200,origin);
+    }
+
     if(action==="invite"){
       const {error}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo:`${appUrl}#/redefinir-senha`});if(error)throw error;
       await admin.from("user_admin_audit").insert({actor_user_id:user.id,action:"invite_user"});return json({message:"Convite enviado."},200,origin);
