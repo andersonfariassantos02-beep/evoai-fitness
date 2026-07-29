@@ -4,6 +4,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { previousReportRange, reportRange, type ReportPeriod } from "../lib/reportPeriod";
 import { saveReportPdf, shareReportPdf } from "../lib/reportPdf";
 import { loadProfileDisplayName } from "../services/profileRestrictionService";
+import ExerciseEvolutionPanel from "../components/ExerciseEvolutionPanel";
+import { loadExerciseEvolution } from "../services/exerciseEvolutionService";
+import type { ExerciseEvolution } from "../lib/exerciseEvolution";
 import {
   confirmPasswordAndDeleteUnfinishedWorkout,
   loadUnfinishedWorkouts,
@@ -41,6 +44,7 @@ export default function ReportsPage() {
   const [report, setReport] = useState<WorkoutReport | null>(null);
   const [previous, setPrevious] = useState<WorkoutReport | null>(null);
   const [unfinished, setUnfinished] = useState<UnfinishedWorkout[]>([]);
+  const [evolution, setEvolution] = useState<ExerciseEvolution[]>([]);
   const [deleting, setDeleting] = useState<UnfinishedWorkout | null>(null);
   const [password, setPassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -65,14 +69,16 @@ export default function ReportsPage() {
     setMessage("");
     try {
       const previousRange = previousReportRange(period, currentRange.startDate);
-      const [currentReport, previousReport, unfinishedWorkouts] = await Promise.all([
+      const [currentReport, previousReport, unfinishedWorkouts, exerciseEvolution] = await Promise.all([
         loadWorkoutReport(user.id, currentRange.startDate, currentRange.endDate),
         loadWorkoutReport(user.id, previousRange.startDate, previousRange.endDate),
         loadUnfinishedWorkouts(user.id, currentRange.startDate, currentRange.endDate),
+        loadExerciseEvolution(user.id, currentRange.endDate).catch(() => []),
       ]);
       setReport(currentReport);
       setPrevious(previousReport);
       setUnfinished(unfinishedWorkouts);
+      setEvolution(exerciseEvolution);
       if (!currentReport.completedSessions) setMessage("Nenhum treino real concluído neste período.");
     } catch {
       setMessage("Não foi possível carregar o relatório. Tente novamente.");
@@ -129,8 +135,8 @@ export default function ReportsPage() {
 
       <section className="report-controls" aria-label="Configurar relatório">
         <div className="report-period-toggle" role="tablist" aria-label="Período do relatório">
-          <button type="button" role="tab" aria-selected={period === "weekly"} className={period === "weekly" ? "active" : ""} onClick={() => { setPeriod("weekly"); setReport(null); setUnfinished([]); }}>Semanal</button>
-          <button type="button" role="tab" aria-selected={period === "monthly"} className={period === "monthly" ? "active" : ""} onClick={() => { setPeriod("monthly"); setReport(null); setUnfinished([]); }}>Mensal</button>
+          <button type="button" role="tab" aria-selected={period === "weekly"} className={period === "weekly" ? "active" : ""} onClick={() => { setPeriod("weekly"); setReport(null); setUnfinished([]); setEvolution([]); }}>Semanal</button>
+          <button type="button" role="tab" aria-selected={period === "monthly"} className={period === "monthly" ? "active" : ""} onClick={() => { setPeriod("monthly"); setReport(null); setUnfinished([]); setEvolution([]); }}>Mensal</button>
         </div>
         <label>{period === "weekly" ? "Escolha uma data da semana" : "Escolha o mês"}
           <input
@@ -185,6 +191,8 @@ export default function ReportsPage() {
             <article><span>Volume total</span><strong>{report.totalVolume.toLocaleString("pt-BR")} <i>kg</i></strong><ChangeBadge value={change(report.totalVolume, previous?.totalVolume ?? 0)} /></article>
             <article><span>RPE médio</span><strong>{report.averageRpe ?? "-"}</strong><small>{report.completedSets} séries realizadas</small></article>
           </section>
+
+          <ExerciseEvolutionPanel exercises={evolution} />
 
           <section className="report-detail">
             <div className="report-detail__header">
