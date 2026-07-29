@@ -8,10 +8,15 @@ let auth = { configured: true, loading: false, session: null as object | null, u
 vi.mock("./contexts/AuthContext", () => ({ useAuth: () => auth }));
 vi.mock("./pages/LoginPage", () => ({ default: () => <p>Tela de login</p> }));
 vi.mock("./pages/RegisterPage", () => ({ default: () => <p>Cadastro</p> }));
+vi.mock("./pages/OnboardingPage", () => ({ default: () => <p>Primeiro acesso</p> }));
 vi.mock("./pages/ProfilePage", () => ({ default: () => <p>Meu perfil</p> }));
 vi.mock("./pages/DashboardPage", () => ({ default: () => <p>Área protegida</p> }));
 vi.mock("./pages/WorkoutSessionPage", () => ({ default: () => <p>Treino</p> }));
 vi.mock("./components/AuthenticatedLayout", async () => {
+  const { Outlet } = await import("react-router-dom");
+  return { default: () => <Outlet /> };
+});
+vi.mock("./components/ProfileRequiredRoute", async () => {
   const { Outlet } = await import("react-router-dom");
   return { default: () => <Outlet /> };
 });
