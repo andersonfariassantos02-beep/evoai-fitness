@@ -710,7 +710,7 @@ main { padding: 64px 0 52px; }
 .planned-day { display: flex; gap: 11px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: white; }
 .open-workout { margin-left: auto; align-self: center; color: var(--blue); font-size: 10px; font-weight: 900; }
 
-.workout-shell { min-height: 100vh; padding: 20px; background: #f4f7fb; }
+.workout-shell { min-height: 100vh; padding: 20px; color:var(--navy); background: #f4f7fb; }
 .workout-header { display: grid; width: min(900px, 100%); margin: 0 auto; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; }
 .workout-header button { min-height: 42px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: white; color: var(--navy); font-weight: 800; }
 .workout-header h1 { margin: 3px 0 0; color: var(--navy); font-size: clamp(24px, 5vw, 38px); }
@@ -846,7 +846,7 @@ main { padding: 64px 0 52px; }
 
 .header-actions { display: flex; gap: 8px; align-items: center; }
 .header-actions a { display: inline-grid; place-items: center; text-decoration: none; }
-.profile-shell { min-height: 100vh; padding: clamp(18px, 4vw, 42px); background: #f4f7fb; }
+.profile-shell { min-height: 100vh; padding: clamp(18px, 4vw, 42px); color:var(--navy); background: #f4f7fb; }
 .profile-header { display: grid; width: min(1000px, 100%); margin: 0 auto; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
 .profile-header > a { padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--navy); background: white; font-weight: 800; text-decoration: none; }
 .profile-header h1 { margin: 5px 0; color: var(--navy); font-size: clamp(32px, 5vw, 52px); }
@@ -871,7 +871,7 @@ main { padding: 64px 0 52px; }
 .training-focus legend small { color:var(--muted); font-weight:500; }
 .training-focus label { display:flex; grid-template-columns:none; align-items:center; gap:7px; padding:7px; border-radius:8px; background:#f6f8fb; }
 .training-focus input { width:16px; height:16px; min-height:16px; margin:0; flex:0 0 16px; }
-.workout-setup { min-height:100vh; padding:clamp(18px,4vw,42px); background:#f4f7fb; }
+.workout-setup { min-height:100vh; padding:clamp(18px,4vw,42px); color:var(--navy); background:#f4f7fb; }
 .workout-setup > header { display:grid; width:min(1000px,100%); margin:0 auto 20px; grid-template-columns:auto 1fr; gap:20px; align-items:start; }
 .workout-setup > header > a { padding:11px 14px; border:1px solid var(--line); border-radius:12px; color:var(--navy); background:white; font-weight:800; text-decoration:none; }
 .workout-setup h1 { margin:5px 0; color:var(--navy); font-size:clamp(30px,5vw,48px); }
@@ -976,7 +976,7 @@ main { padding: 64px 0 52px; }
   .setup-review__actions button, .setup-review__actions .primary-link { width:100%; }
   .workout-edit-banner { align-items:stretch; flex-direction:column; }
 }
-.admin-shell { min-height: 100vh; padding: clamp(18px,4vw,42px); background:#f4f7fb; }
+.admin-shell { min-height: 100vh; padding: clamp(18px,4vw,42px); color:var(--navy); background:#f4f7fb; }
 .admin-invite { display:flex; width:min(1100px,100%); margin:18px auto; gap:12px; align-items:end; padding:18px; border:1px solid var(--line); border-radius:16px; background:white; }
 .admin-invite label { display:grid; flex:1; gap:7px; color:var(--navy); font-weight:800; }
 .admin-invite input { width:100%; min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:9px; color:var(--navy); background:white; }
@@ -985,7 +985,7 @@ main { padding: 64px 0 52px; }
 .admin-user-card { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:16px; border:1px solid var(--line); border-radius:14px; background:white; }
 .admin-user-card>div:first-child { display:grid; min-width:0; gap:5px; }
 .admin-user-card>div:last-child { display:flex; flex-wrap:wrap; gap:7px; }
-.admin-user-card strong { overflow-wrap:anywhere; }
+.admin-user-card strong { color:var(--navy); overflow-wrap:anywhere; }
 .admin-user-card small { color:var(--muted); }
 .role-badge { width:max-content; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:900; text-transform:uppercase; }
 .role-badge--admin { color:#0b58cd; background:var(--blue-soft); }
@@ -1070,7 +1070,7 @@ main { padding: 64px 0 52px; }
   .catalog-muscle-tabs { grid-template-columns:1fr; }
 }
 
-.test-lab { min-height:100vh; padding:clamp(18px,4vw,42px); background:#f4f7fb; }
+.test-lab { min-height:100vh; padding:clamp(18px,4vw,42px); color:var(--navy); background:#f4f7fb; }
 .test-lab__intro,.test-lab__list { width:min(1100px,100%); margin:18px auto 0; }
 .test-lab__intro { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:20px; border:1px solid #a9c9ff; border-radius:18px; background:linear-gradient(135deg,#edf5ff,#fff); }
 .test-lab__intro>div { display:grid; gap:5px; }
