@@ -756,6 +756,10 @@ main { padding: 64px 0 52px; }
 .progression button { flex: 0 0 auto; min-height: 38px; padding: 8px 12px; border-color: #a9c9ff; background: #fff; color: var(--blue); }
 .progression--increase { background: var(--green-soft); }
 .progression--reduce { background: var(--amber-soft); }
+.personal-record-banner { display: grid; gap: 3px; margin: 12px 0; padding: 13px 15px; border: 1px solid #89d8bd; border-radius: 12px; background: linear-gradient(135deg, #e7fff6, #dff5ff); color: var(--navy); }
+.personal-record-banner span { color: #087e62; font-size: 9px; font-weight: 900; letter-spacing: .14em; }
+.personal-record-banner strong { font-size: 15px; }
+.personal-record-banner small { color: var(--muted); font-size: 11px; }
 @media (max-width: 640px) {
   .progression { align-items: stretch; flex-direction: column; }
   .progression button { width: 100%; }

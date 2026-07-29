@@ -105,6 +105,21 @@ describe("percurso principal do treino", () => {
     await waitFor(() => expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ actual_reps: 12, rpe: 8, completed: true })));
   });
 
+  it("destaca um novo recorde pessoal no treino real", async () => {
+    const user = userEvent.setup();
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...baseSession,
+      exercises: [{
+        ...baseSession.exercises[0],
+        personalBest: { loadKg: 15, reps: 10, estimated1Rm: 20, date: "2026-07-01" },
+      }],
+    });
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: "Concluir" }));
+    expect(await screen.findByText("RECORDE PESSOAL")).toBeInTheDocument();
+    expect(screen.getByText(/20 kg × 10 repetições/)).toBeInTheDocument();
+  });
+
   it("não conclui uma série sem repetições e carga informadas", async () => {
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
