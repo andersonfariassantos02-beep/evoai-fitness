@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   deleteUnfinished: vi.fn(),
   save: vi.fn(),
   share: vi.fn(),
+  loadEvolution: vi.fn(),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -32,6 +33,9 @@ vi.mock("../lib/reportPdf", () => ({
   saveReportPdf: mocks.save,
   shareReportPdf: mocks.share,
 }));
+vi.mock("../services/exerciseEvolutionService", () => ({
+  loadExerciseEvolution: mocks.loadEvolution,
+}));
 
 const report = {
   startDate: "2026-07-27", endDate: "2026-08-02", plannedSessions: 3,
@@ -46,6 +50,14 @@ describe("página de relatórios", () => {
     mocks.load.mockResolvedValueOnce(report).mockResolvedValueOnce({ ...report, workouts: [], completedSessions: 0, totalVolume: 0 });
     mocks.loadUnfinished.mockResolvedValue([]);
     mocks.deleteUnfinished.mockResolvedValue(undefined);
+    mocks.loadEvolution.mockResolvedValue([{
+      key: "bench",
+      name: "Supino",
+      points: [
+        { date: "2026-06-29", loadKg: 45, reps: 10, volume: 1350, estimated1Rm: 60 },
+        { date: "2026-07-27", loadKg: 50, reps: 10, volume: 1500, estimated1Rm: 66.7 },
+      ],
+    }]);
   });
 
   it("gera o relatório real e oferece PDF e compartilhamento", async () => {
@@ -56,6 +68,9 @@ describe("página de relatórios", () => {
     expect(await screen.findByRole("heading", { name: "Treinos do período" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Push" })).toBeInTheDocument();
     expect(screen.getByText("S1: 50 kg × 10 · RPE 8")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Últimos 90 dias" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Exercício do gráfico")).toHaveValue("bench");
+    expect(screen.getByText("+11,1%")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Salvar PDF" }));
     expect(mocks.save).toHaveBeenCalledOnce();
