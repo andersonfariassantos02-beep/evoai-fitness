@@ -28,6 +28,8 @@ import type { MuscleRecovery } from "../lib/muscleRecovery";
 import { loadFatigueAssessment } from "../services/fatigueService";
 import type { FatigueAssessment } from "../lib/fatigueAssessment";
 import { loadWeeklyMuscleVolume } from "../services/weeklyMuscleVolumeService";
+import { buildMonthlyTrainingGoal, monthDateRange } from "../lib/monthlyTrainingGoal";
+import { loadMonthlyCompletedWorkoutDates } from "../services/monthlyTrainingGoalService";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -80,6 +82,8 @@ export default function DashboardPage() {
   const [fatigue, setFatigue] = useState<FatigueAssessment | null>(null);
   const [fatigueLoading, setFatigueLoading] = useState(true);
   const [completedMuscleVolume, setCompletedMuscleVolume] = useState<MuscleVolumeSummary[]>([]);
+  const [monthlyCompletedDates, setMonthlyCompletedDates] = useState<string[]>([]);
+  const [monthlyGoalLoading, setMonthlyGoalLoading] = useState(true);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -148,6 +152,18 @@ export default function DashboardPage() {
       .finally(() => { if (active) setFatigueLoading(false); });
     return () => { active = false; };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    const { startDate, endDate } = monthDateRange(calendarCursor);
+    setMonthlyGoalLoading(true);
+    void loadMonthlyCompletedWorkoutDates(user.id, startDate, endDate)
+      .then((dates) => { if (active) setMonthlyCompletedDates(dates); })
+      .catch(() => { if (active) setMonthlyCompletedDates([]); })
+      .finally(() => { if (active) setMonthlyGoalLoading(false); });
+    return () => { active = false; };
+  }, [calendarCursor, user]);
 
   useEffect(() => {
     saveCalendarEntries(storageKey, entries);
@@ -234,6 +250,12 @@ export default function DashboardPage() {
   const weeklyProgress = weeklyPlan.targetSessions > 0
     ? Math.round((weeklyPlan.completedSessions / weeklyPlan.targetSessions) * 100)
     : 0;
+  const monthlyGoal = useMemo(() => buildMonthlyTrainingGoal(
+    entries.filter((entry) => entry.available).map((entry) => entry.date),
+    monthlyCompletedDates,
+    calendarCursor,
+    today,
+  ), [calendarCursor, entries, monthlyCompletedDates, today]);
   const focusLabels: Record<string, string> = {
     full_body: "Corpo inteiro",
     glutes: "Glúteos",
@@ -284,6 +306,19 @@ export default function DashboardPage() {
             </div>
             <a href="#/perfil">Ajustar foco <b aria-hidden="true">→</b></a>
           </article>
+        </section>
+
+        <section className={`monthly-goal monthly-goal--${monthlyGoal.status}`} aria-labelledby="monthly-goal-title">
+          <div className="monthly-goal__copy">
+            <span className="eyebrow">META E CONSISTÊNCIA</span>
+            <h2 id="monthly-goal-title">{monthlyGoalLoading ? "Calculando sua meta mensal…" : monthlyGoal.title}</h2>
+            {!monthlyGoalLoading && <p>{monthlyGoal.message}</p>}
+          </div>
+          <div className="monthly-goal__progress">
+            <div><strong>{monthlyGoal.completedSessions}</strong><span>de {monthlyGoal.targetSessions} treinos</span></div>
+            <div className="overview-progress" aria-label={`${monthlyGoal.progressPercent}% da meta mensal concluída`}><i style={{ width: `${monthlyGoal.progressPercent}%` }} /></div>
+            <small>A meta acompanha os dias disponíveis marcados neste mês.</small>
+          </div>
         </section>
 
         <section className={`fatigue-card fatigue-card--${fatigue?.level ?? "normal"}`} aria-labelledby="fatigue-title">
