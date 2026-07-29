@@ -1355,6 +1355,15 @@ main { padding: 64px 0 52px; }
 .overview-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #176bff, #36a3ff); box-shadow: 0 0 16px rgba(23, 107, 255, .6); }
 .focus-tags { display: flex; gap: 7px; margin: 22px 0 14px; flex-wrap: wrap; }
 .focus-tags strong { padding: 8px 10px; border: 1px solid rgba(44, 139, 255, .34); border-radius: 999px; color: #a9d0ff; background: rgba(23, 107, 255, .12); font-size: 11px; }
+.monthly-goal { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr); gap:24px; margin-bottom:18px; padding:22px; border:1px solid var(--app-border); border-radius:18px; align-items:center; background:linear-gradient(135deg,rgba(8,28,51,.98),rgba(6,18,34,.98)); }
+.monthly-goal h2 { margin:7px 0 6px; color:var(--app-text); font-size:clamp(20px,2.4vw,28px); }
+.monthly-goal p,.monthly-goal small { margin:0; color:var(--app-muted); line-height:1.5; }
+.monthly-goal__progress { display:grid; gap:10px; }
+.monthly-goal__progress > div:first-child { display:flex; gap:8px; align-items:baseline; }
+.monthly-goal__progress strong { color:white; font-size:30px; }
+.monthly-goal__progress span { color:var(--app-muted); }
+.monthly-goal--attention { border-color:rgba(240,174,55,.55); background:linear-gradient(135deg,rgba(53,35,8,.72),rgba(8,23,41,.98)); }
+.monthly-goal--completed { border-color:rgba(44,190,132,.48); background:linear-gradient(135deg,rgba(7,52,40,.72),rgba(8,23,41,.98)); }
 
 .authenticated-content .calendar-hero { margin: 0 0 18px; }
 .authenticated-content .calendar-hero h2 {
@@ -1458,6 +1467,7 @@ main { padding: 64px 0 52px; }
   }
   .app-mobile-menu .app-navigation__signout { margin-top: 2px; }
   .authenticated-content > .training-dashboard { padding: 24px 16px 42px; }
+  .monthly-goal { grid-template-columns:1fr; gap:16px; padding:19px; }
   .dashboard-welcome { align-items: flex-start; flex-direction: column; }
   .dashboard-welcome h1 { font-size: 34px; }
   .dashboard-overview { grid-template-columns: 1fr; }

@@ -49,6 +49,9 @@ vi.mock("../services/weeklyMuscleVolumeService", () => ({
     { muscle: "peito", directSets: 6, indirectSets: 0, totalSets: 6 },
   ]),
 }));
+vi.mock("../services/monthlyTrainingGoalService", () => ({
+  loadMonthlyCompletedWorkoutDates: vi.fn().mockResolvedValue([]),
+}));
 
 describe("painel principal", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -69,6 +72,7 @@ describe("painel principal", () => {
     expect(screen.getByText("Evite buscar recordes na próxima sessão.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Séries da semana" })).toBeInTheDocument();
     expect(screen.getByText(/6 de .* séries/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Defina sua meta no calendário" })).toBeInTheDocument();
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {
