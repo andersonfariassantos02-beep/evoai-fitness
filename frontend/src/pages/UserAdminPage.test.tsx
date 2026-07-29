@@ -76,14 +76,20 @@ describe("administração de usuários",()=>{
     const user=userEvent.setup();
     render(<MemoryRouter><UserAdminPage/></MemoryRouter>);
     await screen.findByText("user@evoai.com");
-    const buttons=screen.getAllByRole("button",{name:"Excluir"});
-    expect(buttons[0]).toBeDisabled();
-    await user.click(buttons[1]);
+    const button=screen.getByRole("button",{name:"Excluir"});
+    await user.click(button);
     const confirm=screen.getByRole("button",{name:"Excluir definitivamente"});
     expect(confirm).toBeDisabled();
     await user.type(screen.getByLabelText("E-mail de confirmação"),"user@evoai.com");
     await user.click(confirm);
     await waitFor(()=>expect(mocks.deleteUser).toHaveBeenCalledWith("user-1","user@evoai.com"));
+  });
+
+  it("preserva contas reais e oferece exclusão apenas para conta fictícia",async()=>{
+    render(<MemoryRouter><UserAdminPage/></MemoryRouter>);
+    await screen.findByText("user@evoai.com");
+    expect(screen.getByText("Conta real: use Desativar para preservar o histórico.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button",{name:"Excluir"})).toHaveLength(1);
   });
 
   it("não carrega a lista para usuário comum",async()=>{

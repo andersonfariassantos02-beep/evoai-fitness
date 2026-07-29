@@ -64,12 +64,21 @@ Deno.serve(async req => {
       const {data:targetData,error:targetError}=await admin.auth.admin.getUserById(userId);
       if(targetError||!targetData.user)throw targetError??new Error("Usuário não encontrado.");
       if((targetData.user.email??"").toLowerCase()!==confirmationEmail)return json({error:"O e-mail de confirmação não corresponde ao usuário."},400,origin);
+      if(targetData.user.app_metadata?.evoai_test_user!==true)return json({error:"Por segurança, somente contas fictícias podem ser excluídas. Desative usuários reais para preservar o histórico."},400,origin);
       const {data:auditData,error:auditError}=await admin.from("user_admin_audit").insert({actor_user_id:user.id,target_user_id:userId,action:"delete_user"}).select("id").single();
       if(auditError)throw auditError;
+      const {error:cleanupError}=await admin.rpc("delete_test_user_data",{target_user_id:userId});
+      if(cleanupError){
+        await admin.from("user_admin_audit").delete().eq("id",auditData.id);
+        const message=cleanupError.message.includes("TEST_USER_HAS_SHARED_OR_AUDITED_DATA")
+          ?"A conta de teste possui dados compartilhados e não pode ser excluída automaticamente."
+          :"Não foi possível remover os dados vinculados à conta de teste.";
+        return json({error:message},409,origin);
+      }
       const {error}=await admin.auth.admin.deleteUser(userId);
       if(error){
         await admin.from("user_admin_audit").delete().eq("id",auditData.id);
-        throw error;
+        return json({error:"Os dados da conta foram limpos, mas a remoção do acesso falhou. Tente novamente."},500,origin);
       }
       return json({message:"Usuário excluído definitivamente."},200,origin);
     }
