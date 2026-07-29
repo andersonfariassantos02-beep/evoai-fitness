@@ -11,6 +11,13 @@ export interface FatigueAssessment {
   recentSessions: number;
 }
 
+export interface SubjectiveRecoveryEntry {
+  sleepHours: number;
+  soreness: number;
+  fatigue: number;
+  jointDiscomfort: boolean;
+}
+
 function average(values: number[]) {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
 }
@@ -22,6 +29,7 @@ function completedVolume(workouts: ReportWorkout[]) {
 export function assessTrainingFatigue(
   recentWorkouts: ReportWorkout[],
   previousWorkouts: ReportWorkout[],
+  readinessEntries: SubjectiveRecoveryEntry[] = [],
 ): FatigueAssessment {
   const recent = [...recentWorkouts].sort((left, right) => left.date.localeCompare(right.date));
   const recentRpes = recent.flatMap((workout) => workout.averageRpe === null ? [] : [workout.averageRpe]);
@@ -63,13 +71,35 @@ export function assessTrainingFatigue(
     score += 1;
     signals.push(`${recent.length} sessões concluídas nos últimos 7 dias`);
   }
+  const recentReadiness = readinessEntries.slice(-7);
+  const averageSleep = average(recentReadiness.map((entry) => entry.sleepHours));
+  const averageFatigue = average(recentReadiness.map((entry) => entry.fatigue));
+  const highDiscomfortDays = recentReadiness.filter((entry) => entry.soreness >= 4 || entry.jointDiscomfort).length;
+  if (averageSleep !== null && averageSleep < 6) {
+    score += 2;
+    signals.push(`sono médio recente de ${averageSleep.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h`);
+  } else if (averageSleep !== null && averageSleep < 7) {
+    score += 1;
+    signals.push(`sono médio abaixo de 7h (${averageSleep.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h)`);
+  }
+  if (averageFatigue !== null && averageFatigue >= 4) {
+    score += 2;
+    signals.push(`fadiga percebida média em ${averageFatigue.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/5`);
+  } else if (averageFatigue !== null && averageFatigue >= 3.5) {
+    score += 1;
+    signals.push(`fadiga percebida elevada (${averageFatigue.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/5)`);
+  }
+  if (highDiscomfortDays >= 2) {
+    score += 1;
+    signals.push(`${highDiscomfortDays} registros recentes com dor alta ou desconforto articular`);
+  }
 
-  if (recent.length < 2) {
+  if (recent.length < 2 && recentReadiness.length < 2) {
     return {
       level: "normal",
       title: "Monitoramento em formação",
-      summary: "Ainda faltam treinos recentes para avaliar tendência de fadiga com segurança.",
-      recommendation: "Continue registrando carga, repetições e RPE. Nenhum ajuste automático será feito.",
+      summary: "Ainda faltam treinos ou check-ins recentes para avaliar tendência de fadiga com segurança.",
+      recommendation: "Continue registrando carga, repetições, RPE e recuperação. Nenhum ajuste automático será feito.",
       signals: [],
       recentSessions: recent.length,
     };
@@ -78,7 +108,7 @@ export function assessTrainingFatigue(
     return {
       level: "deload",
       title: "Deload sugerido",
-      summary: "O histórico apresenta sinais combinados de fadiga acumulada. Isso é uma orientação preventiva, não um diagnóstico.",
+      summary: "O histórico e os check-ins apresentam sinais combinados de fadiga acumulada. Isso é uma orientação preventiva, não um diagnóstico.",
       recommendation: "Por 5–7 dias, reduza cerca de 30–40% das séries, mantenha cargas confortáveis e trabalhe em RPE 6–7. Interrompa e procure avaliação profissional se houver dor persistente.",
       signals,
       recentSessions: recent.length,
@@ -88,9 +118,19 @@ export function assessTrainingFatigue(
     return {
       level: "attention",
       title: "Recuperação merece atenção",
-      summary: "Há sinais de esforço elevado, mas ainda não existe evidência suficiente para recomendar uma semana de deload.",
+      summary: "Há sinais objetivos ou percebidos de recuperação reduzida, mas a decisão deve considerar como você se sente hoje.",
       recommendation: "Evite buscar recordes na próxima sessão. Priorize sono, técnica e RPE até 8; reduza uma série por exercício se a prontidão estiver baixa.",
       signals,
+      recentSessions: recent.length,
+    };
+  }
+  if (recent.length < 2) {
+    return {
+      level: "normal",
+      title: "Monitoramento em formação",
+      summary: "Ainda faltam treinos recentes para avaliar tendência de fadiga com segurança.",
+      recommendation: "Continue registrando carga, repetições e RPE. Nenhum ajuste automático será feito.",
+      signals: [],
       recentSessions: recent.length,
     };
   }

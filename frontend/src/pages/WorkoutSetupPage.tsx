@@ -6,6 +6,7 @@ import { exerciseConflictsWithRestrictions, loadActiveProfileContext, type Profi
 import { cancelStartedWorkout, createManualWorkout, loadExistingWorkout, previewAutomaticWorkout, replaceUnstartedWorkout, type WorkoutSession } from "../services/workoutSessionService";
 import { formatWorkoutPrescription, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { applyReadinessAdjustment, assessReadiness, type ReadinessCheckIn } from "../lib/readiness";
+import { loadDailyReadiness, saveDailyReadiness } from "../services/readinessService";
 
 type SetupMode = "loading" | "unauthorized" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
 
@@ -28,16 +29,25 @@ export default function WorkoutSetupPage() {
   const [admin, setAdmin] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [readinessSaved, setReadinessSaved] = useState(false);
   const [readiness, setReadiness] = useState<ReadinessCheckIn>({
-    energy: 3, soreness: 2, jointDiscomfort: false, availableMinutes: 60,
+    sleepHours: 7, energy: 3, soreness: 2, fatigue: 2, jointDiscomfort: false, availableMinutes: 60,
   });
   const readinessAssessment = useMemo(() => assessReadiness(readiness), [readiness]);
 
   useEffect(() => {
     if (!user || !date) return;
-    void Promise.all([loadExerciseCatalog(), loadActiveProfileContext(user.id, date), isExerciseCatalogAdmin(user.id), loadExistingWorkout(user.id, date, sessionKind)])
-      .then(([items, profile, isAdmin, saved]) => {
+    void Promise.all([
+      loadExerciseCatalog(), loadActiveProfileContext(user.id, date), isExerciseCatalogAdmin(user.id),
+      loadExistingWorkout(user.id, date, sessionKind),
+      testMode ? Promise.resolve(null) : loadDailyReadiness(user.id, date),
+    ])
+      .then(([items, profile, isAdmin, saved, savedReadiness]) => {
         setCatalog(items); setRestrictions(profile.restrictions); setAdmin(isAdmin); setExisting(saved);
+        if (savedReadiness) {
+          setReadiness(savedReadiness);
+          setReadinessSaved(true);
+        }
         if (testMode && !isAdmin) {
           setMode("unauthorized");
           return;
@@ -63,6 +73,10 @@ export default function WorkoutSetupPage() {
     if (!user) return;
     setBusy(true); setMessage("");
     try {
+      if (!testMode) {
+        await saveDailyReadiness(user.id, date, readiness);
+        setReadinessSaved(true);
+      }
       const suggestion = await previewAutomaticWorkout(user.id, date, suggestedLabel);
       setPreview(applyReadinessAdjustment(suggestion, readinessAssessment));
       setLabel(suggestedLabel);
@@ -70,6 +84,20 @@ export default function WorkoutSetupPage() {
     }
     catch { setMessage("Não foi possível gerar a sugestão com as preferências atuais."); }
     finally { setBusy(false); }
+  }
+
+  async function saveCheckIn() {
+    if (!user || testMode) return;
+    setBusy(true); setMessage("");
+    try {
+      await saveDailyReadiness(user.id, date, readiness);
+      setReadinessSaved(true);
+      setMessage("Check-in de recuperação salvo para este dia.");
+    } catch {
+      setMessage("Não foi possível salvar o check-in. Verifique a conexão e tente novamente.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function persist(templates: WorkoutExerciseTemplate[]) {
@@ -124,12 +152,15 @@ export default function WorkoutSetupPage() {
       <section className="readiness-checkin" aria-labelledby="readiness-title">
         <div><span className="setup-status">CHECK-IN RÁPIDO</span><h2 id="readiness-title">Como você chega para o treino?</h2><p>Leva poucos segundos e evita ajustes agressivos quando sua recuperação estiver menor.</p></div>
         <div className="readiness-checkin__fields">
-          <label>Energia hoje<select value={readiness.energy} onChange={(event) => setReadiness((current) => ({ ...current, energy: Number(event.target.value) }))}><option value="1">1 · Muito baixa</option><option value="2">2 · Baixa</option><option value="3">3 · Normal</option><option value="4">4 · Boa</option><option value="5">5 · Excelente</option></select></label>
-          <label>Dor muscular<select value={readiness.soreness} onChange={(event) => setReadiness((current) => ({ ...current, soreness: Number(event.target.value) }))}><option value="1">1 · Nenhuma</option><option value="2">2 · Leve</option><option value="3">3 · Moderada</option><option value="4">4 · Alta</option><option value="5">5 · Muito alta</option></select></label>
-          <label>Tempo disponível<select value={readiness.availableMinutes} onChange={(event) => setReadiness((current) => ({ ...current, availableMinutes: Number(event.target.value) }))}><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">60 minutos</option><option value="75">75+ minutos</option></select></label>
-          <label className="readiness-checkin__toggle"><input type="checkbox" checked={readiness.jointDiscomfort} onChange={(event) => setReadiness((current) => ({ ...current, jointDiscomfort: event.target.checked }))} />Estou com desconforto articular</label>
+          <label>Horas de sono<input type="number" inputMode="decimal" min="0" max="16" step="0.5" value={readiness.sleepHours} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, sleepHours: Number(event.target.value) })); }} /></label>
+          <label>Energia hoje<select value={readiness.energy} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, energy: Number(event.target.value) })); }}><option value="1">1 · Muito baixa</option><option value="2">2 · Baixa</option><option value="3">3 · Normal</option><option value="4">4 · Boa</option><option value="5">5 · Excelente</option></select></label>
+          <label>Fadiga geral<select value={readiness.fatigue} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, fatigue: Number(event.target.value) })); }}><option value="1">1 · Muito baixa</option><option value="2">2 · Baixa</option><option value="3">3 · Moderada</option><option value="4">4 · Alta</option><option value="5">5 · Muito alta</option></select></label>
+          <label>Dor muscular<select value={readiness.soreness} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, soreness: Number(event.target.value) })); }}><option value="1">1 · Nenhuma</option><option value="2">2 · Leve</option><option value="3">3 · Moderada</option><option value="4">4 · Alta</option><option value="5">5 · Muito alta</option></select></label>
+          <label>Tempo disponível<select value={readiness.availableMinutes} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, availableMinutes: Number(event.target.value) })); }}><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">60 minutos</option><option value="75">75+ minutos</option></select></label>
+          <label className="readiness-checkin__toggle"><input type="checkbox" checked={readiness.jointDiscomfort} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, jointDiscomfort: event.target.checked })); }} />Estou com desconforto articular</label>
         </div>
         <p className={`readiness-result readiness-result--${readinessAssessment.level}`}>{readinessAssessment.message}</p>
+        {!testMode && <div className="readiness-checkin__actions"><button type="button" disabled={busy || readinessSaved} onClick={() => void saveCheckIn()}>{readinessSaved ? "Check-in salvo" : "Salvar check-in"}</button><small>O registro poderá ser atualizado nesta mesma data.</small></div>}
       </section>
       <section className="setup-mode-grid">
         <article><h2>EvoAI monta para mim</h2><p>Primeiro você verá uma prévia considerando o check-in. Nada será salvo sem confirmação.</p><button type="button" disabled={busy} onClick={() => void showAutomaticPreview()}>{busy ? "Gerando prévia…" : "Ver sugestão"}</button></article>

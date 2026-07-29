@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorkoutSetupPage from "./WorkoutSetupPage";
 
-const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout } = vi.hoisted(() => {
+const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness } = vi.hoisted(() => {
   const row = { key: "row", name: "Remada", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "máquina" };
   const legPress = { key: "leg-press", name: "Leg press", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "agachar", equipment: "máquina" };
   return {
@@ -14,6 +14,8 @@ const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWork
     replaceUnstartedWorkout: vi.fn().mockResolvedValue({}),
     loadExistingWorkout: vi.fn(),
     previewAutomaticWorkout: vi.fn().mockResolvedValue([row, legPress]),
+    loadDailyReadiness: vi.fn().mockResolvedValue(null),
+    saveDailyReadiness: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -33,13 +35,17 @@ vi.mock("../services/workoutSessionService", () => ({
   loadExistingWorkout: (...args: unknown[]) => loadExistingWorkout(...args),
   previewAutomaticWorkout: (...args: unknown[]) => previewAutomaticWorkout(...args),
 }));
+vi.mock("../services/readinessService", () => ({
+  loadDailyReadiness: (...args: unknown[]) => loadDailyReadiness(...args),
+  saveDailyReadiness: (...args: unknown[]) => saveDailyReadiness(...args),
+}));
 
 function renderSetup() {
   return render(<MemoryRouter initialEntries={["/preparar-treino/2026-07-22?label=Full%20body%20A&planned=1"]}><Routes><Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} /><Route path="/treino/:date" element={<p>Sessão aberta</p>} /></Routes></MemoryRouter>);
 }
 
 describe("preparação do treino", () => {
-  beforeEach(() => { vi.clearAllMocks(); loadExistingWorkout.mockResolvedValue(null); previewAutomaticWorkout.mockResolvedValue([row, legPress]); });
+  beforeEach(() => { vi.clearAllMocks(); loadExistingWorkout.mockResolvedValue(null); loadDailyReadiness.mockResolvedValue(null); previewAutomaticWorkout.mockResolvedValue([row, legPress]); });
   afterEach(cleanup);
 
   it("aguarda a consulta do treino salvo sem exibir escolhas prematuramente", async () => {
@@ -56,6 +62,7 @@ describe("preparação do treino", () => {
     const user = userEvent.setup();
     renderSetup();
     await user.click(await screen.findByRole("button", { name: "Ver sugestão" }));
+    expect(saveDailyReadiness).toHaveBeenCalledWith("admin-1", "2026-07-22", expect.objectContaining({ sleepHours: 7, fatigue: 2 }));
     expect(await screen.findByText("SUGESTÃO NÃO CONFIRMADA")).toBeInTheDocument();
     expect(createManualWorkout).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Confirmar e criar treino" }));
@@ -71,6 +78,22 @@ describe("preparação do treino", () => {
     await user.click(screen.getByRole("checkbox", { name: /Leg press/ }));
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     await waitFor(() => expect(replaceUnstartedWorkout).toHaveBeenCalledWith("admin-1", "2026-07-22", "session-1", "Ficha do coach", [row, legPress]));
+  });
+
+  it("restaura e permite atualizar o check-in salvo na mesma data", async () => {
+    loadDailyReadiness.mockResolvedValue({
+      id: "checkin-1", date: "2026-07-22", sleepHours: 5.5, energy: 2, soreness: 4,
+      fatigue: 4, jointDiscomfort: false, availableMinutes: 45,
+    });
+    const user = userEvent.setup();
+    renderSetup();
+    expect(await screen.findByDisplayValue("5.5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check-in salvo" })).toBeDisabled();
+    await user.selectOptions(screen.getByLabelText("Energia hoje"), "3");
+    await user.click(screen.getByRole("button", { name: "Salvar check-in" }));
+    await waitFor(() => expect(saveDailyReadiness).toHaveBeenCalledWith(
+      "admin-1", "2026-07-22", expect.objectContaining({ energy: 3, sleepHours: 5.5 }),
+    ));
   });
 
   it("encerra um treino iniciado antes de oferecer uma nova montagem", async () => {
