@@ -7,6 +7,17 @@ export interface MuscleVolumeSummary {
   totalSets: number;
 }
 
+export interface MuscleVolumeBalance extends MuscleVolumeSummary {
+  completedSets: number;
+  progress: number;
+  status: "pending" | "progress" | "complete";
+}
+
+export interface PerformedExerciseVolume {
+  key: string;
+  completedSets: number;
+}
+
 const MUSCLE_ORDER: MuscleGroup[] = [
   "peito", "costas", "ombros", "quadriceps", "posteriores", "gluteos",
   "panturrilhas", "biceps", "triceps",
@@ -60,4 +71,39 @@ export function summarizeMuscleVolume(exercises: WorkoutExerciseTemplate[]): Mus
 
 export function summarizePlannedMuscleVolume(labels: string[]): MuscleVolumeSummary[] {
   return summarizeMuscleVolume(labels.flatMap((label) => getWorkoutTemplate(label)));
+}
+
+export function summarizePerformedMuscleVolume(
+  performed: PerformedExerciseVolume[],
+  catalog: WorkoutExerciseTemplate[],
+): MuscleVolumeSummary[] {
+  return summarizeMuscleVolume(performed.flatMap((item) => {
+    const exercise = catalog.find((candidate) => candidate.key === item.key);
+    return exercise && item.completedSets > 0 ? [{ ...exercise, sets: item.completedSets }] : [];
+  }));
+}
+
+export function buildMuscleVolumeBalance(
+  planned: MuscleVolumeSummary[],
+  completed: MuscleVolumeSummary[],
+): MuscleVolumeBalance[] {
+  const plannedByMuscle = new Map(planned.map((item) => [item.muscle, item]));
+  const completedByMuscle = new Map(completed.map((item) => [item.muscle, item]));
+  return MUSCLE_ORDER.flatMap((muscle) => {
+    const target = plannedByMuscle.get(muscle);
+    const done = completedByMuscle.get(muscle);
+    if (!target && !done) return [];
+    const totalSets = target?.totalSets ?? 0;
+    const completedSets = done?.totalSets ?? 0;
+    const progress = totalSets > 0 ? Math.min(100, Math.round((completedSets / totalSets) * 100)) : 100;
+    return [{
+      muscle,
+      directSets: target?.directSets ?? 0,
+      indirectSets: target?.indirectSets ?? 0,
+      totalSets,
+      completedSets,
+      progress,
+      status: completedSets <= 0 ? "pending" : progress >= 85 ? "complete" : "progress",
+    }];
+  });
 }
