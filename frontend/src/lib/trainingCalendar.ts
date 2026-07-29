@@ -45,7 +45,7 @@ export const PERIODIZED_WEEK_LABELS = [
   "PUSH leve/moderado",
 ] as const;
 
-export function getAdaptiveWeekLabels(total: number): string[] {
+export function getAdaptiveWeekLabels(total: number, focus: TrainingFocus[] = []): string[] {
   const divisions: Record<number, string[]> = {
     1: ["Full body essencial"],
     2: ["SUPERIOR", "INFERIORES"],
@@ -55,7 +55,12 @@ export function getAdaptiveWeekLabels(total: number): string[] {
     6: ["PUSH A", "PULL A", "LEGS A", "PUSH B", "PULL B", "LEGS B"],
     7: ["PUSH A", "PULL A", "LEGS A", "PUSH B", "PULL B", "LEGS B", "Recuperação ativa"],
   };
-  return divisions[Math.min(Math.max(total, 1), 7)];
+  const labels = divisions[Math.min(Math.max(total, 1), 7)];
+  if (total !== 3) return labels;
+  if (focus.some((item) => item === "glutes" || item === "legs")) return ["LEGS", "PUSH", "PULL"];
+  if (focus.includes("back")) return ["PULL", "LEGS", "PUSH"];
+  if (focus.some((item) => item === "chest" || item === "shoulders" || item === "arms")) return ["PUSH", "LEGS", "PULL"];
+  return labels;
 }
 
 function dateDistance(left: string, right: string): number {
@@ -199,10 +204,19 @@ export function buildWeeklyPlan(
   const completed = weekEntries.filter((entry) => entry.completed);
   const completedCount = completed.length;
   const availableDates = weekEntries.filter((entry) => entry.available);
-  const targetSessions = Math.max(availableDates.length, completedCount);
+  const legacyCompletedWithoutAvailability = completed.filter(
+    (entry) => !entry.available && entry.completedWasPlanned === undefined,
+  ).length;
+  const targetSessions = Math.max(
+    availableDates.length + legacyCompletedWithoutAvailability,
+    completedCount,
+  );
   const labels = targetSessions > 0
-    ? rotateAfterLastCompleted(getAdaptiveWeekLabels(targetSessions), options.lastCompletedLabel)
+    ? getAdaptiveWeekLabels(targetSessions, options.trainingFocus)
     : [];
+  const pendingSequence = options.lastCompletedLabel
+    ? rotateAfterLastCompleted(labels, options.lastCompletedLabel)
+    : labels.slice(completedCount);
   const todayKey = toDateKey(options.today ?? new Date());
   const unplannedCompleted = completed.filter((entry) => entry.completedWasPlanned === false).length;
 
@@ -222,7 +236,7 @@ export function buildWeeklyPlan(
     .slice(0, pendingSlots)
     .map((entry, index) => ({
       date: entry.date,
-      label: labels[completedCount + index]
+      label: pendingSequence[index]
         ?? `Treino ${completedCount + index + 1}`,
       status: "planned",
       adjusted: unplannedCompleted > 0,

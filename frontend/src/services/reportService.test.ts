@@ -31,6 +31,10 @@ describe("agregação do relatório", () => {
     expect(report.totalReps).toBe(18);
     expect(report.totalVolume).toBe(940);
     expect(report.averageRpe).toBe(8.5);
+    expect(report.workouts[0].exercises[0]).toMatchObject({
+      bestSet: { loadKg: 55, reps: 8 },
+      estimated1Rm: 69.7,
+    });
   });
 });
 

@@ -29,3 +29,39 @@ describe("PUSH pesado", () => {
       .toEqual(["quadriceps", "quadriceps", "quadriceps", "panturrilhas"]);
   });
 });
+
+describe("divisão completa de três dias", () => {
+  it("PULL cobre puxadas horizontal e vertical, deltoide posterior e bíceps", () => {
+    expect(getWorkoutTemplate("PULL").map((item) => item.name)).toEqual([
+      "Puxada",
+      "Remada baixa no cabo",
+      "Remada unilateral",
+      "Crucifixo inverso na máquina",
+      "Rosca de bíceps",
+      "Rosca martelo",
+    ]);
+  });
+
+  it("LEGS distribui quadríceps, posteriores, glúteos e panturrilhas", () => {
+    expect(getWorkoutTemplate("LEGS").map((item) => item.name)).toEqual([
+      "Agachamento guiado",
+      "Leg press",
+      "Levantamento terra romeno",
+      "Flexão de joelhos",
+      "Elevação pélvica",
+      "Panturrilha",
+    ]);
+  });
+
+  it("PUSH usa a ficha completa, não o modelo reduzido antigo", () => {
+    expect(getWorkoutTemplate("PUSH").map((item) => item.name)).toEqual([
+      "Supino articulado",
+      "Supino inclinado com halteres",
+      "Crossover",
+      "Desenvolvimento com halteres",
+      "Elevação lateral",
+      "Tríceps corda",
+      "Crucifixo inverso no Cross",
+    ]);
+  });
+});

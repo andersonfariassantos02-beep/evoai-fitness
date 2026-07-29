@@ -17,6 +17,8 @@ export interface ReportExercise {
   substitutionReason: string | null;
   sets: ReportSet[];
   volume: number;
+  estimated1Rm: number | null;
+  bestSet: { loadKg: number; reps: number } | null;
 }
 
 export interface ReportWorkout {
@@ -128,6 +130,12 @@ export function aggregateWorkoutReport(
         const volume = sets
           .filter((set) => !set.skipped)
           .reduce((total, set) => total + set.reps * set.loadKg, 0);
+        const performedSets = sets.filter((set) => !set.skipped && set.reps > 0 && set.loadKg > 0);
+        const bestSet = performedSets.reduce<ReportSet | null>((best, set) => {
+          const estimate = set.loadKg * (1 + Math.min(set.reps, 12) / 30);
+          const bestEstimate = best ? best.loadKg * (1 + Math.min(best.reps, 12) / 30) : -1;
+          return estimate > bestEstimate ? set : best;
+        }, null);
         return {
           key: exercise.exercise_key,
           name: exercise.exercise_name,
@@ -135,6 +143,8 @@ export function aggregateWorkoutReport(
           substitutionReason: exercise.substitution_reason,
           sets,
           volume: round(volume),
+          estimated1Rm: bestSet ? round(bestSet.loadKg * (1 + Math.min(bestSet.reps, 12) / 30)) : null,
+          bestSet: bestSet ? { loadKg: bestSet.loadKg, reps: bestSet.reps } : null,
         };
       });
     const completedSets = exercises.flatMap((exercise) => exercise.sets).filter((set) => !set.skipped && set.reps > 0).length;
@@ -231,4 +241,29 @@ export async function loadUnfinishedWorkouts(
     .order("training_date");
   if (error) throw error;
   return mapUnfinishedWorkouts((data ?? []) as unknown as UnfinishedSessionRow[]);
+}
+
+export async function confirmPasswordAndDeleteUnfinishedWorkout(
+  userId: string,
+  sessionId: string,
+  password: string,
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { data: userResult, error: userError } = await supabase.auth.getUser();
+  const email = userResult.user?.email;
+  if (userError || !email || userResult.user?.id !== userId) throw new Error("AUTH_REQUIRED");
+
+  const { error: passwordError } = await supabase.auth.signInWithPassword({ email, password });
+  if (passwordError) throw new Error("INVALID_PASSWORD");
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", sessionId)
+    .eq("user_id", userId)
+    .eq("session_kind", "real")
+    .in("status", ["active", "paused"])
+    .select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("WORKOUT_NOT_FOUND");
 }

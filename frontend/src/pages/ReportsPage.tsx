@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { previousReportRange, reportRange, type ReportPeriod } from "../lib/reportPeriod";
 import { saveReportPdf, shareReportPdf } from "../lib/reportPdf";
+import { loadProfileDisplayName } from "../services/profileRestrictionService";
 import {
+  confirmPasswordAndDeleteUnfinishedWorkout,
   loadUnfinishedWorkouts,
   loadWorkoutReport,
   type UnfinishedWorkout,
@@ -39,11 +41,23 @@ export default function ReportsPage() {
   const [report, setReport] = useState<WorkoutReport | null>(null);
   const [previous, setPrevious] = useState<WorkoutReport | null>(null);
   const [unfinished, setUnfinished] = useState<UnfinishedWorkout[]>([]);
+  const [deleting, setDeleting] = useState<UnfinishedWorkout | null>(null);
+  const [password, setPassword] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
+  const fallbackAthleteName = String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Atleta");
+  const [athleteName, setAthleteName] = useState(fallbackAthleteName);
   const currentRange = useMemo(() => reportRange(period, anchor), [anchor, period]);
-  const athleteName = String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Atleta");
+
+  useEffect(() => {
+    if (!user) return;
+    setAthleteName(fallbackAthleteName);
+    void loadProfileDisplayName(user.id)
+      .then((name) => { if (name) setAthleteName(name); })
+      .catch(() => undefined);
+  }, [fallbackAthleteName, user]);
 
   async function generate() {
     if (!user) return;
@@ -84,6 +98,26 @@ export default function ReportsPage() {
       setMessage("Não foi possível gerar o PDF.");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function deleteUnfinishedWorkout(event: FormEvent) {
+    event.preventDefault();
+    if (!user || !deleting) return;
+    setDeleteBusy(true);
+    setMessage("");
+    try {
+      await confirmPasswordAndDeleteUnfinishedWorkout(user.id, deleting.id, password);
+      setUnfinished((current) => current.filter((workout) => workout.id !== deleting.id));
+      setDeleting(null);
+      setPassword("");
+      setMessage("Treino de teste excluído definitivamente.");
+    } catch (error) {
+      setMessage(error instanceof Error && error.message === "INVALID_PASSWORD"
+        ? "Senha incorreta. O treino não foi excluído."
+        : "Não foi possível excluir o treino. Atualize a página e tente novamente.");
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -131,9 +165,14 @@ export default function ReportsPage() {
                       <h3>{workout.label}</h3>
                       <span>{workout.completedSets} de {workout.totalSets} séries registradas</span>
                     </div>
-                    <Link to={`/preparar-treino/${workout.date}?label=${encodeURIComponent(workout.label)}&planned=0`}>
-                      Continuar e finalizar
-                    </Link>
+                    <div className="report-unfinished__actions">
+                      <Link to={`/preparar-treino/${workout.date}?label=${encodeURIComponent(workout.label)}&planned=0`}>
+                        Continuar e finalizar
+                      </Link>
+                      <button type="button" onClick={() => { setDeleting(workout); setPassword(""); setMessage(""); }}>
+                        Excluir registro
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -164,7 +203,14 @@ export default function ReportsPage() {
                   <div className="report-exercises">
                     {workout.exercises.map((exercise) => (
                       <section key={`${workout.id}-${exercise.key}`}>
-                        <div><strong>{exercise.name}</strong><small>{exercise.volume.toLocaleString("pt-BR")} kg de volume</small></div>
+                        <div>
+                          <strong>{exercise.name}</strong>
+                          <small>
+                            {exercise.bestSet
+                              ? `Melhor série: ${exercise.bestSet.loadKg} kg × ${exercise.bestSet.reps} · 1RM estimada ${exercise.estimated1Rm} kg`
+                              : "Sem série válida para estimativa"}
+                          </small>
+                        </div>
                         {exercise.originalKey && <em>Substituição · {exercise.substitutionReason ?? "motivo não informado"}</em>}
                         <div className="report-sets">
                           {exercise.sets.map((set) => <span className={set.skipped ? "report-set--skipped" : ""} key={set.setNumber}>
@@ -180,6 +226,38 @@ export default function ReportsPage() {
             </div>
           </section>
         </>
+      )}
+
+      {deleting && (
+        <div className="confirmation-backdrop" role="presentation">
+          <section className="confirmation-dialog report-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-workout-title">
+            <span className="setup-status setup-status--locked">EXCLUSÃO DEFINITIVA</span>
+            <h2 id="delete-workout-title">Excluir “{deleting.label}”?</h2>
+            <p>
+              O treino de {formatDate(deleting.date)} e todas as séries registradas serão removidos permanentemente.
+              Esta ação não pode ser desfeita.
+            </p>
+            <form onSubmit={deleteUnfinishedWorkout}>
+              <label>
+                Senha atual
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoFocus
+                />
+              </label>
+              <div>
+                <button type="button" disabled={deleteBusy} onClick={() => { setDeleting(null); setPassword(""); }}>Cancelar</button>
+                <button className="danger-action" type="submit" disabled={deleteBusy || !password}>
+                  {deleteBusy ? "Excluindo…" : "Confirmar exclusão"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
     </main>
   );

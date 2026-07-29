@@ -11,6 +11,7 @@ function ReportsPage() {
 const mocks = vi.hoisted(() => ({
   load: vi.fn(),
   loadUnfinished: vi.fn(),
+  deleteUnfinished: vi.fn(),
   save: vi.fn(),
   share: vi.fn(),
 }));
@@ -20,7 +21,12 @@ vi.mock("../contexts/AuthContext", () => ({
 }));
 vi.mock("../services/reportService", async () => {
   const actual = await vi.importActual<typeof import("../services/reportService")>("../services/reportService");
-  return { ...actual, loadWorkoutReport: mocks.load, loadUnfinishedWorkouts: mocks.loadUnfinished };
+  return {
+    ...actual,
+    loadWorkoutReport: mocks.load,
+    loadUnfinishedWorkouts: mocks.loadUnfinished,
+    confirmPasswordAndDeleteUnfinishedWorkout: mocks.deleteUnfinished,
+  };
 });
 vi.mock("../lib/reportPdf", () => ({
   saveReportPdf: mocks.save,
@@ -29,7 +35,7 @@ vi.mock("../lib/reportPdf", () => ({
 
 const report = {
   startDate: "2026-07-27", endDate: "2026-08-02", plannedSessions: 3,
-  workouts: [{ id: "w1", date: "2026-07-27", label: "Push", notes: "", startedAt: "", completedAt: "", completedSets: 1, skippedSets: 0, volume: 500, averageRpe: 8, exercises: [{ key: "bench", name: "Supino", originalKey: null, substitutionReason: null, volume: 500, sets: [{ setNumber: 1, reps: 10, loadKg: 50, rpe: 8, isExtra: false, skipped: false, skipReason: null }] }] }],
+  workouts: [{ id: "w1", date: "2026-07-27", label: "Push", notes: "", startedAt: "", completedAt: "", completedSets: 1, skippedSets: 0, volume: 500, averageRpe: 8, exercises: [{ key: "bench", name: "Supino", originalKey: null, substitutionReason: null, volume: 500, estimated1Rm: 66.7, bestSet: { loadKg: 50, reps: 10 }, sets: [{ setNumber: 1, reps: 10, loadKg: 50, rpe: 8, isExtra: false, skipped: false, skipReason: null }] }] }],
   completedSessions: 1, adherence: 33.3, completedSets: 1, skippedSets: 0, totalReps: 10, totalVolume: 500, averageRpe: 8,
 };
 
@@ -39,6 +45,7 @@ describe("página de relatórios", () => {
     vi.clearAllMocks();
     mocks.load.mockResolvedValueOnce(report).mockResolvedValueOnce({ ...report, workouts: [], completedSessions: 0, totalVolume: 0 });
     mocks.loadUnfinished.mockResolvedValue([]);
+    mocks.deleteUnfinished.mockResolvedValue(undefined);
   });
 
   it("gera o relatório real e oferece PDF e compartilhamento", async () => {
@@ -81,4 +88,30 @@ describe("página de relatórios", () => {
       "/preparar-treino/2026-07-27?label=PUSH&planned=0",
     );
   });
+
+  it("exige confirmação e senha para excluir um treino pendente", async () => {
+    mocks.loadUnfinished.mockResolvedValueOnce([{
+      id: "pending-1",
+      date: "2026-07-27",
+      label: "PUSH",
+      status: "active",
+      completedSets: 0,
+      totalSets: 19,
+    }]);
+    const user = userEvent.setup();
+    render(<ReportsPage />);
+    await user.click(screen.getByRole("button", { name: "Gerar relatório" }));
+    await user.click(await screen.findByRole("button", { name: "Excluir registro" }));
+
+    expect(screen.getByRole("heading", { name: "Excluir “PUSH”?" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Senha atual"), "senha-segura");
+    await user.click(screen.getByRole("button", { name: "Confirmar exclusão" }));
+
+    expect(mocks.deleteUnfinished).toHaveBeenCalledWith("user-1", "pending-1", "senha-segura");
+    expect(await screen.findByText("Treino de teste excluído definitivamente.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "PUSH" })).not.toBeInTheDocument();
+  });
 });
+vi.mock("../services/profileRestrictionService", () => ({
+  loadProfileDisplayName: vi.fn().mockResolvedValue("Anderson Farias"),
+}));

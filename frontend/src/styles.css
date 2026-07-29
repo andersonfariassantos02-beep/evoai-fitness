@@ -786,6 +786,13 @@ main { padding: 64px 0 52px; }
 
 .week-plan__legend { display: flex; gap: 16px; margin-top: 20px; color: var(--muted); font-size: 10px; }
 .week-plan__legend span { display: inline-flex; align-items: center; gap: 6px; }
+.muscle-volume-preview { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.muscle-volume-preview h3 { margin: 3px 0 0; font-size: 15px; }
+.muscle-volume-preview__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.muscle-volume-preview__grid > span { display: grid; gap: 2px; padding: 9px 10px; border-radius: 10px; background: #f3f6fa; }
+.muscle-volume-preview__grid strong { font-size: 10px; }
+.muscle-volume-preview__grid small, .muscle-volume-preview > p { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.muscle-volume-preview > p { margin: 0; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 .legend-dot--available { background: var(--blue); }
 .legend-dot--completed { background: var(--green); }
@@ -891,6 +898,18 @@ main { padding: 64px 0 52px; }
 .manual-exercise span { display:grid; min-width:0; gap:3px; }
 .manual-exercise small { color:var(--muted); }
 .setup-review { display:grid; width:min(760px,100%); margin:0 auto; gap:14px; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
+.readiness-checkin { display: grid; gap: 18px; width: min(900px,100%); margin: 0 auto 18px; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: white; }
+.readiness-checkin h2 { margin: 7px 0; color: var(--navy); }
+.readiness-checkin p { margin: 0; color: var(--muted); }
+.readiness-checkin__fields { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.readiness-checkin__fields label { display: grid; gap: 6px; color: var(--navy); font-size: 11px; font-weight: 800; }
+.readiness-checkin__fields select { min-width: 0; }
+.readiness-checkin__toggle { display: flex !important; grid-column: 1 / -1; align-items: center; gap: 9px !important; }
+.readiness-checkin__toggle input { width: 18px; height: 18px; }
+.readiness-result { padding: 11px 13px; border-radius: 11px; font-size: 11px; line-height: 1.5; }
+.readiness-result--ready { color: #09674f !important; background: #e7f8f1; }
+.readiness-result--caution { color: #805900 !important; background: #fff4d8; }
+.readiness-result--limited { color: #9b2934 !important; background: #ffe9ec; }
 .setup-review h2 { margin:0; color:var(--navy); font-size:28px; }
 .setup-review > p { margin:0; color:var(--muted); }
 .setup-review ol { display:grid; gap:8px; margin:0; padding:0; list-style:none; counter-reset:exercise; }
@@ -948,6 +967,8 @@ main { padding: 64px 0 52px; }
   .manual-muscle > div, .training-focus { grid-template-columns:1fr; }
   .manual-exercise { align-items:flex-start; min-height:62px; }
   .setup-review { padding:18px; }
+  .readiness-checkin { padding:18px; }
+  .readiness-checkin__fields { grid-template-columns:1fr; }
   .setup-review li { grid-template-columns:1fr; gap:5px; }
   .setup-review li strong, .setup-review li span { display:block; }
   .setup-review li > small { text-align:left; }
@@ -983,8 +1004,63 @@ main { padding: 64px 0 52px; }
 .admin-item div:last-child { display:flex; gap:6px; }
 .admin-item button { min-height:34px; padding:0 10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--navy); font-weight:800; }
 .admin-item--inactive { opacity:.55; background:#f2f3f5; }
+.catalog-admin-header { display:grid; grid-template-columns:auto minmax(0,1fr) auto; }
+.catalog-new-button { min-height:46px; padding:0 18px; border:0; border-radius:11px; align-self:center; color:white; background:var(--blue); font-weight:900; }
+.catalog-browser { width:min(1100px,100%); margin:18px auto 0; padding:22px; }
+.catalog-browser__title { display:flex; gap:20px; align-items:end; justify-content:space-between; }
+.catalog-browser__title h2 { margin:5px 0 0; }
+.catalog-browser__title > span { color:var(--muted); font-size:.8rem; font-weight:800; }
+.catalog-browser__body { display:grid; grid-template-columns:minmax(0,1fr) 230px; gap:20px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); align-items:start; }
+.catalog-results { min-width:0; }
+.catalog-muscle-panel { padding:16px; border:1px solid var(--line); border-radius:14px; background:#f7f9fc; }
+.catalog-muscle-panel h3 { margin:0 0 11px; color:var(--navy); font-size:.92rem; }
+.catalog-muscle-tabs { display:grid; gap:7px; }
+.catalog-muscle-tabs button { display:flex; width:100%; min-height:42px; gap:8px; padding:0 12px; border:1px solid var(--line); border-radius:10px; align-items:center; justify-content:space-between; color:var(--navy); background:white; font-weight:850; text-align:left; }
+.catalog-muscle-tabs button span { display:grid; min-width:23px; height:23px; padding:0 5px; border-radius:999px; place-items:center; color:#52667f; background:#edf2f8; font-size:.72rem; }
+.catalog-muscle-tabs button.active { border-color:var(--blue); color:white; background:var(--blue); }
+.catalog-muscle-tabs button.active span { color:#0752b8; background:white; }
+.catalog-selected-group { border-top:0; }
+.catalog-selected-group > header { display:flex; gap:16px; padding:2px 2px 12px; align-items:end; justify-content:space-between; }
+.catalog-selected-group > header span { color:var(--muted); font-size:.7rem; font-weight:850; }
+.catalog-selected-group > header h3 { margin:3px 0 0; color:var(--navy); font-size:1.35rem; }
+.catalog-selected-group > header strong { color:var(--muted); font-size:.8rem; }
+.catalog-exercise-list { display:grid; gap:8px; }
+.catalog-exercise-list .admin-item strong { color:var(--navy); }
+.catalog-selection-empty { display:grid; min-height:250px; padding:28px; border:1px dashed #bac8d8; border-radius:14px; place-content:center; gap:6px; color:var(--muted); text-align:center; background:#f8fafc; }
+.catalog-selection-empty strong { color:var(--navy); font-size:1.05rem; }
+.catalog-editor-backdrop { position:fixed; z-index:1100; inset:0; display:flex; justify-content:flex-end; background:rgb(3 14 30 / 66%); backdrop-filter:blur(3px); }
+.catalog-editor { width:min(560px,100%); height:100%; padding:24px; overflow-y:auto; background:#f7f9fc; box-shadow:-20px 0 60px rgb(0 0 0 / 28%); }
+.catalog-editor > header { display:flex; gap:18px; align-items:flex-start; justify-content:space-between; }
+.catalog-editor > header h2 { margin:5px 0 0; color:var(--navy); font-size:1.55rem; }
+.catalog-editor > header > button { width:42px; height:42px; border:1px solid var(--line); border-radius:50%; color:var(--navy); background:white; font-size:1.5rem; }
+.catalog-editor form { display:grid; gap:13px; margin-top:22px; }
+.catalog-editor form > label,.catalog-advanced-fields label { display:grid; gap:7px; color:var(--navy); font-weight:800; }
+.catalog-editor input,.catalog-editor select,.catalog-editor textarea { width:100%; min-height:46px; padding:0 12px; border:1px solid var(--line); border-radius:10px; color:var(--navy); background:white; font:inherit; }
+.catalog-editor textarea { min-height:110px; padding-block:12px; resize:vertical; }
+.catalog-editor input[readonly] { color:#64748b; background:#edf1f6; }
+.catalog-advanced-fields { padding:14px; border:1px solid var(--line); border-radius:12px; background:white; }
+.catalog-advanced-fields summary { cursor:pointer; color:var(--navy); font-weight:900; }
+.catalog-advanced-fields[open] { display:grid; gap:13px; }
+.catalog-editor form > footer { display:flex; gap:9px; justify-content:flex-end; padding-top:6px; }
+.catalog-editor form > footer button { min-height:44px; padding:0 15px; border:1px solid var(--line); border-radius:9px; color:var(--navy); background:white; font-weight:850; }
+.catalog-editor form > footer .primary-action { border-color:var(--blue); color:white; background:var(--blue); }
 @media(max-width:760px){.admin-layout{grid-template-columns:1fr}.admin-item{align-items:stretch;flex-direction:column}}
 @media(max-width:700px){.admin-invite,.admin-user-card{align-items:stretch;flex-direction:column}.admin-user-card>div:last-child{display:grid}.brand__logo--header{width:96px;height:54px}}
+@media(max-width:700px){
+  .catalog-admin-header { grid-template-columns:1fr; }
+  .catalog-admin-header > a { width:max-content; }
+  .catalog-new-button { width:100%; }
+  .catalog-browser { padding:15px 12px; }
+  .catalog-browser__title { align-items:flex-start; flex-direction:column; gap:5px; }
+  .catalog-browser__body { grid-template-columns:1fr; }
+  .catalog-muscle-panel { grid-row:1; padding:12px; }
+  .catalog-muscle-tabs { display:flex; padding-bottom:4px; overflow-x:auto; scrollbar-width:thin; }
+  .catalog-muscle-tabs button { width:auto; min-width:max-content; flex:0 0 auto; }
+  .catalog-selected-group > header { align-items:flex-start; flex-direction:column; gap:5px; }
+  .catalog-editor { padding:18px 14px; }
+  .catalog-editor form > footer { display:grid; grid-template-columns:1fr; }
+  .catalog-editor form > footer button { width:100%; }
+}
 
 .test-lab { min-height:100vh; padding:clamp(18px,4vw,42px); background:#f4f7fb; }
 .test-lab__intro,.test-lab__list { width:min(1100px,100%); margin:18px auto 0; }
@@ -1219,6 +1295,12 @@ main { padding: 64px 0 52px; }
 .authenticated-content .week-plan__legend,
 .authenticated-content .week-plan__empty { color: var(--app-muted); }
 .authenticated-content .week-plan__empty { border-color: #27405e; }
+.authenticated-content .muscle-volume-preview { border-color: var(--app-border); }
+.authenticated-content .muscle-volume-preview h3,
+.authenticated-content .muscle-volume-preview__grid strong { color: var(--app-text); }
+.authenticated-content .muscle-volume-preview__grid > span { background: #0c1d32; }
+.authenticated-content .muscle-volume-preview__grid small,
+.authenticated-content .muscle-volume-preview > p { color: var(--app-muted); }
 .authenticated-content .planned-day { border-color: #193552; background: #091a2e; }
 .authenticated-content .planning-note { border: 1px solid var(--app-border); background: linear-gradient(120deg, #07172b, #0b2340); }
 
@@ -1322,7 +1404,12 @@ main { padding: 64px 0 52px; }
 .report-unfinished__list small { color: #d5a756; font-size: 9px; text-transform: capitalize; }
 .report-unfinished__list h3 { margin: 4px 0; color: #fff; font-size: 15px; }
 .report-unfinished__list span { color: #90a5bd; font-size: 10px; }
-.report-unfinished__list a { display: inline-flex; min-height: 42px; padding: 0 14px; border-radius: 9px; align-items: center; justify-content: center; color: #fff; background: #176bff; font-size: 11px; font-weight: 900; text-decoration: none; white-space: nowrap; }
+.report-unfinished__actions { display: flex; gap: 7px; align-items: center; }
+.report-unfinished__actions a,
+.report-unfinished__actions button { display: inline-flex; min-height: 42px; padding: 0 14px; border-radius: 9px; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; white-space: nowrap; }
+.report-unfinished__actions a { color: #fff; background: #176bff; text-decoration: none; }
+.report-unfinished__actions button { border: 1px solid #8c4650; color: #ffb8bf; background: rgba(116, 30, 42, .24); }
+.report-delete-dialog { border: 1px solid #5f2831; background: #fff; }
 .report-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
 .report-summary article { display: grid; min-height: 145px; gap: 7px; padding: 19px; border: 1px solid var(--app-border); border-radius: 16px; align-content: center; background: linear-gradient(145deg, #0a1c32, #061426); }
 .report-summary span { color: #7892b0; font-size: 10px; font-weight: 850; text-transform: uppercase; }
@@ -1373,7 +1460,9 @@ main { padding: 64px 0 52px; }
   .report-detail__header { align-items: stretch; flex-direction: column; }
   .report-unfinished { padding: 16px 12px; }
   .report-unfinished__list article { align-items: stretch; flex-direction: column; }
-  .report-unfinished__list a { width: 100%; }
+  .report-unfinished__actions { display: grid; grid-template-columns: 1fr; }
+  .report-unfinished__actions a,
+  .report-unfinished__actions button { width: 100%; }
   .report-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .report-workout > header { align-items: flex-start; }
   .report-exercises > section { padding: 13px; }

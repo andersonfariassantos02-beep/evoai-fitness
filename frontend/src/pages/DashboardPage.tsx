@@ -22,6 +22,7 @@ import {
   type WorkoutSummary,
 } from "../services/trainingCalendarService";
 import { loadPlanningProfile, type PlanningProfile } from "../services/profileRestrictionService";
+import { MUSCLE_LABELS, summarizePlannedMuscleVolume } from "../lib/trainingVolume";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -66,7 +67,7 @@ export default function DashboardPage() {
     () => loadCalendarEntries(storageKey),
   );
   const [syncState, setSyncState] = useState<CalendarSyncState>("loading");
-  const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", trainingFocus: ["full_body"] });
+  const [planningProfile, setPlanningProfile] = useState<PlanningProfile>({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null });
   const [lastCompletedLabel, setLastCompletedLabel] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
 
@@ -105,7 +106,7 @@ export default function DashboardPage() {
       .then(([profile, lastLabel, weekWorkouts]) => {
         setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setWorkouts(weekWorkouts);
       })
-      .catch(() => { setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"] }); setLastCompletedLabel(null); });
+      .catch(() => { setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null }); setLastCompletedLabel(null); });
   }, [selectedDate, user]);
 
   useEffect(() => {
@@ -176,12 +177,16 @@ export default function DashboardPage() {
       : { ...entry, completed: true, completedWasPlanned: entry.available });
   }
 
-  const displayName = String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Atleta")
+  const displayName = String(planningProfile.displayName ?? user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Atleta")
     .split(/[._-]/)
     .map((part) => part ? `${part[0].toUpperCase()}${part.slice(1)}` : "")
     .filter(Boolean)
     .join(" ");
   const nextWorkout = weeklyPlan.days.find((day) => day.status === "planned");
+  const plannedMuscleVolume = useMemo(
+    () => summarizePlannedMuscleVolume(weeklyPlan.days.map((day) => day.label)),
+    [weeklyPlan.days],
+  );
   const weeklyProgress = weeklyPlan.targetSessions > 0
     ? Math.round((weeklyPlan.completedSessions / weeklyPlan.targetSessions) * 100)
     : 0;
@@ -395,6 +400,24 @@ export default function DashboardPage() {
                 </article>
               ))}
             </div>
+
+            {plannedMuscleVolume.length > 0 && (
+              <section className="muscle-volume-preview" aria-labelledby="muscle-volume-title">
+                <div>
+                  <span className="section-kicker">COBERTURA MUSCULAR</span>
+                  <h3 id="muscle-volume-title">Séries previstas</h3>
+                </div>
+                <div className="muscle-volume-preview__grid">
+                  {plannedMuscleVolume.map((item) => (
+                    <span key={item.muscle}>
+                      <strong>{MUSCLE_LABELS[item.muscle]}</strong>
+                      <small>{item.totalSets.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} séries</small>
+                    </span>
+                  ))}
+                </div>
+                <p>Séries compostas incluem contribuição parcial dos músculos auxiliares.</p>
+              </section>
+            )}
 
             <div className="week-plan__legend">
               <span><i className="legend-dot legend-dot--available" />Disponível</span>
