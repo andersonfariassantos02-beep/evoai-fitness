@@ -92,6 +92,18 @@ describe("administração de usuários",()=>{
     expect(screen.getAllByRole("button",{name:"Excluir"})).toHaveLength(1);
   });
 
+  it("mantém o diálogo aberto e mostra o erro de exclusão",async()=>{
+    mocks.deleteUser.mockRejectedValueOnce(new Error("Vínculo protegido."));
+    const user=userEvent.setup();
+    render(<MemoryRouter><UserAdminPage/></MemoryRouter>);
+    await screen.findByText("user@evoai.com");
+    await user.click(screen.getByRole("button",{name:"Excluir"}));
+    await user.type(screen.getByLabelText("E-mail de confirmação"),"user@evoai.com");
+    await user.click(screen.getByRole("button",{name:"Excluir definitivamente"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Vínculo protegido.");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("não carrega a lista para usuário comum",async()=>{
     mocks.isAdmin.mockResolvedValue(false);
     render(<MemoryRouter><UserAdminPage/></MemoryRouter>);
