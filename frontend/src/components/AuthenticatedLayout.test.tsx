@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AuthenticatedLayout from "./AuthenticatedLayout";
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +22,7 @@ vi.mock("../services/exerciseCatalogService", () => ({
 
 describe("layout autenticado", () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => cleanup());
 
   it("exibe a navegação principal e as opções administrativas", async () => {
     render(
@@ -56,5 +57,32 @@ describe("layout autenticado", () => {
 
     await user.click(screen.getAllByRole("button", { name: "Sair" })[0]);
     expect(mocks.signOut).toHaveBeenCalledOnce();
+  });
+
+  it("fecha o menu mobile ao selecionar uma opção, inclusive a rota atual", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/admin/exercicios"]}>
+        <Routes>
+          <Route element={<AuthenticatedLayout />}>
+            <Route path="/admin/exercicios" element={<p>Conteúdo do catálogo</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const summary = screen.getByText("Menu", { selector: "summary" });
+    const mobileMenu = summary.closest("details");
+    expect(mobileMenu).not.toBeNull();
+
+    await user.click(summary);
+    expect(mobileMenu).toHaveAttribute("open");
+
+    const catalogLink = mobileMenu!.querySelector<HTMLAnchorElement>('a[href="/admin/exercicios"]');
+    expect(catalogLink).not.toBeNull();
+    await user.click(catalogLink!);
+
+    expect(mobileMenu).not.toHaveAttribute("open");
+    expect(screen.getByText("Conteúdo do catálogo")).toBeInTheDocument();
   });
 });
