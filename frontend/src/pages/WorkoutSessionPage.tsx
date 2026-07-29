@@ -37,6 +37,10 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
   const [validationMessage, setValidationMessage] = useState("");
   const completing = useRef(false);
 
+  useEffect(() => {
+    setLoadKg(set.load_kg?.toString() ?? "");
+  }, [set.load_kg]);
+
   function draft() {
     return {
       ...set,
@@ -283,6 +287,30 @@ export default function WorkoutSessionPage() {
     }
   }
 
+  async function applyRecommendedLoad(exercise: ExerciseLog) {
+    const suggestedLoad = exercise.recommendation.loadKg;
+    if (suggestedLoad <= 0) return;
+    const applicableSets = exercise.sets.filter((set) =>
+      set.load_kg === null && !set.completed && !set.skipped_at
+    );
+    if (!applicableSets.length) {
+      setMessage("As séries deste exercício já possuem carga. Nenhum valor foi sobrescrito.");
+      return;
+    }
+    const updatedSets = applicableSets.map((set) => ({ ...set, load_kg: suggestedLoad }));
+    setSession((current) => current ? {
+      ...current,
+      exercises: current.exercises.map((item) => item.id === exercise.id
+        ? { ...item, sets: item.sets.map((set) => updatedSets.find((updated) => updated.id === set.id) ?? set) }
+        : item),
+    } : current);
+    const results = await Promise.allSettled(updatedSets.map(persistSet));
+    const failed = results.filter((result) => result.status === "rejected").length;
+    setMessage(failed
+      ? "A sugestão foi preenchida na tela, mas parte da sincronização ficou pendente."
+      : `${suggestedLoad.toLocaleString("pt-BR")} kg aplicados somente às séries vazias de ${exercise.exercise_name}.`);
+  }
+
   async function deleteExtraSet(exerciseId: string, set: SetLog) {
     try {
       await removeExtraSet(set);
@@ -389,7 +417,10 @@ export default function WorkoutSessionPage() {
           {guidance.equipmentVariants.length > 0 && <p><strong>Variações de equipamento:</strong> {guidance.equipmentVariants.join(", ")}</p>}
           {guidance.mediaUrl && <a href={guidance.mediaUrl} target="_blank" rel="noreferrer">Abrir demonstração técnica ↗</a>}
         </details>}
-        <p className={`progression progression--${exercise.recommendation.action}`}><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></p>
+        <div className={`progression progression--${exercise.recommendation.action}`}>
+          <div><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg.toLocaleString("pt-BR")} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></div>
+          {exercise.recommendation.loadKg > 0 && <button type="button" onClick={() => void applyRecommendedLoad(exercise)}>Aplicar às séries vazias</button>}
+        </div>
         {exercise.sets.map((set) => <SetEntryRow key={set.id} set={set}
           onSave={async (draft) => { changeSet(exercise.id, set.id, draft); await persistSet(draft); }}
           onRemove={(draft) => deleteExtraSet(exercise.id, draft)}

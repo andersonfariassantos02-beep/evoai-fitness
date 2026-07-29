@@ -115,6 +115,29 @@ describe("percurso principal do treino", () => {
     expect(saveSet).not.toHaveBeenCalled();
   });
 
+  it("aplica a carga recomendada somente às séries vazias", async () => {
+    const user = userEvent.setup();
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...baseSession,
+      exercises: [{
+        ...baseSession.exercises[0],
+        recommendation: { action: "increase", loadKg: 42.5, reason: "Progressão validada pelo treino anterior." },
+        sets: [
+          { ...baseSession.exercises[0].sets[0], load_kg: null },
+          { ...baseSession.exercises[0].sets[0], id: "set-2", set_number: 2, load_kg: 40 },
+        ],
+      }],
+    });
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    await user.click(await screen.findByRole("button", { name: "Aplicar às séries vazias" }));
+
+    await waitFor(() => expect(saveSet).toHaveBeenCalledTimes(1));
+    expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ id: "set-1", load_kg: 42.5 }));
+    expect(screen.getByRole("spinbutton", { name: "Carga da série 1" })).toHaveValue(42.5);
+    expect(screen.getByRole("spinbutton", { name: "Carga da série 2" })).toHaveValue(40);
+  });
+
   it("informa as séries pendentes e finaliza somente após confirmação", async () => {
     const user = userEvent.setup();
     startOrLoadWorkout.mockResolvedValueOnce({

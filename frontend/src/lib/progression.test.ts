@@ -24,6 +24,22 @@ describe("progressão determinística", () => {
       { ...base, setNumber: 3, reps: 12 },
     ])).toMatchObject({ action: "increase", loadKg: 51.5 });
   });
+
+  it("não recomenda aumento quando o RPE anterior não foi registrado", () => {
+    expect(recommendProgressionFromSession([
+      { setNumber: 1, loadKg: 40, reps: 12, rpe: null, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+      { setNumber: 2, loadKg: 40, reps: 12, rpe: null, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+    ])).toMatchObject({ action: "maintain", loadKg: 40 });
+  });
+
+  it("prioriza repetições antes de aumentar a carga", () => {
+    const recommendation = recommendProgressionFromSession([
+      { setNumber: 1, loadKg: 30, reps: 12, rpe: 8, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+      { setNumber: 2, loadKg: 30, reps: 10, rpe: 8, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+    ]);
+    expect(recommendation).toMatchObject({ action: "maintain", loadKg: 30 });
+    expect(recommendation.reason).toContain("avance as repetições");
+  });
 });
 
 describe("substituições equivalentes", () => {
