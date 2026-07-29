@@ -67,19 +67,14 @@ Deno.serve(async req => {
       if(targetData.user.app_metadata?.evoai_test_user!==true)return json({error:"Por segurança, somente contas fictícias podem ser excluídas. Desative usuários reais para preservar o histórico."},400,origin);
       const {data:auditData,error:auditError}=await admin.from("user_admin_audit").insert({actor_user_id:user.id,target_user_id:userId,action:"delete_user"}).select("id").single();
       if(auditError)throw auditError;
-      const {error:cleanupError}=await admin.rpc("delete_test_user_data",{target_user_id:userId});
+      const {error:cleanupError}=await admin.rpc("delete_fictional_user_completely",{target_user_id:userId,confirmation_email:confirmationEmail});
       if(cleanupError){
-        console.error("delete_test_user_data failed",cleanupError);
+        console.error("delete_fictional_user_completely failed",cleanupError);
         await admin.from("user_admin_audit").delete().eq("id",auditData.id);
         const message=cleanupError.message.includes("TEST_USER_HAS_SHARED_OR_AUDITED_DATA")
           ?"A conta de teste possui dados compartilhados e não pode ser excluída automaticamente."
           :`Não foi possível remover os dados vinculados à conta de teste. Detalhe: ${cleanupError.message}`;
         return json({error:message},409,origin);
-      }
-      const {error}=await admin.auth.admin.deleteUser(userId);
-      if(error){
-        await admin.from("user_admin_audit").delete().eq("id",auditData.id);
-        return json({error:`Os dados da conta foram limpos, mas a remoção do acesso falhou. Detalhe: ${error.message}`},500,origin);
       }
       const {data:verification}=await admin.auth.admin.getUserById(userId);
       if(verification.user)return json({error:"A operação terminou, mas a conta ainda consta no Supabase Auth."},500,origin);
