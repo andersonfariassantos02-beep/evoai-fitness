@@ -1,5 +1,5 @@
-export type MuscleGroup = "peito" | "costas" | "ombros" | "quadriceps" | "posteriores" | "panturrilhas" | "biceps" | "triceps";
-export type MovementPattern = "empurrar-horizontal" | "puxar-horizontal" | "empurrar-vertical" | "puxar-vertical" | "agachar" | "flexionar-joelho" | "panturrilha" | "isolar-braco";
+export type MuscleGroup = "peito" | "costas" | "ombros" | "quadriceps" | "posteriores" | "gluteos" | "panturrilhas" | "biceps" | "triceps";
+export type MovementPattern = "empurrar-horizontal" | "puxar-horizontal" | "empurrar-vertical" | "puxar-vertical" | "agachar" | "flexionar-joelho" | "estender-joelho" | "estender-quadril" | "panturrilha" | "isolar-braco";
 
 export interface WorkoutExerciseTemplate {
   key: string;
@@ -43,8 +43,12 @@ export const exerciseCatalog: WorkoutExerciseTemplate[] = [
   { key: "leg-press", name: "Leg press", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "agachar", equipment: "máquina", avoidWhen: ["joelho"] },
   { key: "goblet-squat", name: "Agachamento goblet", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "agachar", equipment: "halteres" },
   { key: "leg-curl", name: "Flexão de joelhos", sets: 3, repsMin: 10, repsMax: 15, muscle: "posteriores", movement: "flexionar-joelho", equipment: "máquina" },
+  { key: "leg-extension", name: "Cadeira extensora", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "estender-joelho", equipment: "máquina", stimulus: "quadriceps-extensao-joelho", avoidWhen: ["joelho"] },
+  { key: "romanian-deadlift", name: "Levantamento terra romeno", sets: 3, repsMin: 8, repsMax: 12, muscle: "posteriores", movement: "estender-quadril", equipment: "halteres", stimulus: "posteriores-dobradica-quadril", avoidWhen: ["lombar"] },
+  { key: "hip-thrust", name: "Elevação pélvica", sets: 3, repsMin: 10, repsMax: 12, muscle: "gluteos", movement: "estender-quadril", equipment: "máquina", stimulus: "gluteos-extensao-quadril" },
   { key: "calf-raise", name: "Panturrilha", sets: 3, repsMin: 12, repsMax: 20, muscle: "panturrilhas", movement: "panturrilha", equipment: "máquina" },
   { key: "biceps", name: "Rosca de bíceps", sets: 3, repsMin: 10, repsMax: 15, muscle: "biceps", movement: "isolar-braco", equipment: "halteres" },
+  { key: "hammer-curl", name: "Rosca martelo", sets: 3, repsMin: 10, repsMax: 12, muscle: "biceps", movement: "isolar-braco", equipment: "halteres", stimulus: "biceps-flexao-neutra" },
   { key: "triceps", name: "Extensão de tríceps", sets: 3, repsMin: 10, repsMax: 15, muscle: "triceps", movement: "isolar-braco", equipment: "cabos", stimulus: "triceps-extensao-cotovelo" },
 ];
 
@@ -81,10 +85,32 @@ export function getWorkoutTemplate(label: string) {
   if (normalized.includes("push pesado")) return [byKey("machine-bench-press"), byKey("incline-dumbbell-bench"), byKey("cable-crossover"), byKey("dumbbell-shoulder-press"), byKey("lateral-raise"), byKey("rope-triceps"), byKey("reverse-cable-fly")];
   if (normalized.includes("quadr")) return [byKey("squat-pattern"), byKey("leg-press"), byKey("goblet-squat"), byKey("calf-raise")];
   if (normalized.includes("posterior")) return [byKey("leg-curl"), byKey("calf-raise")];
-  if (normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")) return [byKey("squat-pattern"), byKey("leg-press"), byKey("leg-curl"), byKey("calf-raise")];
+  if (normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")) return [
+    byKey("squat-pattern"),
+    byKey("leg-press"),
+    byKey("romanian-deadlift"),
+    byKey("leg-curl"),
+    byKey("hip-thrust"),
+    { ...byKey("calf-raise"), sets: 4 },
+  ];
   if (normalized.includes("superior") || normalized.includes("upper")) return [byKey("chest-press"), byKey("row"), byKey("shoulder-press"), byKey("pulldown"), byKey("biceps"), byKey("triceps")];
-  if (normalized.includes("pull")) return [byKey("row"), byKey("pulldown"), byKey("biceps")];
-  if (normalized.includes("push")) return [byKey("chest-press"), byKey("shoulder-press"), byKey("triceps")];
+  if (normalized.includes("pull")) return [
+    byKey("pulldown"),
+    byKey("cable-row"),
+    byKey("dumbbell-row"),
+    { ...byKey("reverse-pec-deck"), sets: 3 },
+    { ...byKey("biceps"), repsMin: 10, repsMax: 12 },
+    byKey("hammer-curl"),
+  ];
+  if (normalized.includes("push")) return [
+    byKey("machine-bench-press"),
+    byKey("incline-dumbbell-bench"),
+    byKey("cable-crossover"),
+    byKey("dumbbell-shoulder-press"),
+    byKey("lateral-raise"),
+    byKey("rope-triceps"),
+    byKey("reverse-cable-fly"),
+  ];
   return [byKey("chest-press"), byKey("row"), byKey("squat-pattern"), byKey("leg-press")];
 }
 

@@ -30,6 +30,7 @@ export type TrainingFocus = "full_body" | "glutes" | "legs" | "chest" | "back" |
 export interface PlanningProfile {
   goal: TrainingGoal;
   trainingFocus: TrainingFocus[];
+  displayName: string | null;
 }
 
 export interface RestrictionInput {
@@ -111,13 +112,28 @@ export async function updateManagedProfile(profileId: string, displayName: strin
 
 export async function loadPlanningProfile(userId: string): Promise<PlanningProfile> {
   const { data, error } = await getSupabaseClient().from("profiles")
-    .select("training_goal, training_focus")
+    .select("display_name, training_goal, training_focus")
     .eq("linked_user_id", userId)
     .eq("active", true)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return { goal: (data?.training_goal as TrainingGoal | undefined) ?? "general_fitness", trainingFocus: (data?.training_focus as TrainingFocus[] | undefined) ?? ["full_body"] };
+  return {
+    goal: (data?.training_goal as TrainingGoal | undefined) ?? "general_fitness",
+    trainingFocus: (data?.training_focus as TrainingFocus[] | undefined) ?? ["full_body"],
+    displayName: data?.display_name?.trim() || null,
+  };
+}
+
+export async function loadProfileDisplayName(userId: string): Promise<string | null> {
+  const { data, error } = await getSupabaseClient().from("profiles")
+    .select("display_name")
+    .eq("linked_user_id", userId)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.display_name?.trim() || null;
 }
 
 export async function createProfileRestriction(profileId: string, userId: string, input: RestrictionInput) {

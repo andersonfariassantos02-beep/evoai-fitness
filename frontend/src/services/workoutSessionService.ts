@@ -1,7 +1,7 @@
 import { getSupabaseClient } from "../lib/supabase";
 import { getWorkoutTemplate, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogService";
-import { recommendProgression, type ProgressionRecommendation } from "../lib/progression";
+import { recommendProgressionFromSession, type ProgressionRecommendation } from "../lib/progression";
 import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
 export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; skipped_at: string | null; skip_reason: string | null; }
@@ -23,8 +23,41 @@ function buildSetRows(template: WorkoutExerciseTemplate, exerciseLogId: string, 
 }
 
 async function getRecommendation(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
-  const { data: history } = await getSupabaseClient().from("set_logs").select("actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date, session_kind))").eq("user_id", userId).eq("exercise_logs.exercise_key", exerciseKey).eq("exercise_logs.workout_sessions.status", "completed").eq("exercise_logs.workout_sessions.session_kind", "real").not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(1).maybeSingle();
-  return recommendProgression(history ? { loadKg: Number(history.load_kg ?? 0), reps: Number(history.actual_reps ?? 0), rpe: Number(history.rpe ?? 0), failed: String(history.notes ?? "").toLowerCase().includes("falha") } : null, repsMin, repsMax);
+  const { data: history } = await getSupabaseClient().from("set_logs")
+    .select("set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date, session_kind))")
+    .eq("user_id", userId)
+    .eq("exercise_logs.exercise_key", exerciseKey)
+    .eq("exercise_logs.workout_sessions.status", "completed")
+    .eq("exercise_logs.workout_sessions.session_kind", "real")
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(12);
+  type HistoryRow = {
+    set_number: number;
+    target_reps_min: number;
+    target_reps_max: number;
+    actual_reps: number | null;
+    load_kg: number | null;
+    rpe: number | null;
+    notes: string | null;
+    exercise_logs: { workout_sessions: { training_date: string } | Array<{ training_date: string }> };
+  };
+  const rows = (history ?? []) as unknown as HistoryRow[];
+  const workoutFor = (row: HistoryRow) => Array.isArray(row.exercise_logs.workout_sessions)
+    ? row.exercise_logs.workout_sessions[0]
+    : row.exercise_logs.workout_sessions;
+  const sessionDate = rows[0] ? workoutFor(rows[0])?.training_date : null;
+  return recommendProgressionFromSession(rows
+    .filter((row) => workoutFor(row)?.training_date === sessionDate)
+    .map((row) => ({
+      setNumber: Number(row.set_number),
+      targetRepsMin: Number(row.target_reps_min ?? repsMin),
+      targetRepsMax: Number(row.target_reps_max ?? repsMax),
+      loadKg: Number(row.load_kg ?? 0),
+      reps: Number(row.actual_reps ?? 0),
+      rpe: Number(row.rpe ?? 0),
+      failed: String(row.notes ?? "").toLowerCase().includes("falha"),
+    })));
 }
 
 async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<WorkoutSession> {

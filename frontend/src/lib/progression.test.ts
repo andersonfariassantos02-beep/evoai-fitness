@@ -1,14 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { recommendProgression } from "./progression";
+import { recommendProgression, recommendProgressionFromSession } from "./progression";
 import { getSubstitutionCandidates } from "./workoutTemplates";
 
 describe("progressão determinística", () => {
   it("aumenta a carga após atingir o topo da faixa com RPE controlado", () => {
-    expect(recommendProgression({ loadKg: 20, reps: 12, rpe: 8, failed: false }, 8, 12)).toMatchObject({ action: "increase", loadKg: 22.5 });
+    expect(recommendProgression({ loadKg: 20, reps: 12, rpe: 8, failed: false }, 8, 12)).toMatchObject({ action: "increase", loadKg: 20.5 });
   });
 
   it("reduz a carga diante de falha", () => {
     expect(recommendProgression({ loadKg: 20, reps: 7, rpe: 10, failed: true }, 8, 12)).toMatchObject({ action: "reduce", loadKg: 19 });
+  });
+
+  it("só aumenta quando todas as séries atingem o topo com esforço controlado", () => {
+    const base = { loadKg: 50, rpe: 8, failed: false, targetRepsMin: 8, targetRepsMax: 12 };
+    expect(recommendProgressionFromSession([
+      { ...base, setNumber: 1, reps: 12 },
+      { ...base, setNumber: 2, reps: 11 },
+      { ...base, setNumber: 3, reps: 10 },
+    ])).toMatchObject({ action: "maintain", loadKg: 50 });
+    expect(recommendProgressionFromSession([
+      { ...base, setNumber: 1, reps: 12 },
+      { ...base, setNumber: 2, reps: 12 },
+      { ...base, setNumber: 3, reps: 12 },
+    ])).toMatchObject({ action: "increase", loadKg: 51.5 });
   });
 });
 

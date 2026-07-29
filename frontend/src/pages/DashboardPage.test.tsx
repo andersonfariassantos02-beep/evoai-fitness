@@ -26,7 +26,7 @@ vi.mock("../services/trainingCalendarService", () => ({
 }));
 
 vi.mock("../services/profileRestrictionService", () => ({
-  loadPlanningProfile: vi.fn().mockResolvedValue({ goal: "general_fitness", trainingFocus: ["full_body"] }),
+  loadPlanningProfile: vi.fn().mockResolvedValue({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: "Anderson Farias" }),
 }));
 
 describe("painel principal", () => {
@@ -38,6 +38,7 @@ describe("painel principal", () => {
 
     expect(screen.queryByText("Nenhuma escala é presumida")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Bem-vindo, Anderson Farias!" })).toBeInTheDocument();
     expect(screen.getByText("PRÓXIMO TREINO")).toBeInTheDocument();
     expect(screen.getByText("PROGRESSO SEMANAL")).toBeInTheDocument();
     expect(screen.getByText("FOCO MUSCULAR")).toBeInTheDocument();

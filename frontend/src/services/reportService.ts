@@ -17,6 +17,8 @@ export interface ReportExercise {
   substitutionReason: string | null;
   sets: ReportSet[];
   volume: number;
+  estimated1Rm: number | null;
+  bestSet: { loadKg: number; reps: number } | null;
 }
 
 export interface ReportWorkout {
@@ -45,6 +47,15 @@ export interface WorkoutReport {
   totalReps: number;
   totalVolume: number;
   averageRpe: number | null;
+}
+
+export interface UnfinishedWorkout {
+  id: string;
+  date: string;
+  label: string;
+  status: "active" | "paused";
+  completedSets: number;
+  totalSets: number;
 }
 
 interface SetRow {
@@ -77,6 +88,19 @@ interface SessionRow {
   exercise_logs: ExerciseRow[] | null;
 }
 
+interface UnfinishedSessionRow {
+  id: string;
+  training_date: string;
+  workout_label: string;
+  status: "active" | "paused";
+  exercise_logs: Array<{
+    set_logs: Array<{
+      completed: boolean;
+      skipped_at: string | null;
+    }> | null;
+  }> | null;
+}
+
 function round(value: number, precision = 1) {
   const factor = 10 ** precision;
   return Math.round(value * factor) / factor;
@@ -106,6 +130,12 @@ export function aggregateWorkoutReport(
         const volume = sets
           .filter((set) => !set.skipped)
           .reduce((total, set) => total + set.reps * set.loadKg, 0);
+        const performedSets = sets.filter((set) => !set.skipped && set.reps > 0 && set.loadKg > 0);
+        const bestSet = performedSets.reduce<ReportSet | null>((best, set) => {
+          const estimate = set.loadKg * (1 + Math.min(set.reps, 12) / 30);
+          const bestEstimate = best ? best.loadKg * (1 + Math.min(best.reps, 12) / 30) : -1;
+          return estimate > bestEstimate ? set : best;
+        }, null);
         return {
           key: exercise.exercise_key,
           name: exercise.exercise_name,
@@ -113,6 +143,8 @@ export function aggregateWorkoutReport(
           substitutionReason: exercise.substitution_reason,
           sets,
           volume: round(volume),
+          estimated1Rm: bestSet ? round(bestSet.loadKg * (1 + Math.min(bestSet.reps, 12) / 30)) : null,
+          bestSet: bestSet ? { loadKg: bestSet.loadKg, reps: bestSet.reps } : null,
         };
       });
     const completedSets = exercises.flatMap((exercise) => exercise.sets).filter((set) => !set.skipped && set.reps > 0).length;
@@ -177,4 +209,61 @@ export async function loadWorkoutReport(userId: string, startDate: string, endDa
     calendarResult.data?.length ?? 0,
     (sessionsResult.data ?? []) as unknown as SessionRow[],
   );
+}
+
+export function mapUnfinishedWorkouts(rows: UnfinishedSessionRow[]): UnfinishedWorkout[] {
+  return rows.map((session) => {
+    const sets = (session.exercise_logs ?? []).flatMap((exercise) => exercise.set_logs ?? []);
+    return {
+      id: session.id,
+      date: session.training_date,
+      label: session.workout_label,
+      status: session.status,
+      completedSets: sets.filter((set) => set.completed || Boolean(set.skipped_at)).length,
+      totalSets: sets.length,
+    };
+  });
+}
+
+export async function loadUnfinishedWorkouts(
+  userId: string,
+  startDate: string,
+  endDate: string,
+): Promise<UnfinishedWorkout[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("workout_sessions")
+    .select("id, training_date, workout_label, status, exercise_logs(set_logs(completed, skipped_at))")
+    .eq("user_id", userId)
+    .eq("session_kind", "real")
+    .in("status", ["active", "paused"])
+    .gte("training_date", startDate)
+    .lte("training_date", endDate)
+    .order("training_date");
+  if (error) throw error;
+  return mapUnfinishedWorkouts((data ?? []) as unknown as UnfinishedSessionRow[]);
+}
+
+export async function confirmPasswordAndDeleteUnfinishedWorkout(
+  userId: string,
+  sessionId: string,
+  password: string,
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { data: userResult, error: userError } = await supabase.auth.getUser();
+  const email = userResult.user?.email;
+  if (userError || !email || userResult.user?.id !== userId) throw new Error("AUTH_REQUIRED");
+
+  const { error: passwordError } = await supabase.auth.signInWithPassword({ email, password });
+  if (passwordError) throw new Error("INVALID_PASSWORD");
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", sessionId)
+    .eq("user_id", userId)
+    .eq("session_kind", "real")
+    .in("status", ["active", "paused"])
+    .select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("WORKOUT_NOT_FOUND");
 }

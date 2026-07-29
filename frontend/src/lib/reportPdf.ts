@@ -72,6 +72,9 @@ export async function createReportPdf(report: WorkoutReport, previous: WorkoutRe
       document.setFontSize(9);
       document.text(clean(exercise.name), margin + 2, y);
       y += 4.5;
+      if (exercise.bestSet && exercise.estimated1Rm) {
+        paragraph(`Melhor serie: ${exercise.bestSet.loadKg} kg x ${exercise.bestSet.reps} | 1RM estimada: ${exercise.estimated1Rm} kg`, 7, [23, 107, 255]);
+      }
       const sets = exercise.sets.map((set) => set.skipped
         ? `S${set.setNumber}: nao realizada (${set.skipReason ?? "sem motivo"})`
         : `S${set.setNumber}${set.isExtra ? " extra" : ""}: ${set.loadKg} kg x ${set.reps}${set.rpe === null ? "" : ` | RPE ${set.rpe}`}`
