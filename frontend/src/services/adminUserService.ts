@@ -5,7 +5,14 @@ export interface ManagedUser { id:string; email:string; role:AppRole; createdAt:
 
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await getSupabaseClient().functions.invoke("admin-users", { body });
-  if (error) throw error;
+  if (error) {
+    const context = "context" in error ? error.context : null;
+    if (context instanceof Response) {
+      const payload = await context.clone().json().catch(() => null) as { error?: string } | null;
+      if (payload?.error) throw new Error(payload.error);
+    }
+    throw error;
+  }
   if (data?.error) throw new Error(data.error);
   return data as T;
 }

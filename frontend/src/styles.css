@@ -1035,6 +1035,7 @@ main { padding: 64px 0 52px; }
 .admin-delete-user-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 .admin-delete-user-actions button { min-height:44px; padding:0 14px; border:1px solid var(--line); border-radius:10px; color:var(--navy); background:white; font-weight:850; }
 .admin-delete-user-actions .danger-action { border-color:#a13b43; color:white; background:#a13b43; }
+.admin-user-retention-note { display:block; max-width:230px; color:var(--muted); font-size:.78rem; line-height:1.35; }
 .admin-layout { display:grid; width:min(1100px,100%); margin:18px auto 0; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
 .admin-numbers { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .admin-catalog { gap:8px; }
