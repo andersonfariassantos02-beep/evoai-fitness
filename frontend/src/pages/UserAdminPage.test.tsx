@@ -8,8 +8,8 @@ const mocks=vi.hoisted(()=>({
   list:vi.fn(),invite:vi.fn(),reset:vi.fn(),role:vi.fn(),createTest:vi.fn(),disable:vi.fn(),deleteUser:vi.fn(),isAdmin:vi.fn(),
   current:{id:"admin-1"},
   users:[
-    {id:"admin-1",email:"admin@evoai.com",role:"admin",createdAt:"2026-07-22T00:00:00Z",lastSignInAt:null,emailConfirmedAt:"2026-07-22T00:00:00Z",disabled:false,testUser:false},
-    {id:"user-1",email:"user@evoai.com",role:"user",createdAt:"2026-07-22T00:00:00Z",lastSignInAt:null,emailConfirmedAt:null,disabled:false,testUser:true},
+    {id:"admin-1",email:"admin@evoai.com",role:"admin",createdAt:"2026-07-22T00:00:00Z",lastSignInAt:null,emailConfirmedAt:"2026-07-22T00:00:00Z",disabled:false,testUser:false,profileComplete:true,profileName:"Administrador"},
+    {id:"user-1",email:"user@evoai.com",role:"user",createdAt:"2026-07-22T00:00:00Z",lastSignInAt:null,emailConfirmedAt:null,disabled:false,testUser:true,profileComplete:false,profileName:null},
   ],
 }));
 vi.mock("../contexts/AuthContext",()=>({useAuth:()=>({user:mocks.current})}));
@@ -44,6 +44,8 @@ describe("administração de usuários",()=>{
     render(<MemoryRouter><UserAdminPage/></MemoryRouter>);
     expect(await screen.findByText("user@evoai.com")).toBeInTheDocument();
     expect(screen.getByText("Conta de teste")).toBeInTheDocument();
+    expect(screen.getByText("Perfil completo")).toBeInTheDocument();
+    expect(screen.getByText("Perfil pendente")).toBeInTheDocument();
     expect(screen.getByRole("button",{name:"Tornar usuário"})).toBeDisabled();
     await user.click(screen.getByRole("button",{name:"Tornar administrador"}));
     await waitFor(()=>expect(mocks.role).toHaveBeenCalledWith("user-1","admin"));

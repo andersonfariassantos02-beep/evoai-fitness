@@ -19,9 +19,10 @@ Deno.serve(async req => {
     const body=await req.json();const action=String(body.action??"");
 
     if(action==="list"){
-      const [{data:authData,error:listError},{data:admins,error:rolesError}]=await Promise.all([admin.auth.admin.listUsers({page:1,perPage:200}),admin.from("app_admins").select("user_id")]);
-      if(listError||rolesError)throw listError??rolesError;
+      const [{data:authData,error:listError},{data:admins,error:rolesError},{data:profiles,error:profilesError}]=await Promise.all([admin.auth.admin.listUsers({page:1,perPage:200}),admin.from("app_admins").select("user_id"),admin.from("profiles").select("linked_user_id, display_name").eq("active",true)]);
+      if(listError||rolesError||profilesError)throw listError??rolesError??profilesError;
       const adminIds=new Set((admins??[]).map(item=>item.user_id));
+      const profilesByUser=new Map((profiles??[]).filter(item=>item.linked_user_id).map(item=>[item.linked_user_id,item.display_name]));
       return json({users:authData.users.map(item=>({
         id:item.id,
         email:item.email??"Sem e-mail",
@@ -31,6 +32,8 @@ Deno.serve(async req => {
         emailConfirmedAt:item.email_confirmed_at??null,
         disabled:Boolean(item.banned_until&&new Date(item.banned_until).getTime()>Date.now()),
         testUser:item.app_metadata?.evoai_test_user===true,
+        profileComplete:profilesByUser.has(item.id),
+        profileName:profilesByUser.get(item.id)??null,
       }))},200,origin);
     }
 

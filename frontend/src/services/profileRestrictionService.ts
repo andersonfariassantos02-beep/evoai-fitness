@@ -101,6 +101,33 @@ export async function loadManagedProfile(userId: string): Promise<ManagedProfile
   return { ...profile, restrictions: (restrictions ?? []) as ManagedProfileRestriction[] } as ManagedProfile;
 }
 
+export async function hasLinkedProfile(userId: string) {
+  const { count, error } = await getSupabaseClient().from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("linked_user_id", userId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+export async function createMyProfile(
+  displayName: string,
+  birthDate: string,
+  trainingGoal: TrainingGoal,
+  trainingFocus: TrainingFocus[],
+) {
+  const name = displayName.trim();
+  if (!name || name.length > 120) throw new Error("INVALID_PROFILE_NAME");
+  if (!trainingFocus.length || trainingFocus.length > 4) throw new Error("INVALID_TRAINING_FOCUS");
+  const { data, error } = await getSupabaseClient().rpc("create_my_profile", {
+    profile_display_name: name,
+    profile_birth_date: birthDate || null,
+    profile_training_goal: trainingGoal,
+    profile_training_focus: trainingFocus,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function updateManagedProfile(profileId: string, displayName: string, birthDate: string, trainingGoal: TrainingGoal, trainingFocus: TrainingFocus[]) {
   const name = displayName.trim();
   if (!name || name.length > 120) throw new Error("INVALID_PROFILE_NAME");
