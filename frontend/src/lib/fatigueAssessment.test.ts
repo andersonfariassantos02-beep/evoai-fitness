@@ -49,4 +49,16 @@ describe("avaliação de fadiga", () => {
       workout("2026-07-22", 8, 5000),
     ]).level).toBe("normal");
   });
+
+  it("usa sono e fadiga percebida mesmo com pouco histórico de treinos", () => {
+    const result = assessTrainingFatigue([], [], [
+      { sleepHours: 5.5, fatigue: 4, soreness: 2, jointDiscomfort: false },
+      { sleepHours: 5.8, fatigue: 4, soreness: 3, jointDiscomfort: false },
+    ]);
+    expect(result.level).toBe("deload");
+    expect(result.signals).toEqual(expect.arrayContaining([
+      expect.stringContaining("sono médio"),
+      expect.stringContaining("fadiga percebida"),
+    ]));
+  });
 });

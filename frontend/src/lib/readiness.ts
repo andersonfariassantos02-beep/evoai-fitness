@@ -1,8 +1,10 @@
 import type { WorkoutExerciseTemplate } from "./workoutTemplates";
 
 export interface ReadinessCheckIn {
+  sleepHours: number;
   energy: number;
   soreness: number;
+  fatigue: number;
   jointDiscomfort: boolean;
   availableMinutes: number;
 }
@@ -21,7 +23,7 @@ export function assessReadiness(checkIn: ReadinessCheckIn): ReadinessAssessment 
       message: "Há desconforto articular. A ficha não foi alterada automaticamente: revise os exercícios e use uma substituição compatível antes de começar.",
     };
   }
-  if (checkIn.energy <= 2 || checkIn.soreness >= 4) {
+  if (checkIn.sleepHours < 6 || checkIn.energy <= 2 || checkIn.soreness >= 4 || checkIn.fatigue >= 4) {
     return {
       level: "caution",
       reduceVolume: true,

@@ -966,6 +966,9 @@ main { padding: 64px 0 52px; }
 .readiness-checkin__fields select { min-width: 0; }
 .readiness-checkin__toggle { display: flex !important; grid-column: 1 / -1; align-items: center; gap: 9px !important; }
 .readiness-checkin__toggle input { width: 18px; height: 18px; }
+.readiness-checkin__actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.readiness-checkin__actions button { width:auto; min-width:150px; }
+.readiness-checkin__actions small { color:var(--muted); }
 .readiness-result { padding: 11px 13px; border-radius: 11px; font-size: 11px; line-height: 1.5; }
 .readiness-result--ready { color: #09674f !important; background: #e7f8f1; }
 .readiness-result--caution { color: #805900 !important; background: #fff4d8; }
