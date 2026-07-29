@@ -22,11 +22,12 @@ import {
   type WorkoutSummary,
 } from "../services/trainingCalendarService";
 import { loadPlanningProfile, type PlanningProfile } from "../services/profileRestrictionService";
-import { MUSCLE_LABELS, summarizePlannedMuscleVolume } from "../lib/trainingVolume";
+import { buildMuscleVolumeBalance, MUSCLE_LABELS, summarizePlannedMuscleVolume, type MuscleVolumeSummary } from "../lib/trainingVolume";
 import { loadMuscleRecovery } from "../services/muscleRecoveryService";
 import type { MuscleRecovery } from "../lib/muscleRecovery";
 import { loadFatigueAssessment } from "../services/fatigueService";
 import type { FatigueAssessment } from "../lib/fatigueAssessment";
+import { loadWeeklyMuscleVolume } from "../services/weeklyMuscleVolumeService";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -78,6 +79,7 @@ export default function DashboardPage() {
   const [recoveryLoading, setRecoveryLoading] = useState(true);
   const [fatigue, setFatigue] = useState<FatigueAssessment | null>(null);
   const [fatigueLoading, setFatigueLoading] = useState(true);
+  const [completedMuscleVolume, setCompletedMuscleVolume] = useState<MuscleVolumeSummary[]>([]);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -110,11 +112,19 @@ export default function DashboardPage() {
     if (!user) return;
     const weekStart = toDateKey(getWeekStart(fromDateKey(selectedDate)));
     const weekEnd = toDateKey(addDays(fromDateKey(weekStart), 6));
-    void Promise.all([loadPlanningProfile(user.id), loadLastCompletedWorkoutLabel(user.id, weekStart), loadWorkouts(user.id, weekStart, weekEnd)])
-      .then(([profile, lastLabel, weekWorkouts]) => {
-        setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setWorkouts(weekWorkouts);
+    void Promise.all([
+      loadPlanningProfile(user.id),
+      loadLastCompletedWorkoutLabel(user.id, weekStart),
+      loadWorkouts(user.id, weekStart, weekEnd),
+      loadWeeklyMuscleVolume(user.id, weekStart, weekEnd).catch(() => []),
+    ])
+      .then(([profile, lastLabel, weekWorkouts, weekMuscleVolume]) => {
+        setPlanningProfile(profile); setLastCompletedLabel(lastLabel); setWorkouts(weekWorkouts); setCompletedMuscleVolume(weekMuscleVolume);
       })
-      .catch(() => { setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null }); setLastCompletedLabel(null); });
+      .catch(() => {
+        setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null });
+        setLastCompletedLabel(null); setCompletedMuscleVolume([]);
+      });
   }, [selectedDate, user]);
 
   useEffect(() => {
@@ -216,6 +226,10 @@ export default function DashboardPage() {
   const plannedMuscleVolume = useMemo(
     () => summarizePlannedMuscleVolume(weeklyPlan.days.map((day) => day.label)),
     [weeklyPlan.days],
+  );
+  const muscleVolumeBalance = useMemo(
+    () => buildMuscleVolumeBalance(plannedMuscleVolume, completedMuscleVolume),
+    [completedMuscleVolume, plannedMuscleVolume],
   );
   const weeklyProgress = weeklyPlan.targetSessions > 0
     ? Math.round((weeklyPlan.completedSessions / weeklyPlan.targetSessions) * 100)
@@ -461,21 +475,22 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {plannedMuscleVolume.length > 0 && (
+            {muscleVolumeBalance.length > 0 && (
               <section className="muscle-volume-preview" aria-labelledby="muscle-volume-title">
                 <div>
                   <span className="section-kicker">COBERTURA MUSCULAR</span>
-                  <h3 id="muscle-volume-title">Séries previstas</h3>
+                  <h3 id="muscle-volume-title">Séries da semana</h3>
                 </div>
                 <div className="muscle-volume-preview__grid">
-                  {plannedMuscleVolume.map((item) => (
-                    <span key={item.muscle}>
+                  {muscleVolumeBalance.map((item) => (
+                    <span className={`muscle-volume-preview__item muscle-volume-preview__item--${item.status}`} key={item.muscle}>
                       <strong>{MUSCLE_LABELS[item.muscle]}</strong>
-                      <small>{item.totalSets.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} séries</small>
+                      <small>{item.completedSets.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de {item.totalSets.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} séries</small>
+                      <i aria-label={`${item.progress}% concluído`}><b style={{ width: `${item.progress}%` }} /></i>
                     </span>
                   ))}
                 </div>
-                <p>Séries compostas incluem contribuição parcial dos músculos auxiliares.</p>
+                <p>O realizado considera séries registradas. Exercícios compostos incluem contribuição parcial dos músculos auxiliares.</p>
               </section>
             )}
 

@@ -44,6 +44,11 @@ vi.mock("../services/fatigueService", () => ({
     recentSessions: 3,
   }),
 }));
+vi.mock("../services/weeklyMuscleVolumeService", () => ({
+  loadWeeklyMuscleVolume: vi.fn().mockResolvedValue([
+    { muscle: "peito", directSets: 6, indirectSets: 0, totalSets: 6 },
+  ]),
+}));
 
 describe("painel principal", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -62,6 +67,8 @@ describe("painel principal", () => {
     expect(screen.getByText("Estimativa: 40h restantes")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Recuperação merece atenção" })).toBeInTheDocument();
     expect(screen.getByText("Evite buscar recordes na próxima sessão.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Séries da semana" })).toBeInTheDocument();
+    expect(screen.getByText(/6 de .* séries/)).toBeInTheDocument();
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {
