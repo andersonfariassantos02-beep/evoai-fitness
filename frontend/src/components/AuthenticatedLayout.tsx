@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isExerciseCatalogAdmin } from "../services/exerciseCatalogService";
@@ -10,10 +10,21 @@ const primaryLinks = [
   { to: "/perfil", icon: "◎", label: "Perfil", end: false },
 ];
 
-function Navigation({ admin, onSignOut, busy }: { admin: boolean; onSignOut: () => void; busy: boolean }) {
+function Navigation({
+  admin,
+  onSignOut,
+  onNavigate,
+  busy,
+}: {
+  admin: boolean;
+  onSignOut: () => void;
+  onNavigate?: () => void;
+  busy: boolean;
+}) {
   const navigate = useNavigate();
 
   function openCalendar() {
+    onNavigate?.();
     navigate("/app");
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => document.getElementById("training-calendar")?.scrollIntoView({ behavior: "smooth" }));
@@ -25,7 +36,7 @@ function Navigation({ admin, onSignOut, busy }: { admin: boolean; onSignOut: () 
       <div className="app-navigation__group">
         <span>PRINCIPAL</span>
         {primaryLinks.map((link) => (
-          <NavLink key={`${link.label}-${link.to}`} end={link.end} to={link.to}>
+          <NavLink key={`${link.label}-${link.to}`} end={link.end} to={link.to} onClick={onNavigate}>
             <i aria-hidden="true">{link.icon}</i>{link.label}
           </NavLink>
         ))}
@@ -36,12 +47,15 @@ function Navigation({ admin, onSignOut, busy }: { admin: boolean; onSignOut: () 
       {admin && (
         <div className="app-navigation__group">
           <span>ADMINISTRAÇÃO</span>
-          <NavLink to="/admin/testes"><i aria-hidden="true">◇</i>Laboratório</NavLink>
-          <NavLink to="/admin/usuarios"><i aria-hidden="true">♙</i>Usuários</NavLink>
-          <NavLink to="/admin/exercicios"><i aria-hidden="true">⌘</i>Catálogo</NavLink>
+          <NavLink to="/admin/testes" onClick={onNavigate}><i aria-hidden="true">◇</i>Laboratório</NavLink>
+          <NavLink to="/admin/usuarios" onClick={onNavigate}><i aria-hidden="true">♙</i>Usuários</NavLink>
+          <NavLink to="/admin/exercicios" onClick={onNavigate}><i aria-hidden="true">⌘</i>Catálogo</NavLink>
         </div>
       )}
-      <button type="button" className="app-navigation__signout" disabled={busy} onClick={onSignOut}>
+      <button type="button" className="app-navigation__signout" disabled={busy} onClick={() => {
+        onNavigate?.();
+        onSignOut();
+      }}>
         <i aria-hidden="true">↪</i>{busy ? "Saindo…" : "Sair"}
       </button>
     </nav>
@@ -53,6 +67,11 @@ export default function AuthenticatedLayout() {
   const [admin, setAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const mobileMenuRef = useRef<HTMLDetailsElement>(null);
+
+  function closeMobileMenu() {
+    if (mobileMenuRef.current) mobileMenuRef.current.open = false;
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -86,9 +105,14 @@ export default function AuthenticatedLayout() {
         <NavLink to="/app" aria-label="EvoAI Fitness — início">
           <img src={`${import.meta.env.BASE_URL}evoai-fitness-logo.png`} alt="" />
         </NavLink>
-        <details className="app-mobile-menu">
+        <details className="app-mobile-menu" ref={mobileMenuRef}>
           <summary>Menu <span aria-hidden="true">⌄</span></summary>
-          <Navigation admin={admin} busy={busy} onSignOut={() => void handleSignOut()} />
+          <Navigation
+            admin={admin}
+            busy={busy}
+            onNavigate={closeMobileMenu}
+            onSignOut={() => void handleSignOut()}
+          />
         </details>
       </header>
 
