@@ -34,6 +34,16 @@ vi.mock("../services/muscleRecoveryService", () => ({
     { muscle: "costas", status: "ready", lastStimulusAt: null, recoveryHours: 0, remainingHours: 0, completedSets: 0 },
   ]),
 }));
+vi.mock("../services/fatigueService", () => ({
+  loadFatigueAssessment: vi.fn().mockResolvedValue({
+    level: "attention",
+    title: "Recuperação merece atenção",
+    summary: "Há sinais de esforço elevado.",
+    recommendation: "Evite buscar recordes na próxima sessão.",
+    signals: ["RPE médio recente elevado (8,8)"],
+    recentSessions: 3,
+  }),
+}));
 
 describe("painel principal", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -50,6 +60,8 @@ describe("painel principal", () => {
     expect(screen.getByText("FOCO MUSCULAR")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Status dos grupos musculares" })).toBeInTheDocument();
     expect(screen.getByText("Estimativa: 40h restantes")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Recuperação merece atenção" })).toBeInTheDocument();
+    expect(screen.getByText("Evite buscar recordes na próxima sessão.")).toBeInTheDocument();
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {

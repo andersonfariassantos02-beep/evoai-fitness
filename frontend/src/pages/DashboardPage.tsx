@@ -25,6 +25,8 @@ import { loadPlanningProfile, type PlanningProfile } from "../services/profileRe
 import { MUSCLE_LABELS, summarizePlannedMuscleVolume } from "../lib/trainingVolume";
 import { loadMuscleRecovery } from "../services/muscleRecoveryService";
 import type { MuscleRecovery } from "../lib/muscleRecovery";
+import { loadFatigueAssessment } from "../services/fatigueService";
+import type { FatigueAssessment } from "../lib/fatigueAssessment";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -74,6 +76,8 @@ export default function DashboardPage() {
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [muscleRecovery, setMuscleRecovery] = useState<MuscleRecovery[]>([]);
   const [recoveryLoading, setRecoveryLoading] = useState(true);
+  const [fatigue, setFatigue] = useState<FatigueAssessment | null>(null);
+  const [fatigueLoading, setFatigueLoading] = useState(true);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -121,6 +125,17 @@ export default function DashboardPage() {
       .then((result) => { if (active) setMuscleRecovery(result); })
       .catch(() => { if (active) setMuscleRecovery([]); })
       .finally(() => { if (active) setRecoveryLoading(false); });
+    return () => { active = false; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    setFatigueLoading(true);
+    void loadFatigueAssessment(user.id)
+      .then((result) => { if (active) setFatigue(result); })
+      .catch(() => { if (active) setFatigue(null); })
+      .finally(() => { if (active) setFatigueLoading(false); });
     return () => { active = false; };
   }, [user]);
 
@@ -255,6 +270,21 @@ export default function DashboardPage() {
             </div>
             <a href="#/perfil">Ajustar foco <b aria-hidden="true">→</b></a>
           </article>
+        </section>
+
+        <section className={`fatigue-card fatigue-card--${fatigue?.level ?? "normal"}`} aria-labelledby="fatigue-title">
+          <div className="fatigue-card__status" aria-hidden="true" />
+          <div className="fatigue-card__content">
+            <span className="eyebrow">GESTÃO DE FADIGA</span>
+            <h2 id="fatigue-title">{fatigueLoading ? "Analisando recuperação geral…" : fatigue?.title ?? "Análise temporariamente indisponível"}</h2>
+            {!fatigueLoading && fatigue && <>
+              <p>{fatigue.summary}</p>
+              {fatigue.signals.length > 0 && <ul>{fatigue.signals.map((signal) => <li key={signal}>{signal}</li>)}</ul>}
+              <strong>{fatigue.recommendation}</strong>
+            </>}
+            {!fatigueLoading && !fatigue && <p>O planejamento continua disponível. Tente novamente quando a conexão estiver estável.</p>}
+          </div>
+          {fatigue && <div className="fatigue-card__badge">{fatigue.level === "deload" ? "DELOAD" : fatigue.level === "attention" ? "ATENÇÃO" : "NORMAL"}</div>}
         </section>
 
         <section className="muscle-recovery" aria-labelledby="muscle-recovery-title">
