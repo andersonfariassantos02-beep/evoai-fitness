@@ -1175,7 +1175,6 @@ main { padding: 64px 0 52px; }
 .app-navigation__group { display: grid; gap: 5px; margin-bottom: 18px; }
 .app-navigation__group > span { padding: 0 12px 7px; color: #59728f; font-size: 9px; font-weight: 900; letter-spacing: .17em; }
 .app-navigation a,
-.app-navigation__calendar,
 .app-navigation__signout {
   display: flex;
   min-height: 44px;
@@ -1191,10 +1190,8 @@ main { padding: 64px 0 52px; }
   text-align: left;
 }
 .app-navigation a i,
-.app-navigation__calendar i,
 .app-navigation__signout i { width: 20px; color: #5a83b9; font-size: 18px; font-style: normal; text-align: center; }
-.app-navigation a:hover,
-.app-navigation__calendar:hover { color: white; background: rgba(23, 107, 255, .08); }
+.app-navigation a:hover { color: white; background: rgba(23, 107, 255, .08); }
 .app-navigation a.active {
   border-color: rgba(23, 107, 255, .32);
   color: white;

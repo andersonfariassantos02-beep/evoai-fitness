@@ -41,6 +41,7 @@ describe("layout autenticado", () => {
     expect(screen.getAllByRole("link", { name: /relatórios/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /usuários/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /catálogo/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Calendário" })).not.toBeInTheDocument();
   });
 
   it("permite encerrar a sessão pelo menu", async () => {

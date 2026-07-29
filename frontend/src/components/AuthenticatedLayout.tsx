@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isExerciseCatalogAdmin } from "../services/exerciseCatalogService";
 import { getAuthErrorMessage } from "../lib/authErrors";
@@ -21,16 +21,6 @@ function Navigation({
   onNavigate?: () => void;
   busy: boolean;
 }) {
-  const navigate = useNavigate();
-
-  function openCalendar() {
-    onNavigate?.();
-    navigate("/app");
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => document.getElementById("training-calendar")?.scrollIntoView({ behavior: "smooth" }));
-    });
-  }
-
   return (
     <nav className="app-navigation" aria-label="Navegação principal">
       <div className="app-navigation__group">
@@ -40,9 +30,6 @@ function Navigation({
             <i aria-hidden="true">{link.icon}</i>{link.label}
           </NavLink>
         ))}
-        <button type="button" className="app-navigation__calendar" onClick={openCalendar}>
-          <i aria-hidden="true">◫</i>Calendário
-        </button>
       </div>
       {admin && (
         <div className="app-navigation__group">
