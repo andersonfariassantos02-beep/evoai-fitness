@@ -750,10 +750,16 @@ main { padding: 64px 0 52px; }
 .exercise-guidance div { margin-top: 10px; }
 .exercise-guidance ul { margin: 5px 0 0; padding-left: 20px; }
 .exercise-guidance a { display: inline-block; margin-top: 10px; color: var(--blue); font-weight: 900; }
-.progression { display: grid; gap: 3px; margin: 12px 0; padding: 11px 13px; border-radius: 11px; background: #edf4ff; color: var(--navy); font-size: 11px; }
+.progression { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 11px 13px; border-radius: 11px; background: #edf4ff; color: var(--navy); font-size: 11px; }
+.progression > div { display: grid; gap: 3px; }
 .progression span { color: var(--muted); }
+.progression button { flex: 0 0 auto; min-height: 38px; padding: 8px 12px; border-color: #a9c9ff; background: #fff; color: var(--blue); }
 .progression--increase { background: var(--green-soft); }
 .progression--reduce { background: var(--amber-soft); }
+@media (max-width: 640px) {
+  .progression { align-items: stretch; flex-direction: column; }
+  .progression button { width: 100%; }
+}
 .set-row { display: grid; gap: 8px; padding: 10px; border-top: 1px solid #edf1f6; }
 .set-row__header { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .set-row__header strong { display: flex; gap: 7px; align-items: center; color: var(--navy); }

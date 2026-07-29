@@ -1,7 +1,7 @@
 export interface PreviousPerformance {
   loadKg: number;
   reps: number;
-  rpe: number;
+  rpe: number | null;
   failed: boolean;
 }
 
@@ -36,9 +36,14 @@ export function recommendProgressionFromSession(
   }
 
   const referenceLoad = performed[0].loadKg;
-  const averageRpe = performed.reduce((total, set) => total + set.rpe, 0) / performed.length;
+  const reportedRpes = performed
+    .map((set) => set.rpe)
+    .filter((rpe): rpe is number => rpe !== null && rpe > 0);
+  const averageRpe = reportedRpes.length
+    ? reportedRpes.reduce((total, rpe) => total + rpe, 0) / reportedRpes.length
+    : null;
   const belowTarget = performed.filter((set) => set.reps < set.targetRepsMin).length;
-  if (performed.some((set) => set.failed) || averageRpe >= 9.5 || belowTarget >= Math.ceil(performed.length / 2)) {
+  if (performed.some((set) => set.failed) || (averageRpe !== null && averageRpe >= 9.5) || belowTarget >= Math.ceil(performed.length / 2)) {
     return {
       loadKg: roundedLoad(referenceLoad * .95),
       action: "reduce",
@@ -46,7 +51,8 @@ export function recommendProgressionFromSession(
     };
   }
 
-  if (performed.every((set) => set.reps >= set.targetRepsMax && set.rpe <= 8)) {
+  const everySetHasControlledEffort = performed.every((set) => set.rpe !== null && set.rpe <= 8);
+  if (performed.every((set) => set.reps >= set.targetRepsMax) && everySetHasControlledEffort) {
     const increment = Math.min(5, Math.max(.5, roundedLoad(referenceLoad * .03)));
     return {
       loadKg: roundedLoad(referenceLoad + increment),
@@ -58,7 +64,9 @@ export function recommendProgressionFromSession(
   return {
     loadKg: referenceLoad,
     action: "maintain",
-    reason: "Carga mantida: consolide todas as séries dentro da faixa antes de progredir.",
+    reason: reportedRpes.length
+      ? "Carga mantida: primeiro avance as repetições até o topo da faixa em todas as séries, com esforço controlado."
+      : "Carga mantida: faltou registrar o esforço anterior. Avance as repetições dentro da faixa e informe o RPE antes de aumentar o peso.",
   };
 }
 

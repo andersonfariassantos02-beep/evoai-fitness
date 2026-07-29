@@ -23,7 +23,7 @@ function buildSetRows(template: WorkoutExerciseTemplate, exerciseLogId: string, 
 }
 
 async function getRecommendation(userId: string, exerciseKey: string, repsMin: number, repsMax: number) {
-  const { data: history } = await getSupabaseClient().from("set_logs")
+  const { data: history, error } = await getSupabaseClient().from("set_logs")
     .select("set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, exercise_logs!inner(exercise_key, workout_sessions!inner(status, training_date, session_kind))")
     .eq("user_id", userId)
     .eq("exercise_logs.exercise_key", exerciseKey)
@@ -32,6 +32,7 @@ async function getRecommendation(userId: string, exerciseKey: string, repsMin: n
     .not("completed_at", "is", null)
     .order("completed_at", { ascending: false })
     .limit(12);
+  if (error) throw error;
   type HistoryRow = {
     set_number: number;
     target_reps_min: number;
@@ -55,7 +56,7 @@ async function getRecommendation(userId: string, exerciseKey: string, repsMin: n
       targetRepsMax: Number(row.target_reps_max ?? repsMax),
       loadKg: Number(row.load_kg ?? 0),
       reps: Number(row.actual_reps ?? 0),
-      rpe: Number(row.rpe ?? 0),
+      rpe: row.rpe === null ? null : Number(row.rpe),
       failed: String(row.notes ?? "").toLowerCase().includes("falha"),
     })));
 }
