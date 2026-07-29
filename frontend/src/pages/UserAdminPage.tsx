@@ -27,6 +27,7 @@ export default function UserAdminPage(){
   const [showTestForm,setShowTestForm]=useState(false);
   const [deleteTarget,setDeleteTarget]=useState<ManagedUser|null>(null);
   const [deleteConfirmation,setDeleteConfirmation]=useState("");
+  const [deleteError,setDeleteError]=useState("");
 
   async function refresh(){setUsers(await listManagedUsers());}
   useEffect(()=>{if(!user)return;void isExerciseCatalogAdmin(user.id).then(async ok=>{setAllowed(ok);if(ok)await refresh();});},[user]);
@@ -41,9 +42,18 @@ export default function UserAdminPage(){
   }
   async function confirmDelete(){
     if(!deleteTarget)return;
-    if(await run(()=>deleteManagedUser(deleteTarget.id,deleteConfirmation),"Usuário excluído definitivamente.")){
+    setBusy(true);
+    setDeleteError("");
+    try{
+      await deleteManagedUser(deleteTarget.id,deleteConfirmation);
+      await refresh();
+      setMessage("Usuário excluído definitivamente.");
       setDeleteTarget(null);
       setDeleteConfirmation("");
+    }catch(error){
+      setDeleteError(error instanceof Error?error.message:"Não foi possível excluir a conta fictícia.");
+    }finally{
+      setBusy(false);
     }
   }
 
@@ -66,9 +76,9 @@ export default function UserAdminPage(){
       const current=item.id===user?.id;
       return <article key={item.id} className={`admin-user-card${item.disabled?" admin-user-card--disabled":""}`}>
         <div><strong>{item.email}</strong><div className="admin-user-badges"><span className={`role-badge role-badge--${item.role}`}>{item.role==="admin"?"Administrador":"Usuário"}</span>{item.testUser&&<span className="role-badge role-badge--test">Conta de teste</span>}<span className={`role-badge role-badge--profile-${item.profileComplete?"complete":"pending"}`}>{item.profileComplete?"Perfil completo":"Perfil pendente"}</span>{item.disabled&&<span className="role-badge role-badge--disabled">Desativado</span>}</div>{item.profileName&&<small>Perfil: {item.profileName}</small>}<small>Criado em {new Date(item.createdAt).toLocaleDateString("pt-BR")}{item.lastSignInAt?` · Último acesso ${new Date(item.lastSignInAt).toLocaleDateString("pt-BR")}`:""}</small></div>
-        <div><button type="button" disabled={busy||current||item.disabled} onClick={()=>void run(()=>updateManagedUserRole(item.id,item.role==="admin"?"user":"admin"),"Acesso atualizado.")}>{item.role==="admin"?"Tornar usuário":"Tornar administrador"}</button><button type="button" disabled={busy||item.disabled} onClick={()=>void run(()=>sendManagedUserPasswordReset(item.email),"E-mail de redefinição enviado.")}>Redefinir senha</button><button type="button" disabled={busy||current} onClick={()=>void run(()=>setManagedUserDisabled(item.id,!item.disabled),item.disabled?"Usuário reativado.":"Usuário desativado.")}>{item.disabled?"Reativar":"Desativar"}</button>{item.testUser?<button className="danger-button" type="button" disabled={busy||current} onClick={()=>{setDeleteTarget(item);setDeleteConfirmation("");}}>Excluir</button>:<small className="admin-user-retention-note">Conta real: use Desativar para preservar o histórico.</small>}</div>
+        <div><button type="button" disabled={busy||current||item.disabled} onClick={()=>void run(()=>updateManagedUserRole(item.id,item.role==="admin"?"user":"admin"),"Acesso atualizado.")}>{item.role==="admin"?"Tornar usuário":"Tornar administrador"}</button><button type="button" disabled={busy||item.disabled} onClick={()=>void run(()=>sendManagedUserPasswordReset(item.email),"E-mail de redefinição enviado.")}>Redefinir senha</button><button type="button" disabled={busy||current} onClick={()=>void run(()=>setManagedUserDisabled(item.id,!item.disabled),item.disabled?"Usuário reativado.":"Usuário desativado.")}>{item.disabled?"Reativar":"Desativar"}</button>{item.testUser?<button className="danger-button" type="button" disabled={busy||current} onClick={()=>{setDeleteTarget(item);setDeleteConfirmation("");setDeleteError("");}}>Excluir</button>:<small className="admin-user-retention-note">Conta real: use Desativar para preservar o histórico.</small>}</div>
       </article>;
     })}</section>
-    {deleteTarget&&<div className="confirmation-backdrop"><section className="confirmation-dialog admin-delete-user-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-user-title"><span className="setup-status setup-status--locked">AÇÃO IRREVERSÍVEL</span><h2 id="delete-user-title">Excluir usuário?</h2><p>Esta ação remove a conta <strong>{deleteTarget.email}</strong> e pode apagar seus dados vinculados. Para confirmar, digite o e-mail completo.</p><label>E-mail de confirmação<input autoFocus value={deleteConfirmation} onChange={event=>setDeleteConfirmation(event.target.value)}/></label><div className="admin-delete-user-actions"><button type="button" onClick={()=>setDeleteTarget(null)}>Cancelar</button><button className="danger-action" type="button" disabled={busy||deleteConfirmation.trim().toLowerCase()!==deleteTarget.email.toLowerCase()} onClick={()=>void confirmDelete()}>Excluir definitivamente</button></div></section></div>}
+    {deleteTarget&&<div className="confirmation-backdrop"><section className="confirmation-dialog admin-delete-user-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-user-title"><span className="setup-status setup-status--locked">AÇÃO IRREVERSÍVEL</span><h2 id="delete-user-title">Excluir usuário?</h2><p>Esta ação remove a conta <strong>{deleteTarget.email}</strong> e pode apagar seus dados vinculados. Para confirmar, digite o e-mail completo.</p><label>E-mail de confirmação<input autoFocus value={deleteConfirmation} onChange={event=>setDeleteConfirmation(event.target.value)}/></label>{deleteError&&<p className="admin-delete-user-error" role="alert">{deleteError}</p>}<div className="admin-delete-user-actions"><button type="button" disabled={busy} onClick={()=>setDeleteTarget(null)}>Cancelar</button><button className="danger-action" type="button" disabled={busy||deleteConfirmation.trim().toLowerCase()!==deleteTarget.email.toLowerCase()} onClick={()=>void confirmDelete()}>{busy?"Excluindo…":"Excluir definitivamente"}</button></div></section></div>}
   </main>;
 }

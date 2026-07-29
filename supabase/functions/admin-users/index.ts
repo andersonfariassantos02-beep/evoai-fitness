@@ -69,17 +69,20 @@ Deno.serve(async req => {
       if(auditError)throw auditError;
       const {error:cleanupError}=await admin.rpc("delete_test_user_data",{target_user_id:userId});
       if(cleanupError){
+        console.error("delete_test_user_data failed",cleanupError);
         await admin.from("user_admin_audit").delete().eq("id",auditData.id);
         const message=cleanupError.message.includes("TEST_USER_HAS_SHARED_OR_AUDITED_DATA")
           ?"A conta de teste possui dados compartilhados e não pode ser excluída automaticamente."
-          :"Não foi possível remover os dados vinculados à conta de teste.";
+          :`Não foi possível remover os dados vinculados à conta de teste. Detalhe: ${cleanupError.message}`;
         return json({error:message},409,origin);
       }
       const {error}=await admin.auth.admin.deleteUser(userId);
       if(error){
         await admin.from("user_admin_audit").delete().eq("id",auditData.id);
-        return json({error:"Os dados da conta foram limpos, mas a remoção do acesso falhou. Tente novamente."},500,origin);
+        return json({error:`Os dados da conta foram limpos, mas a remoção do acesso falhou. Detalhe: ${error.message}`},500,origin);
       }
+      const {data:verification}=await admin.auth.admin.getUserById(userId);
+      if(verification.user)return json({error:"A operação terminou, mas a conta ainda consta no Supabase Auth."},500,origin);
       return json({message:"Usuário excluído definitivamente."},200,origin);
     }
 
