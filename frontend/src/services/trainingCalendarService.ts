@@ -55,6 +55,13 @@ function applyOutbox(
   return [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
+export function reconcileSyncedCalendar(
+  remoteEntries: TrainingCalendarEntry[],
+  pendingMutations: PendingCalendarMutation[],
+) {
+  return applyOutbox(remoteEntries, pendingMutations);
+}
+
 async function sendMutation(userId: string, mutation: PendingCalendarMutation) {
   const supabase = getSupabaseClient();
 
@@ -101,26 +108,10 @@ export async function loadSyncedCalendar(userId: string, localEntries: TrainingC
 
     if (error) throw error;
     const remoteEntries = (data as CalendarRow[]).map(rowToEntry);
-
-    const remoteDates = new Set(remoteEntries.map((entry) => entry.date));
-    const localOnlyEntries = localEntries.filter((entry) => !remoteDates.has(entry.date));
-
-    if (localOnlyEntries.length > 0 && outbox.length === 0) {
-      saveOutbox(userId, localOnlyEntries.map((entry) => ({
-        id: crypto.randomUUID(),
-        date: entry.date,
-        entry,
-      })));
-      await flushCalendarOutbox(userId);
-      return {
-        entries: [...remoteEntries, ...localOnlyEntries]
-          .sort((left, right) => left.date.localeCompare(right.date)),
-        state: "synced",
-      } as const;
-    }
-
-    const base = remoteEntries.length > 0 ? remoteEntries : localEntries;
-    return { entries: applyOutbox(base, outbox), state: outbox.length ? "pending" : "synced" } as const;
+    return {
+      entries: reconcileSyncedCalendar(remoteEntries, outbox),
+      state: outbox.length ? "pending" : "synced",
+    } as const;
   } catch {
     return { entries: applyOutbox(localEntries, outbox), state: "offline" } as const;
   }
