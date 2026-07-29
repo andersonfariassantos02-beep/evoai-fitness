@@ -1010,9 +1010,9 @@ main { padding: 64px 0 52px; }
 .catalog-browser__title { display:flex; gap:20px; align-items:end; justify-content:space-between; }
 .catalog-browser__title h2 { margin:5px 0 0; }
 .catalog-browser__title > span { color:var(--muted); font-size:.8rem; font-weight:800; }
-.catalog-browser__body { display:grid; grid-template-columns:minmax(0,1fr) 230px; gap:20px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); align-items:start; }
-.catalog-results { min-width:0; }
-.catalog-muscle-panel { padding:16px; border:1px solid var(--line); border-radius:14px; background:#f7f9fc; }
+.catalog-browser__body { display:grid; min-width:0; grid-template-columns:minmax(0,1fr) 230px; gap:20px; margin-top:18px; padding-top:18px; border-top:1px solid var(--line); align-items:start; }
+.catalog-results { width:100%; min-width:0; }
+.catalog-muscle-panel { width:100%; min-width:0; max-width:100%; padding:16px; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#f7f9fc; }
 .catalog-muscle-panel h3 { margin:0 0 11px; color:var(--navy); font-size:.92rem; }
 .catalog-muscle-tabs { display:grid; gap:7px; }
 .catalog-muscle-tabs button { display:flex; width:100%; min-height:42px; gap:8px; padding:0 12px; border:1px solid var(--line); border-radius:10px; align-items:center; justify-content:space-between; color:var(--navy); background:white; font-weight:850; text-align:left; }
@@ -1047,19 +1047,27 @@ main { padding: 64px 0 52px; }
 @media(max-width:760px){.admin-layout{grid-template-columns:1fr}.admin-item{align-items:stretch;flex-direction:column}}
 @media(max-width:700px){.admin-invite,.admin-user-card{align-items:stretch;flex-direction:column}.admin-user-card>div:last-child{display:grid}.brand__logo--header{width:96px;height:54px}}
 @media(max-width:700px){
+  .catalog-admin-page { width:100%; max-width:100%; overflow-x:clip; }
   .catalog-admin-header { grid-template-columns:1fr; }
   .catalog-admin-header > a { width:max-content; }
   .catalog-new-button { width:100%; }
+  .catalog-browser { width:100%; max-width:100%; }
   .catalog-browser { padding:15px 12px; }
   .catalog-browser__title { align-items:flex-start; flex-direction:column; gap:5px; }
-  .catalog-browser__body { grid-template-columns:1fr; }
+  .catalog-browser__body { width:100%; grid-template-columns:minmax(0,1fr); }
   .catalog-muscle-panel { grid-row:1; padding:12px; }
-  .catalog-muscle-tabs { display:flex; padding-bottom:4px; overflow-x:auto; scrollbar-width:thin; }
-  .catalog-muscle-tabs button { width:auto; min-width:max-content; flex:0 0 auto; }
+  .catalog-muscle-tabs { display:grid; width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; overflow:visible; }
+  .catalog-muscle-tabs button { width:100%; min-width:0; height:auto; padding:8px 10px; line-height:1.25; white-space:normal; }
+  .catalog-muscle-tabs button span { flex:0 0 auto; }
+  .catalog-selected-group,.catalog-exercise-list { width:100%; min-width:0; }
   .catalog-selected-group > header { align-items:flex-start; flex-direction:column; gap:5px; }
   .catalog-editor { padding:18px 14px; }
   .catalog-editor form > footer { display:grid; grid-template-columns:1fr; }
   .catalog-editor form > footer button { width:100%; }
+}
+
+@media(max-width:360px){
+  .catalog-muscle-tabs { grid-template-columns:1fr; }
 }
 
 .test-lab { min-height:100vh; padding:clamp(18px,4vw,42px); background:#f4f7fb; }
