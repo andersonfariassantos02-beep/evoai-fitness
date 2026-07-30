@@ -11,6 +11,8 @@ import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort
 import { evaluatePersonalRecord } from "../lib/personalRecord";
 import { clearCachedWorkoutSession, loadCachedWorkoutSession, saveCachedWorkoutSession } from "../lib/workoutSessionCache";
 import { flushSetOutbox, pendingSetCount, queueSetMutation, type WorkoutSetSyncState } from "../services/workoutSetSyncService";
+import { loadExerciseGoals, type ExerciseGoal } from "../services/exerciseGoalService";
+import { buildWorkoutAchievementSummary, type WorkoutAchievementSummary } from "../lib/workoutAchievements";
 
 interface ActiveRest {
   sourceExerciseId: string;
@@ -189,6 +191,8 @@ export default function WorkoutSessionPage() {
   const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
   const [skipReason, setSkipReason] = useState("Treino encerrado antes do planejado");
   const [finishing, setFinishing] = useState(false);
+  const [exerciseGoals, setExerciseGoals] = useState<ExerciseGoal[]>([]);
+  const [completionSummary, setCompletionSummary] = useState<WorkoutAchievementSummary | null>(null);
   const [checkout, setCheckout] = useState<WorkoutCheckout>({
     sessionRpe: cachedSession.current?.session_rpe ?? 8,
     sessionQuality: cachedSession.current?.session_quality ?? 4,
@@ -223,6 +227,15 @@ export default function WorkoutSessionPage() {
           ? "Há mais de um perfil ativo ligado à sua conta. Selecione ou desative um perfil antes de planejar o treino."
           : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
   }, [date, label, sessionKind, user]);
+
+  useEffect(() => {
+    if (!user || testMode) return;
+    let active = true;
+    void loadExerciseGoals(user.id)
+      .then((goals) => { if (active) setExerciseGoals(goals); })
+      .catch(() => { if (active) setExerciseGoals([]); });
+    return () => { active = false; };
+  }, [testMode, user]);
 
   useEffect(() => {
     if (!session || !user || !date) return;
@@ -569,6 +582,11 @@ export default function WorkoutSessionPage() {
     navigate("/app");
   }
 
+  function showCompletionSummary() {
+    if (!session) return;
+    setCompletionSummary(buildWorkoutAchievementSummary(session.exercises, testMode ? [] : exerciseGoals));
+  }
+
   async function finish() {
     if (!session || !user) return;
     if (pendingSets.length > 0) {
@@ -583,7 +601,7 @@ export default function WorkoutSessionPage() {
     setMessage("");
     try {
       await updateSession(session.id, "completed", session.notes, checkout);
-      await completeNavigation();
+      showCompletionSummary();
     } catch {
       setMessage("Não foi possível finalizar o treino.");
     } finally {
@@ -599,7 +617,7 @@ export default function WorkoutSessionPage() {
       const skippedCount = await finishWorkoutWithPending(session.id, session.notes, skipReason, checkout);
       setShowFinishConfirmation(false);
       setMessage(`${skippedCount} série${skippedCount === 1 ? "" : "s"} registrada${skippedCount === 1 ? "" : "s"} como não realizada${skippedCount === 1 ? "" : "s"}.`);
-      await completeNavigation();
+      showCompletionSummary();
     } catch {
       setMessage("Não foi possível finalizar com pendências. O treino continua aberto.");
       setShowFinishConfirmation(false);
@@ -742,6 +760,22 @@ export default function WorkoutSessionPage() {
           <button type="button" disabled={finishing} onClick={() => setShowFinishConfirmation(false)}>Voltar e continuar</button>
           <button className="danger-action" type="button" disabled={finishing} onClick={() => void confirmFinishWithPending()}>{finishing ? "Finalizando…" : "Finalizar com pendências"}</button>
         </div>
+      </section>
+    </div>}
+    {completionSummary && <div className="confirmation-backdrop workout-completion-backdrop">
+      <section className="workout-completion" role="dialog" aria-modal="true" aria-labelledby="workout-completion-title">
+        <span className="setup-status">TREINO CONCLUÍDO</span>
+        <h2 id="workout-completion-title">{completionSummary.achievements.length ? "Você avançou hoje" : "Treino registrado com sucesso"}</h2>
+        <p>{completionSummary.completedSets} série(s) válida(s) em {completionSummary.completedExercises} exercício(s).</p>
+        {completionSummary.achievements.length > 0 && <div className="workout-completion__achievements">
+          {completionSummary.achievements.map((achievement) => <article key={`${achievement.kind}-${achievement.exerciseKey}`}>
+            <span>{achievement.kind === "goal_reached" ? "META ALCANÇADA" : "NOVO RECORDE"}</span>
+            <strong>{achievement.exerciseName}</strong>
+            <small>{achievement.detail}</small>
+          </article>)}
+        </div>}
+        {testMode && <p className="workout-completion__test-note">Esta simulação não alterou seus recordes nem o histórico real.</p>}
+        <button type="button" onClick={() => void completeNavigation()}>{testMode ? "Voltar ao laboratório" : "Ver painel atualizado"}</button>
       </section>
     </div>}
   </div>;
