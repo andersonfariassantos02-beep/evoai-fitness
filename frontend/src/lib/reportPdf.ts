@@ -82,6 +82,9 @@ export async function createReportPdf(report: WorkoutReport, previous: WorkoutRe
       paragraph(sets, 8, [76, 93, 116]);
       if (exercise.originalKey) paragraph(`Substituicao registrada: ${exercise.substitutionReason ?? "sem motivo informado"}.`, 7, [127, 88, 0]);
     });
+    if (workout.sessionRpe || workout.sessionQuality || workout.postWorkoutDiscomfort) {
+      paragraph(`Check-out: RPE geral ${workout.sessionRpe ?? "-"} | qualidade ${workout.sessionQuality ?? "-"}/5${workout.postWorkoutDiscomfort ? " | desconforto informado" : ""}`, 8);
+    }
     if (workout.notes) paragraph(`Observacoes: ${workout.notes}`, 8);
     y += 2;
   });

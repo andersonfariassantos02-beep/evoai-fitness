@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
-import { addExtraSet, addWarmupSets, finishWorkoutWithPending, removeExtraSet, removeWarmupSets, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
+import { addExtraSet, addWarmupSets, finishWorkoutWithPending, removeExtraSet, removeWarmupSets, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutCheckout, type WorkoutSession } from "../services/workoutSessionService";
 import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
@@ -123,12 +123,22 @@ export default function WorkoutSessionPage() {
   const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
   const [skipReason, setSkipReason] = useState("Treino encerrado antes do planejado");
   const [finishing, setFinishing] = useState(false);
+  const [checkout, setCheckout] = useState<WorkoutCheckout>({ sessionRpe: 8, sessionQuality: 4, discomfort: false });
   const restWasFinalized = useRef(false);
 
   useEffect(() => {
     if (!user || !date) return;
     void startOrLoadWorkout(user.id, date, label, testMode ? "test" : "real")
-      .then((data) => { setSession(data); setProfileRestrictions(data.applied_restrictions); setMessage(""); })
+      .then((data) => {
+        setSession(data);
+        setProfileRestrictions(data.applied_restrictions);
+        setCheckout({
+          sessionRpe: data.session_rpe ?? 8,
+          sessionQuality: data.session_quality ?? 4,
+          discomfort: Boolean(data.post_workout_discomfort),
+        });
+        setMessage("");
+      })
       .catch((error) => setMessage(error instanceof Error && error.message.startsWith("PROFILE_RESTRICTION_BLOCKS_PLAN")
         ? "As restrições do perfil bloqueiam um exercício sem substituto seguro. Revise o perfil antes de iniciar."
         : error instanceof Error && error.message === "MULTIPLE_ACTIVE_LINKED_PROFILES"
@@ -409,7 +419,7 @@ export default function WorkoutSessionPage() {
     setFinishing(true);
     setMessage("");
     try {
-      await updateSession(session.id, "completed", session.notes);
+      await updateSession(session.id, "completed", session.notes, checkout);
       await completeNavigation();
     } catch {
       setMessage("Não foi possível finalizar o treino.");
@@ -423,7 +433,7 @@ export default function WorkoutSessionPage() {
     setFinishing(true);
     setMessage("");
     try {
-      const skippedCount = await finishWorkoutWithPending(session.id, session.notes, skipReason);
+      const skippedCount = await finishWorkoutWithPending(session.id, session.notes, skipReason, checkout);
       setShowFinishConfirmation(false);
       setMessage(`${skippedCount} série${skippedCount === 1 ? "" : "s"} registrada${skippedCount === 1 ? "" : "s"} como não realizada${skippedCount === 1 ? "" : "s"}.`);
       await completeNavigation();
@@ -517,6 +527,18 @@ export default function WorkoutSessionPage() {
         </button>
       </section>;
       })}
+      <section className="workout-checkout" aria-labelledby="workout-checkout-title">
+        <div><small>CHECK-OUT DA SESSÃO</small><h2 id="workout-checkout-title">Como foi o treino?</h2><p>Leva poucos segundos e melhora a leitura de recuperação dos próximos dias.</p></div>
+        <div className="workout-checkout__fields">
+          <label>Esforço geral<select aria-label="Esforço geral do treino" value={checkout.sessionRpe} onChange={(event) => setCheckout((current) => ({ ...current, sessionRpe: Number(event.target.value) }))}>
+            <option value="6">RPE 6 · Leve</option><option value="7">RPE 7 · Moderado</option><option value="8">RPE 8 · Desafiador</option><option value="9">RPE 9 · Muito difícil</option><option value="10">RPE 10 · Máximo</option>
+          </select></label>
+          <label>Qualidade da sessão<select aria-label="Qualidade da sessão" value={checkout.sessionQuality} onChange={(event) => setCheckout((current) => ({ ...current, sessionQuality: Number(event.target.value) }))}>
+            <option value="1">1 · Muito ruim</option><option value="2">2 · Ruim</option><option value="3">3 · Regular</option><option value="4">4 · Boa</option><option value="5">5 · Excelente</option>
+          </select></label>
+          <label className="workout-checkout__check"><input type="checkbox" checked={checkout.discomfort} onChange={(event) => setCheckout((current) => ({ ...current, discomfort: event.target.checked }))} /> Senti desconforto incomum</label>
+        </div>
+      </section>
       <label className="session-notes">Observações do treino<textarea value={session.notes} onChange={(event) => setSession({ ...session, notes: event.target.value })} /></label>
       {message && <p className="workout-message">{message}</p>}
       <button className="finish-workout" disabled={finishing} onClick={finish}>{finishing ? "Finalizando…" : testMode ? "Finalizar teste" : "Finalizar treino"}</button>

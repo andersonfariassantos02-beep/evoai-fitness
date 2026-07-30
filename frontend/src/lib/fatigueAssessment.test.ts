@@ -62,3 +62,15 @@ describe("avaliação de fadiga", () => {
     ]));
   });
 });
+
+describe("check-out pós-treino na avaliação de fadiga", () => {
+  it("usa o RPE geral e desconfortos repetidos como sinais complementares", () => {
+    const recent = [
+      { ...workout("2026-07-27", 7), sessionRpe: 9, postWorkoutDiscomfort: true },
+      { ...workout("2026-07-29", 7), sessionRpe: 9, postWorkoutDiscomfort: true },
+    ];
+    const result = assessTrainingFatigue(recent, []);
+    expect(result.level).toBe("attention");
+    expect(result.signals).toContain("2 sessões recentes encerradas com desconforto");
+  });
+});

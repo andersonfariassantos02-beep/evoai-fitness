@@ -228,6 +228,7 @@ export default function ReportsPage() {
                       </section>
                     ))}
                   </div>
+                  {(workout.sessionRpe || workout.sessionQuality || workout.postWorkoutDiscomfort) && <p className="report-checkout"><strong>Check-out:</strong> RPE geral {workout.sessionRpe ?? "—"} · qualidade {workout.sessionQuality ?? "—"}/5{workout.postWorkoutDiscomfort ? " · desconforto informado" : ""}</p>}
                   {workout.notes && <p><strong>Observações:</strong> {workout.notes}</p>}
                 </article>
               ))}
