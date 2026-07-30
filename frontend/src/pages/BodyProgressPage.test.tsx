@@ -44,10 +44,22 @@ describe("evolução corporal", () => {
     render(<BodyProgressPage />);
 
     expect(await screen.findByRole("heading", { name: "Peso e medidas" })).toBeInTheDocument();
-    expect(screen.getByText("81 kg")).toBeInTheDocument();
-    expect(screen.getByText("-2 kg")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /evolução do peso/i })).toBeInTheDocument();
+    expect(screen.getAllByText("81 kg")).not.toHaveLength(0);
+    expect(screen.getAllByText("-2 kg")).not.toHaveLength(0);
+    expect(screen.getByRole("img", { name: /evolução de peso/i })).toBeInTheDocument();
     expect(screen.getByText("Em jejum")).toBeInTheDocument();
+  });
+
+  it("permite comparar outros indicadores corporais no gráfico", async () => {
+    const user = userEvent.setup();
+    render(<BodyProgressPage />);
+    await screen.findByText("Em jejum");
+
+    await user.click(screen.getByRole("tab", { name: "Cintura" }));
+
+    expect(screen.getByRole("tab", { name: "Cintura" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("img", { name: /evolução de cintura/i })).toBeInTheDocument();
+    expect(screen.getByText("-3 cm")).toBeInTheDocument();
   });
 
   it("salva uma medição válida e recarrega o histórico", async () => {
