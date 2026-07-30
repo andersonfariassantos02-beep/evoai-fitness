@@ -13,6 +13,7 @@ import { evaluatePersonalRecord } from "../lib/personalRecord";
 interface ActiveRest {
   sourceExerciseId: string;
   sourceSetId: string;
+  nextSetId: string;
   kind: RestKind;
   label: string;
   nextLabel: string;
@@ -71,7 +72,7 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
     await onComplete(nextDraft);
   }
 
-  return <div className={`set-row ${set.completed ? "set-row--done" : ""} ${set.skipped_at ? "set-row--skipped" : ""}`}>
+  return <div id={`workout-set-${set.id}`} className={`set-row ${set.completed ? "set-row--done" : ""} ${set.skipped_at ? "set-row--skipped" : ""}`}>
     <div className="set-row__header">
       <strong>Série {set.set_number}{set.is_extra && <small>extra</small>}{set.skipped_at && <small>não realizada</small>}</strong>
       <div>
@@ -181,6 +182,14 @@ export default function WorkoutSessionPage() {
     if (soundEnabled) playRestFinishedSound();
   }
 
+  function goToSet(setId: string) {
+    setActiveRest(null);
+    const target = document.getElementById(`workout-set-${setId}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.querySelector<HTMLInputElement | HTMLSelectElement>("input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
+  }
+
   async function recordActualRest(actualSeconds: number) {
     if (!activeRest || !session) return;
     const sourceExercise = session.exercises.find((exercise) => exercise.id === activeRest.sourceExerciseId);
@@ -208,6 +217,7 @@ export default function WorkoutSessionPage() {
     setActiveRest({
       sourceExerciseId: exercise.id,
       sourceSetId: set.id,
+      nextSetId: nextItem.set.id,
       kind: prescription.kind,
       label: prescription.label,
       nextLabel: `${nextItem.exercise.exercise_name} · série ${nextItem.set.set_number}`,
@@ -400,10 +410,13 @@ export default function WorkoutSessionPage() {
         <button onClick={() => adjustRest(30)} disabled={activeRest.paused}>+30 s</button>
         <button onClick={() => void skipRest()}>Pular</button>
       </div>}
-      {activeRest.ready && <button className="rest-timer__continue" onClick={() => setActiveRest(null)}>Continuar</button>}
+      {activeRest.ready && <button className="rest-timer__continue" onClick={() => goToSet(activeRest.nextSetId)}>Ir para próxima série</button>}
       {activeRest.paused && <em>Relógio pausado junto com o treino</em>}
     </aside>}
-    {next && !activeRest && <aside className="next-set"><span>PRÓXIMA SÉRIE</span><strong>{next.exercise.exercise_name} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></aside>}
+    {next && !activeRest && <aside className="next-set">
+      <div><span>PRÓXIMA SÉRIE</span><strong>{next.exercise.exercise_name} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></div>
+      <button type="button" onClick={() => goToSet(next.set.id)}>Ir para série</button>
+    </aside>}
     <main className="exercise-list">
       {session.profile_name && <p className="profile-context"><strong>Perfil: {session.profile_name}</strong><span>{session.applied_restrictions.length ? `Restrições aplicadas: ${restrictionText(session.applied_restrictions) || "somente informativas"}` : "Nenhuma restrição ativa"}</span></p>}
       <p className="template-notice">Recomendações determinísticas: o mesmo histórico sempre produz a mesma orientação, com justificativa visível.</p>

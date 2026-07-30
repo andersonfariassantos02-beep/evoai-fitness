@@ -105,6 +105,21 @@ describe("percurso principal do treino", () => {
     await waitFor(() => expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ actual_reps: 12, rpe: 8, completed: true })));
   });
 
+  it("só navega para a próxima série quando a pessoa toca no botão", async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&planned=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    const goToSet = await screen.findByRole("button", { name: "Ir para série" });
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    await user.click(goToSet);
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+    expect(screen.getByRole("spinbutton", { name: "Repetições da série 1" })).toHaveFocus();
+  });
+
   it("destaca um novo recorde pessoal no treino real", async () => {
     const user = userEvent.setup();
     startOrLoadWorkout.mockResolvedValueOnce({
