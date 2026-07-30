@@ -4,12 +4,13 @@ import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
-import { addExtraSet, addWarmupSets, finishWorkoutWithPending, removeExtraSet, removeWarmupSets, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutCheckout, type WorkoutSession } from "../services/workoutSessionService";
+import { addExtraSet, addWarmupSets, finishWorkoutWithPending, removeExtraSet, removeWarmupSets, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutCheckout, type WorkoutSession } from "../services/workoutSessionService";
 import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, restoreRestTimer, type RestKind } from "../lib/restTimer";
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
 import { evaluatePersonalRecord } from "../lib/personalRecord";
 import { clearCachedWorkoutSession, loadCachedWorkoutSession, saveCachedWorkoutSession } from "../lib/workoutSessionCache";
+import { flushSetOutbox, pendingSetCount, queueSetMutation, type WorkoutSetSyncState } from "../services/workoutSetSyncService";
 
 interface ActiveRest {
   sourceExerciseId: string;
@@ -193,6 +194,7 @@ export default function WorkoutSessionPage() {
     sessionQuality: cachedSession.current?.session_quality ?? 4,
     discomfort: Boolean(cachedSession.current?.post_workout_discomfort),
   });
+  const [setSyncState, setSetSyncState] = useState<WorkoutSetSyncState>(() => user && pendingSetCount(user.id) ? "pending" : "synced");
   const restWasFinalized = useRef(false);
   const hydratedRestSessionId = useRef<string | null>(cachedSession.current?.id ?? null);
 
@@ -226,6 +228,30 @@ export default function WorkoutSessionPage() {
     if (!session || !user || !date) return;
     saveCachedWorkoutSession(user.id, date, sessionKind, session);
   }, [date, session, sessionKind, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const synchronize = async () => {
+      if (!pendingSetCount(user.id)) {
+        setSetSyncState("synced");
+        return;
+      }
+      setSetSyncState("pending");
+      try {
+        await flushSetOutbox(user.id);
+        setSetSyncState("synced");
+      } catch {
+        setSetSyncState(navigator.onLine ? "error" : "offline");
+      }
+    };
+    void synchronize();
+    window.addEventListener("online", synchronize);
+    window.addEventListener("pageshow", synchronize);
+    return () => {
+      window.removeEventListener("online", synchronize);
+      window.removeEventListener("pageshow", synchronize);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!session || hydratedRestSessionId.current !== session.id) return;
@@ -311,7 +337,11 @@ export default function WorkoutSessionPage() {
   }
 
   async function persistSet(set: SetLog) {
-    try { await saveSet(set); setMessage("Série salva"); } catch { setMessage("Série preservada na tela; sincronização pendente"); }
+    if (!user) return;
+    setSetSyncState("pending");
+    const state = await queueSetMutation(user.id, set);
+    setSetSyncState(state);
+    setMessage(state === "synced" ? "Série salva" : "Série preservada neste aparelho; sincronização pendente");
   }
 
   function signalRestFinished() {
@@ -583,6 +613,16 @@ export default function WorkoutSessionPage() {
   return <div className="workout-shell">
     <header className="workout-header"><button onClick={() => navigate(testMode ? "/admin/testes" : "/app")}>← {testMode ? "Laboratório" : "Calendário"}</button><div><small>{testMode ? "SIMULAÇÃO · sem impacto no histórico real" : date}</small><h1>{session.workout_label}</h1></div><button onClick={togglePause}>{session.status === "paused" ? "Retomar" : "Pausar"}</button></header>
     <div className="workout-progress"><strong>{completed}/{workingSets.length} séries válidas</strong><span><i style={{ width: `${workingSets.length ? completed / workingSets.length * 100 : 0}%` }} /></span></div>
+    <div className={`workout-set-sync workout-set-sync--${setSyncState}`} role="status">
+      <i aria-hidden="true" />
+      <span>{setSyncState === "synced"
+        ? "Séries sincronizadas"
+        : setSyncState === "pending"
+          ? "Salvando séries…"
+          : setSyncState === "offline"
+            ? "Sem internet · séries guardadas neste aparelho"
+            : "Sincronização pendente · tentativa automática ativada"}</span>
+    </div>
     <div className="workout-tools">
       <button type="button" onClick={() => {
         const enabled = !soundEnabled;
@@ -649,7 +689,13 @@ export default function WorkoutSessionPage() {
           onComplete={async (draft) => {
             const completedNow = !set.completed;
             const targetRestSeconds = completedNow ? startRestAfter(exercise, draft) ?? null : null;
-            const updated = { ...draft, completed: completedNow, target_rest_seconds: targetRestSeconds, actual_rest_seconds: completedNow ? set.actual_rest_seconds : null };
+            const updated = {
+              ...draft,
+              completed: completedNow,
+              completed_at: completedNow ? set.completed_at ?? new Date().toISOString() : null,
+              target_rest_seconds: targetRestSeconds,
+              actual_rest_seconds: completedNow ? set.actual_rest_seconds : null,
+            };
             if (!completedNow && activeRest?.sourceSetId === set.id) {
               persistRestTimer(session.id, null);
               setActiveRest(null);

@@ -24,6 +24,11 @@ const startOrLoadWorkout = vi.fn().mockResolvedValue(baseSession);
 
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: authenticatedUser }) }));
 vi.mock("../services/trainingCalendarService", () => ({ queueCalendarMutation: (...args: unknown[]) => queueCalendarMutation(...args) }));
+vi.mock("../services/workoutSetSyncService", () => ({
+  flushSetOutbox: vi.fn().mockResolvedValue(undefined),
+  pendingSetCount: vi.fn().mockReturnValue(0),
+  queueSetMutation: (_userId: string, set: unknown) => saveSet(set).then(() => "synced"),
+}));
 vi.mock("../services/exerciseCatalogService", () => ({
   loadExerciseGuidance: (...args: unknown[]) => loadExerciseGuidance(...args),
   loadSubstitutionCandidates: (...args: unknown[]) => loadSubstitutionCandidates(...args),
