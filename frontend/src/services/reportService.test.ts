@@ -20,6 +20,7 @@ describe("agregação do relatório", () => {
           { set_number: 1, actual_reps: 10, load_kg: 50, rpe: 8, completed: true, is_extra: false, skipped_at: null, skip_reason: null },
           { set_number: 2, actual_reps: null, load_kg: null, rpe: null, completed: false, is_extra: false, skipped_at: "2026-07-27T11:00:00Z", skip_reason: "Falta de tempo" },
           { set_number: 3, actual_reps: 8, load_kg: 55, rpe: 9, completed: true, is_extra: true, skipped_at: null, skip_reason: null },
+          { set_number: 1, actual_reps: 10, load_kg: 25, rpe: null, completed: true, is_extra: false, is_warmup: true, skipped_at: null, skip_reason: null },
         ],
       }],
     }]);
