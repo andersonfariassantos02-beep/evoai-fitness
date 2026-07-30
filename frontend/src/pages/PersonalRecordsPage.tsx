@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import ExerciseEvolutionPanel from "../components/ExerciseEvolutionPanel";
 import { useAuth } from "../contexts/AuthContext";
 import type { ExerciseEvolution } from "../lib/exerciseEvolution";
 import type { ExercisePersonalRecords } from "../lib/personalRecord";
 import { loadExerciseEvolution } from "../services/exerciseEvolutionService";
+import {
+  deleteExerciseGoal,
+  loadExerciseGoals,
+  saveExerciseGoal,
+  type ExerciseGoal,
+  type ExerciseGoalMetric,
+} from "../services/exerciseGoalService";
 import { loadPersonalRecords } from "../services/personalRecordService";
 
 function formatDate(value: string) {
@@ -20,7 +27,13 @@ export default function PersonalRecordsPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<ExercisePersonalRecords[]>([]);
   const [evolution, setEvolution] = useState<ExerciseEvolution[]>([]);
+  const [goals, setGoals] = useState<ExerciseGoal[]>([]);
   const [selectedExerciseKey, setSelectedExerciseKey] = useState("");
+  const [editingGoalKey, setEditingGoalKey] = useState("");
+  const [goalMetric, setGoalMetric] = useState<ExerciseGoalMetric>("load");
+  const [goalValue, setGoalValue] = useState("");
+  const [goalDate, setGoalDate] = useState("");
+  const [goalBusy, setGoalBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -32,11 +45,13 @@ export default function PersonalRecordsPage() {
     void Promise.all([
       loadPersonalRecords(user.id),
       loadExerciseEvolution(user.id, todayKey()).catch(() => []),
+      loadExerciseGoals(user.id).catch(() => []),
     ])
-      .then(([recordData, evolutionData]) => {
+      .then(([recordData, evolutionData, goalData]) => {
         if (!active) return;
         setRecords(recordData);
         setEvolution(evolutionData);
+        setGoals(goalData);
         setSelectedExerciseKey(evolutionData[0]?.key ?? "");
       })
       .catch(() => { if (active) setMessage("Não foi possível carregar seus recordes."); })
@@ -51,6 +66,54 @@ export default function PersonalRecordsPage() {
   const heaviest = [...records].sort((left, right) => right.bestLoad.loadKg - left.bestLoad.loadKg)[0];
   const strongest = [...records].sort((left, right) => right.bestEstimated1Rm.estimated1Rm - left.bestEstimated1Rm.estimated1Rm)[0];
   const highestVolume = [...records].sort((left, right) => right.bestSessionVolume.volumeKg - left.bestSessionVolume.volumeKg)[0];
+
+  function openGoal(record: ExercisePersonalRecords) {
+    const goal = goals.find((item) => item.exerciseKey === record.key);
+    setEditingGoalKey(record.key);
+    setGoalMetric(goal?.metric ?? "load");
+    setGoalValue(goal?.targetValue.toLocaleString("pt-BR") ?? "");
+    setGoalDate(goal?.targetDate ?? "");
+    setMessage("");
+  }
+
+  async function submitGoal(event: FormEvent, record: ExercisePersonalRecords) {
+    event.preventDefault();
+    if (!user) return;
+    setGoalBusy(true);
+    setMessage("");
+    try {
+      await saveExerciseGoal(user.id, {
+        exerciseKey: record.key,
+        exerciseName: record.name,
+        metric: goalMetric,
+        targetValue: goalValue,
+        targetDate: goalDate,
+      });
+      setGoals(await loadExerciseGoals(user.id));
+      setEditingGoalKey("");
+      setMessage("Meta salva. O progresso será atualizado após cada treino real.");
+    } catch (error) {
+      setMessage(error instanceof Error && error.message ? error.message : "Não foi possível salvar a meta.");
+    } finally {
+      setGoalBusy(false);
+    }
+  }
+
+  async function removeGoal(goal: ExerciseGoal) {
+    if (!user) return;
+    setGoalBusy(true);
+    setMessage("");
+    try {
+      await deleteExerciseGoal(user.id, goal.id);
+      setGoals((items) => items.filter((item) => item.id !== goal.id));
+      setEditingGoalKey("");
+      setMessage("Meta removida.");
+    } catch {
+      setMessage("Não foi possível remover a meta.");
+    } finally {
+      setGoalBusy(false);
+    }
+  }
 
   return <main className="records-page">
     <header className="records-header">
@@ -84,13 +147,30 @@ export default function PersonalRecordsPage() {
         </header>
         {!filtered.length && <p className="records-empty">Nenhum exercício corresponde à busca.</p>}
         <div className="records-grid">
-          {filtered.map((record) => <article className="record-card" key={record.key}>
+          {filtered.map((record) => {
+            const goal = goals.find((item) => item.exerciseKey === record.key);
+            const currentValue = goal?.metric === "estimated_1rm"
+              ? record.bestEstimated1Rm.estimated1Rm
+              : record.bestLoad.loadKg;
+            const progress = goal ? Math.min(100, Math.round((currentValue / goal.targetValue) * 100)) : 0;
+            return <article className="record-card" key={record.key}>
             <header><div><small>{record.sessions} sessão(ões)</small><h3>{record.name}</h3></div><span aria-hidden="true">★</span></header>
             <dl>
               <div><dt>Maior carga</dt><dd>{record.bestLoad.loadKg.toLocaleString("pt-BR")} kg × {record.bestLoad.reps}</dd><small>{formatDate(record.bestLoad.date)}</small></div>
               <div><dt>Melhor 1RM estimada</dt><dd>{record.bestEstimated1Rm.estimated1Rm.toLocaleString("pt-BR")} kg</dd><small>{record.bestEstimated1Rm.loadKg.toLocaleString("pt-BR")} kg × {record.bestEstimated1Rm.reps} · {formatDate(record.bestEstimated1Rm.date)}</small></div>
               <div><dt>Maior volume</dt><dd>{record.bestSessionVolume.volumeKg.toLocaleString("pt-BR")} kg</dd><small>{formatDate(record.bestSessionVolume.date)}</small></div>
             </dl>
+            {goal && <section className="record-goal" aria-label={`Meta de ${record.name}`}>
+              <div><small>{goal.metric === "load" ? "META DE CARGA" : "META DE 1RM"}</small><strong>{currentValue.toLocaleString("pt-BR")} de {goal.targetValue.toLocaleString("pt-BR")} kg</strong><span>{progress}% alcançado{goal.targetDate ? ` · até ${formatDate(goal.targetDate)}` : ""}</span></div>
+              <div className="record-goal__track" aria-label={`${progress}% da meta`}><span style={{ width: `${progress}%` }} /></div>
+            </section>}
+            {editingGoalKey === record.key && <form className="record-goal-form" onSubmit={(event) => void submitGoal(event, record)}>
+              <label>Tipo da meta<select value={goalMetric} onChange={(event) => setGoalMetric(event.target.value as ExerciseGoalMetric)}><option value="load">Carga máxima</option><option value="estimated_1rm">1RM estimada</option></select></label>
+              <label>Meta em kg<input required inputMode="decimal" value={goalValue} onChange={(event) => setGoalValue(event.target.value)} placeholder="Ex.: 100" /></label>
+              <label>Data-alvo <small>(opcional)</small><input type="date" value={goalDate} onChange={(event) => setGoalDate(event.target.value)} /></label>
+              <div><button disabled={goalBusy}>{goalBusy ? "Salvando…" : "Salvar meta"}</button><button type="button" onClick={() => setEditingGoalKey("")}>Cancelar</button>{goal && <button className="danger" type="button" disabled={goalBusy} onClick={() => void removeGoal(goal)}>Remover</button>}</div>
+            </form>}
+            <button className="record-card__goal" type="button" onClick={() => openGoal(record)}>{goal ? "Ajustar meta" : "Definir meta"}</button>
             <button
               className="record-card__evolution"
               type="button"
@@ -102,7 +182,8 @@ export default function PersonalRecordsPage() {
             >
               Ver evolução
             </button>
-          </article>)}
+          </article>;
+          })}
         </div>
       </section>
     </>}
