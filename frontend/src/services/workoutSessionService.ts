@@ -1,7 +1,7 @@
 import { getSupabaseClient } from "../lib/supabase";
 import { getWorkoutTemplate, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { loadExerciseCatalog, loadWorkoutTemplate } from "./exerciseCatalogService";
-import { recommendProgressionFromSession, type ProgressionRecommendation } from "../lib/progression";
+import { recommendProgressionFromHistory, type ProgressionRecommendation } from "../lib/progression";
 import { findPersonalBest, type PersonalBest } from "../lib/personalRecord";
 import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
@@ -48,8 +48,10 @@ async function getExerciseInsights(userId: string, exerciseKey: string, repsMin:
   const workoutFor = (row: HistoryRow) => Array.isArray(row.exercise_logs.workout_sessions)
     ? row.exercise_logs.workout_sessions[0]
     : row.exercise_logs.workout_sessions;
-  const sessionDate = rows[0] ? workoutFor(rows[0])?.training_date : null;
-  const recommendation = recommendProgressionFromSession(rows
+  const recentDates = Array.from(new Set(rows
+    .map((row) => workoutFor(row)?.training_date)
+    .filter((date): date is string => Boolean(date)))).slice(0, 2);
+  const recommendation = recommendProgressionFromHistory(recentDates.map((sessionDate) => rows
     .filter((row) => workoutFor(row)?.training_date === sessionDate)
     .map((row) => ({
       setNumber: Number(row.set_number),
@@ -59,7 +61,7 @@ async function getExerciseInsights(userId: string, exerciseKey: string, repsMin:
       reps: Number(row.actual_reps ?? 0),
       rpe: row.rpe === null ? null : Number(row.rpe),
       failed: String(row.notes ?? "").toLowerCase().includes("falha"),
-    })));
+    }))));
   const personalBest = findPersonalBest(rows.map((row) => ({
     loadKg: Number(row.load_kg ?? 0),
     reps: Number(row.actual_reps ?? 0),
