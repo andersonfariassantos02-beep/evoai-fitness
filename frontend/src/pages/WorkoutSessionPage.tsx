@@ -29,6 +29,16 @@ function restStorageKey(sessionId: string) {
   return `evoai:active-rest:${sessionId}`;
 }
 
+function persistRestTimer(sessionId: string, rest: ActiveRest | null) {
+  try {
+    const key = restStorageKey(sessionId);
+    if (rest) localStorage.setItem(key, JSON.stringify(rest));
+    else localStorage.removeItem(key);
+  } catch {
+    // O treino continua utilizável mesmo se o navegador bloquear o armazenamento.
+  }
+}
+
 function loadPersistedRest(session: WorkoutSession): ActiveRest | null {
   try {
     const raw = localStorage.getItem(restStorageKey(session.id));
@@ -144,13 +154,16 @@ export default function WorkoutSessionPage() {
   const [finishing, setFinishing] = useState(false);
   const [checkout, setCheckout] = useState<WorkoutCheckout>({ sessionRpe: 8, sessionQuality: 4, discomfort: false });
   const restWasFinalized = useRef(false);
+  const hydratedRestSessionId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user || !date) return;
     void startOrLoadWorkout(user.id, date, label, testMode ? "test" : "real")
       .then((data) => {
+        const restoredRest = loadPersistedRest(data);
+        hydratedRestSessionId.current = data.id;
         setSession(data);
-        setActiveRest(loadPersistedRest(data));
+        setActiveRest(restoredRest);
         setProfileRestrictions(data.applied_restrictions);
         setCheckout({
           sessionRpe: data.session_rpe ?? 8,
@@ -167,13 +180,8 @@ export default function WorkoutSessionPage() {
   }, [date, label, testMode, user]);
 
   useEffect(() => {
-    if (!session) return;
-    const key = restStorageKey(session.id);
-    if (!activeRest) {
-      localStorage.removeItem(key);
-      return;
-    }
-    localStorage.setItem(key, JSON.stringify(activeRest));
+    if (!session || hydratedRestSessionId.current !== session.id) return;
+    persistRestTimer(session.id, activeRest);
   }, [
     session?.id,
     activeRest?.endsAtMs,
@@ -206,10 +214,20 @@ export default function WorkoutSessionPage() {
     const tick = () => {
       const remainingSeconds = getRemainingSeconds(activeRest.endsAtMs);
       if (remainingSeconds > 0) {
-        setActiveRest((current) => current ? { ...current, remainingSeconds } : current);
+        setActiveRest((current) => {
+          if (!current) return current;
+          const updated = { ...current, remainingSeconds };
+          if (session) persistRestTimer(session.id, updated);
+          return updated;
+        });
         return;
       }
-      setActiveRest((current) => current ? { ...current, remainingSeconds: 0, ready: true } : current);
+      setActiveRest((current) => {
+        if (!current) return current;
+        const updated = { ...current, remainingSeconds: 0, ready: true };
+        if (session) persistRestTimer(session.id, updated);
+        return updated;
+      });
       if (!restWasFinalized.current) {
         restWasFinalized.current = true;
         void recordActualRest(activeRest.targetSeconds);
@@ -219,7 +237,26 @@ export default function WorkoutSessionPage() {
     tick();
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
-  }, [activeRest?.endsAtMs, activeRest?.paused, activeRest?.ready, soundEnabled]);
+  }, [activeRest?.endsAtMs, activeRest?.paused, activeRest?.ready, session?.id, soundEnabled]);
+
+  useEffect(() => {
+    const refreshAfterResume = () => {
+      if (document.visibilityState === "hidden") return;
+      setActiveRest((current) => {
+        if (!current || current.paused) return current;
+        const remainingSeconds = getRemainingSeconds(current.endsAtMs);
+        const updated = { ...current, remainingSeconds, ready: remainingSeconds === 0 };
+        if (session) persistRestTimer(session.id, updated);
+        return updated;
+      });
+    };
+    document.addEventListener("visibilitychange", refreshAfterResume);
+    window.addEventListener("pageshow", refreshAfterResume);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshAfterResume);
+      window.removeEventListener("pageshow", refreshAfterResume);
+    };
+  }, [session?.id]);
 
   function changeSet(exerciseId: string, setId: string, patch: Partial<SetLog>) {
     setSession((current) => current ? { ...current, exercises: current.exercises.map((exercise) => exercise.id === exerciseId ? { ...exercise, sets: exercise.sets.map((set) => set.id === setId ? { ...set, ...patch } : set) } : exercise) } : current);
@@ -236,6 +273,7 @@ export default function WorkoutSessionPage() {
   }
 
   function goToSet(setId: string) {
+    if (session) persistRestTimer(session.id, null);
     setActiveRest(null);
     const target = document.getElementById(`workout-set-${setId}`);
     if (!target) return;
@@ -267,7 +305,7 @@ export default function WorkoutSessionPage() {
     const prescription = getRestPrescription(exercise.rest_seconds, exercise.transition_rest_seconds, changesExercise);
     const startedAtMs = Date.now();
     restWasFinalized.current = false;
-    setActiveRest({
+    const nextRest: ActiveRest = {
       sourceExerciseId: exercise.id,
       sourceSetId: set.id,
       nextSetId: nextItem.set.id,
@@ -280,7 +318,9 @@ export default function WorkoutSessionPage() {
       remainingSeconds: prescription.seconds,
       paused: false,
       ready: false,
-    });
+    };
+    persistRestTimer(session.id, nextRest);
+    setActiveRest(nextRest);
     return prescription.seconds;
   }
 
@@ -288,12 +328,14 @@ export default function WorkoutSessionPage() {
     setActiveRest((current) => {
       if (!current || current.ready) return current;
       const targetSeconds = Math.max(30, Math.min(600, current.targetSeconds + deltaSeconds));
-      return {
+      const updated = {
         ...current,
         targetSeconds,
         endsAtMs: current.endsAtMs + (targetSeconds - current.targetSeconds) * 1000,
         remainingSeconds: Math.max(0, current.remainingSeconds + (targetSeconds - current.targetSeconds)),
       };
+      if (session) persistRestTimer(session.id, updated);
+      return updated;
     });
   }
 
@@ -302,6 +344,7 @@ export default function WorkoutSessionPage() {
     const actualSeconds = Math.max(0, Math.round((Date.now() - activeRest.startedAtMs) / 1000));
     restWasFinalized.current = true;
     await recordActualRest(actualSeconds);
+    if (session) persistRestTimer(session.id, null);
     setActiveRest(null);
     setMessage("Descanso encerrado. Próxima série liberada.");
   }
@@ -313,8 +356,11 @@ export default function WorkoutSessionPage() {
     setSession({ ...session, status });
     setActiveRest((current) => {
       if (!current) return current;
-      if (status === "paused") return { ...current, paused: true, remainingSeconds: getRemainingSeconds(current.endsAtMs) };
-      return { ...current, paused: false, endsAtMs: Date.now() + current.remainingSeconds * 1000 };
+      const updated = status === "paused"
+        ? { ...current, paused: true, remainingSeconds: getRemainingSeconds(current.endsAtMs) }
+        : { ...current, paused: false, endsAtMs: Date.now() + current.remainingSeconds * 1000 };
+      persistRestTimer(session.id, updated);
+      return updated;
     });
   }
 
@@ -431,7 +477,7 @@ export default function WorkoutSessionPage() {
 
   async function completeNavigation() {
     if (!session || !user) return;
-    localStorage.removeItem(restStorageKey(session.id));
+    persistRestTimer(session.id, null);
     setActiveRest(null);
     if (testMode) {
       navigate("/admin/testes");
@@ -555,7 +601,10 @@ export default function WorkoutSessionPage() {
             const completedNow = !set.completed;
             const targetRestSeconds = completedNow ? startRestAfter(exercise, draft) ?? null : null;
             const updated = { ...draft, completed: completedNow, target_rest_seconds: targetRestSeconds, actual_rest_seconds: completedNow ? set.actual_rest_seconds : null };
-            if (!completedNow && activeRest?.sourceSetId === set.id) setActiveRest(null);
+            if (!completedNow && activeRest?.sourceSetId === set.id) {
+              persistRestTimer(session.id, null);
+              setActiveRest(null);
+            }
             changeSet(exercise.id, set.id, updated);
             await persistSet(updated);
           }}
