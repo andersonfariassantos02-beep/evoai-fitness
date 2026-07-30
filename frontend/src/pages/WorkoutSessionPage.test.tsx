@@ -16,6 +16,7 @@ const substituteExercise = vi.fn().mockResolvedValue(undefined);
 const addExtraSet = vi.fn();
 const removeExtraSet = vi.fn().mockResolvedValue(undefined);
 const authenticatedUser = { id: "user-1" };
+const loadExerciseGoals = vi.fn().mockResolvedValue([]);
 const baseSession = {
   id: "session-1", training_date: "2026-07-20", workout_label: "Full body", session_kind: "real", status: "active", notes: "", profile_id: null, profile_name: null, applied_restrictions: [],
   exercises: [{ id: "exercise-1", exercise_key: "row", exercise_name: "Remada", original_exercise_key: null, substitution_reason: null, position: 1, rest_seconds: 120, transition_rest_seconds: 180, recommendation: { action: "initial", loadKg: 0, reason: "Primeira execução" }, sets: [{ id: "set-1", set_number: 1, target_reps_min: 8, target_reps_max: 12, actual_reps: 10, load_kg: 20, rpe: 8, notes: "", completed: false, target_rest_seconds: null, actual_rest_seconds: null, is_extra: false, skipped_at: null, skip_reason: null }] }],
@@ -32,6 +33,9 @@ vi.mock("../services/workoutSetSyncService", () => ({
 vi.mock("../services/exerciseCatalogService", () => ({
   loadExerciseGuidance: (...args: unknown[]) => loadExerciseGuidance(...args),
   loadSubstitutionCandidates: (...args: unknown[]) => loadSubstitutionCandidates(...args),
+}));
+vi.mock("../services/exerciseGoalService", () => ({
+  loadExerciseGoals: (...args: unknown[]) => loadExerciseGoals(...args),
 }));
 vi.mock("../services/workoutSessionService", async (importOriginal) => {
   const original = await importOriginal<typeof import("../services/workoutSessionService")>();
@@ -67,10 +71,34 @@ describe("percurso principal do treino", () => {
       sessionQuality: 4,
       discomfort: false,
     }));
+    expect(screen.getByRole("dialog", { name: "Treino registrado com sucesso" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ver painel atualizado" }));
     expect(queueCalendarMutation).toHaveBeenCalledWith("user-1", "2026-07-20", expect.objectContaining({
       completed: true, completedWasPlanned: true, completedLabel: "Full body",
     }));
     expect(await screen.findByText("Histórico")).toBeInTheDocument();
+  });
+
+  it("celebra uma meta alcançada antes de voltar ao painel", async () => {
+    const user = userEvent.setup();
+    loadExerciseGoals.mockResolvedValueOnce([{
+      id: "goal-1", exerciseKey: "row", exerciseName: "Remada",
+      metric: "load", targetValue: 20, targetDate: null,
+    }]);
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...structuredClone(baseSession),
+      exercises: [{
+        ...structuredClone(baseSession.exercises[0]),
+        personalBest: { loadKg: 15, reps: 10, estimated1Rm: 20, date: "2026-07-01" },
+      }],
+    });
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&planned=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    await user.click(await screen.findByRole("button", { name: "Concluir" }));
+    await user.click(screen.getByRole("button", { name: "Finalizar treino" }));
+
+    expect(await screen.findByText("META ALCANÇADA")).toBeInTheDocument();
+    expect(screen.getByText("20 kg · alvo de 20 kg")).toBeInTheDocument();
   });
 
   it("não propõe substituições de exercícios já presentes na sessão", async () => {
@@ -311,6 +339,7 @@ describe("percurso principal do treino", () => {
       sessionQuality: 4,
       discomfort: false,
     }));
+    await user.click(await screen.findByRole("button", { name: "Ver painel atualizado" }));
     expect(await screen.findByText("Histórico")).toBeInTheDocument();
   });
 
