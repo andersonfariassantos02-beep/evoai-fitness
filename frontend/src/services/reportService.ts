@@ -34,6 +34,9 @@ export interface ReportWorkout {
   skippedSets: number;
   volume: number;
   averageRpe: number | null;
+  sessionRpe?: number | null;
+  sessionQuality?: number | null;
+  postWorkoutDiscomfort?: boolean;
 }
 
 export interface WorkoutReport {
@@ -87,6 +90,9 @@ interface SessionRow {
   notes: string;
   started_at: string;
   completed_at: string | null;
+  session_rpe?: number | null;
+  session_quality?: number | null;
+  post_workout_discomfort?: boolean;
   exercise_logs: ExerciseRow[] | null;
 }
 
@@ -167,6 +173,9 @@ export function aggregateWorkoutReport(
       skippedSets,
       volume: round(exercises.reduce((total, exercise) => total + exercise.volume, 0)),
       averageRpe: rpes.length ? round(rpes.reduce((total, value) => total + value, 0) / rpes.length) : null,
+      sessionRpe: session.session_rpe === null || session.session_rpe === undefined ? null : Number(session.session_rpe),
+      sessionQuality: session.session_quality === null || session.session_quality === undefined ? null : Number(session.session_quality),
+      postWorkoutDiscomfort: Boolean(session.post_workout_discomfort),
     };
   });
 
@@ -192,7 +201,7 @@ export async function loadWorkoutReport(userId: string, startDate: string, endDa
   const supabase = getSupabaseClient();
   const [sessionsResult, calendarResult] = await Promise.all([
     supabase.from("workout_sessions")
-      .select("id, training_date, workout_label, notes, started_at, completed_at, exercise_logs(exercise_key, exercise_name, original_exercise_key, substitution_reason, position, set_logs(set_number, actual_reps, load_kg, rpe, completed, is_extra, is_warmup, skipped_at, skip_reason))")
+      .select("id, training_date, workout_label, notes, started_at, completed_at, session_rpe, session_quality, post_workout_discomfort, exercise_logs(exercise_key, exercise_name, original_exercise_key, substitution_reason, position, set_logs(set_number, actual_reps, load_kg, rpe, completed, is_extra, is_warmup, skipped_at, skip_reason))")
       .eq("user_id", userId)
       .eq("session_kind", "real")
       .eq("status", "completed")

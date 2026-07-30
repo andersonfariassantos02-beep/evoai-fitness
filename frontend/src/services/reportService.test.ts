@@ -10,6 +10,9 @@ describe("agregação do relatório", () => {
       notes: "",
       started_at: "2026-07-27T10:00:00Z",
       completed_at: "2026-07-27T11:00:00Z",
+      session_rpe: 9,
+      session_quality: 4,
+      post_workout_discomfort: true,
       exercise_logs: [{
         exercise_key: "bench",
         exercise_name: "Supino",
@@ -32,6 +35,11 @@ describe("agregação do relatório", () => {
     expect(report.totalReps).toBe(18);
     expect(report.totalVolume).toBe(940);
     expect(report.averageRpe).toBe(8.5);
+    expect(report.workouts[0]).toMatchObject({
+      sessionRpe: 9,
+      sessionQuality: 4,
+      postWorkoutDiscomfort: true,
+    });
     expect(report.workouts[0].exercises[0]).toMatchObject({
       bestSet: { loadKg: 55, reps: 8 },
       estimated1Rm: 69.7,

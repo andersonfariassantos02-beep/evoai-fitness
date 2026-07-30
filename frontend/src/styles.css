@@ -800,9 +800,20 @@ main { padding: 64px 0 52px; }
 .add-extra-set:disabled { opacity: .55; }
 .session-notes { display: grid; gap: 6px; margin-top: 16px; color: var(--navy); font-weight: 800; }
 .session-notes textarea { min-height: 90px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; resize: vertical; }
+.workout-checkout { display: grid; grid-template-columns: minmax(220px,.8fr) minmax(0,1.2fr); gap: 18px; margin-top: 18px; padding: 16px; border: 1px solid #b9d4ff; border-radius: 14px; background: #f5f9ff; }
+.workout-checkout > div:first-child { display: grid; align-content: start; gap: 4px; }
+.workout-checkout small { color: var(--blue); font-size: 9px; font-weight: 900; letter-spacing: .12em; }
+.workout-checkout h2, .workout-checkout p { margin: 0; }
+.workout-checkout p { color: var(--muted); font-size: 12px; }
+.workout-checkout__fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.workout-checkout__fields label { display: grid; gap: 4px; color: var(--navy); font-size: 10px; font-weight: 900; }
+.workout-checkout__fields select { width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--navy); background: #fff; font-weight: 800; }
+.workout-checkout__fields .workout-checkout__check { display: flex; grid-column: 1 / -1; align-items: center; gap: 9px; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; text-transform: none; }
+.workout-checkout__check input { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); }
 .workout-message { color: var(--muted); font-size: 12px; }
 .finish-workout { width: 100%; min-height: 52px; margin-top: 16px; border: 0; border-radius: 14px; color: white; background: var(--green); font-weight: 900; }
 @media (max-width: 650px) { .workout-shell { padding: 12px; } .workout-header { grid-template-columns: 1fr auto; } .workout-header div { grid-row: 1; grid-column: 1 / -1; } .workout-tools { justify-content: stretch; } .workout-tools button { flex: 1; } .next-set { padding: 12px; } .next-set button { min-height: 44px; padding: 0 12px; } .rest-timer { grid-template-columns: 1fr; } .rest-timer__actions { display: grid; grid-template-columns: repeat(3,1fr); } .rest-timer__continue { width: 100%; } .set-row { padding: 9px 4px; } .set-row--warmup { padding: 9px; } .set-row__header button { min-height: 34px; padding: 0 11px; } .set-row__fields { gap: 6px; } .set-row select { font-size: 11px; } .set-row__previous small { width:100%; margin-left:0; } .warmup-control { align-items: stretch; flex-direction: column; } .warmup-control button { width: 100%; } }
+@media (max-width: 650px) { .workout-checkout { grid-template-columns: 1fr; padding: 14px; } .workout-checkout__fields { grid-template-columns: 1fr; } }
 .planned-day__marker { display: grid; flex: 0 0 28px; height: 28px; place-items: center; border: 2px solid #b8c9df; border-radius: 50%; color: white; font-size: 11px; font-weight: 900; }
 .planned-day--completed .planned-day__marker { border-color: var(--green); background: var(--green); }
 .planned-day small,

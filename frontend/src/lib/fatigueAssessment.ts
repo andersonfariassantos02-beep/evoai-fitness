@@ -32,7 +32,10 @@ export function assessTrainingFatigue(
   readinessEntries: SubjectiveRecoveryEntry[] = [],
 ): FatigueAssessment {
   const recent = [...recentWorkouts].sort((left, right) => left.date.localeCompare(right.date));
-  const recentRpes = recent.flatMap((workout) => workout.averageRpe === null ? [] : [workout.averageRpe]);
+  const recentRpes = recent.flatMap((workout) => {
+    const rpe = workout.sessionRpe ?? workout.averageRpe;
+    return rpe === null || rpe === undefined ? [] : [rpe];
+  });
   const averageRpe = average(recentRpes);
   const totalSets = recent.reduce((total, workout) => total + workout.completedSets + workout.skippedSets, 0);
   const skippedSets = recent.reduce((total, workout) => total + workout.skippedSets, 0);
@@ -92,6 +95,11 @@ export function assessTrainingFatigue(
   if (highDiscomfortDays >= 2) {
     score += 1;
     signals.push(`${highDiscomfortDays} registros recentes com dor alta ou desconforto articular`);
+  }
+  const postWorkoutDiscomforts = recent.filter((workout) => workout.postWorkoutDiscomfort).length;
+  if (postWorkoutDiscomforts >= 2) {
+    score += 1;
+    signals.push(`${postWorkoutDiscomforts} sessões recentes encerradas com desconforto`);
   }
 
   if (recent.length < 2 && recentReadiness.length < 2) {

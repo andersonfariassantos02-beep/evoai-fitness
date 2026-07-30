@@ -54,7 +54,11 @@ describe("percurso principal do treino", () => {
     await user.click(await screen.findByRole("button", { name: "Concluir" }));
     await waitFor(() => expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ id: "set-1", completed: true })));
     await user.click(screen.getByRole("button", { name: "Finalizar treino" }));
-    await waitFor(() => expect(updateSession).toHaveBeenCalledWith("session-1", "completed", ""));
+    await waitFor(() => expect(updateSession).toHaveBeenCalledWith("session-1", "completed", "", {
+      sessionRpe: 8,
+      sessionQuality: 4,
+      discomfort: false,
+    }));
     expect(queueCalendarMutation).toHaveBeenCalledWith("user-1", "2026-07-20", expect.objectContaining({
       completed: true, completedWasPlanned: true, completedLabel: "Full body",
     }));
@@ -204,7 +208,11 @@ describe("percurso principal do treino", () => {
     expect(screen.getByText("Séries 2")).toBeInTheDocument();
     await user.selectOptions(screen.getByRole("combobox", { name: "Motivo" }), "Falta de tempo");
     await user.click(screen.getByRole("button", { name: "Finalizar com pendências" }));
-    await waitFor(() => expect(finishWorkoutWithPending).toHaveBeenCalledWith("session-1", "", "Falta de tempo"));
+    await waitFor(() => expect(finishWorkoutWithPending).toHaveBeenCalledWith("session-1", "", "Falta de tempo", {
+      sessionRpe: 8,
+      sessionQuality: 4,
+      discomfort: false,
+    }));
     expect(await screen.findByText("Histórico")).toBeInTheDocument();
   });
 
