@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorkoutSessionPage from "./WorkoutSessionPage";
+import { saveCachedWorkoutSession } from "../lib/workoutSessionCache";
+import type { WorkoutSession } from "../services/workoutSessionService";
 
 const saveSet = vi.fn().mockResolvedValue(undefined);
 const updateSession = vi.fn().mockResolvedValue(undefined);
@@ -201,6 +203,18 @@ describe("percurso principal do treino", () => {
       sourceSetId: "set-1",
       nextSetId: "set-2",
     }));
+  });
+
+  it("mostra imediatamente a sessão em cache enquanto sincroniza com o Supabase", () => {
+    const cachedTestSession = { ...structuredClone(baseSession), session_kind: "test" } as unknown as WorkoutSession;
+    saveCachedWorkoutSession("user-1", "2026-07-20", "test", cachedTestSession);
+    startOrLoadWorkout.mockImplementationOnce(() => new Promise(() => undefined));
+
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&test=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    expect(screen.getByRole("heading", { name: "Full body" })).toBeInTheDocument();
+    expect(screen.getByText("Sincronizando treino em segundo plano…")).toBeInTheDocument();
+    expect(screen.queryByText("Carregando treino…")).not.toBeInTheDocument();
   });
 
   it("destaca um novo recorde pessoal no treino real", async () => {
