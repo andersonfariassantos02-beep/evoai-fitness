@@ -30,6 +30,7 @@ import type { FatigueAssessment } from "../lib/fatigueAssessment";
 import { loadWeeklyMuscleVolume } from "../services/weeklyMuscleVolumeService";
 import { buildMonthlyTrainingGoal, monthDateRange } from "../lib/monthlyTrainingGoal";
 import { loadMonthlyCompletedWorkoutDates } from "../services/monthlyTrainingGoalService";
+import { endDeload, loadActiveDeload, startDeload, type DeloadPeriod } from "../services/deloadService";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -81,6 +82,10 @@ export default function DashboardPage() {
   const [recoveryLoading, setRecoveryLoading] = useState(true);
   const [fatigue, setFatigue] = useState<FatigueAssessment | null>(null);
   const [fatigueLoading, setFatigueLoading] = useState(true);
+  const [activeDeload, setActiveDeload] = useState<DeloadPeriod | null>(null);
+  const [deloadDialogOpen, setDeloadDialogOpen] = useState(false);
+  const [deloadBusy, setDeloadBusy] = useState(false);
+  const [deloadMessage, setDeloadMessage] = useState("");
   const [completedMuscleVolume, setCompletedMuscleVolume] = useState<MuscleVolumeSummary[]>([]);
   const [monthlyCompletedDates, setMonthlyCompletedDates] = useState<string[]>([]);
   const [monthlyGoalLoading, setMonthlyGoalLoading] = useState(true);
@@ -141,6 +146,15 @@ export default function DashboardPage() {
       .finally(() => { if (active) setRecoveryLoading(false); });
     return () => { active = false; };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void loadActiveDeload(user.id, todayKey)
+      .then((result) => { if (active) setActiveDeload(result); })
+      .catch(() => { if (active) setDeloadMessage("Não foi possível consultar a semana de deload agora."); });
+    return () => { active = false; };
+  }, [todayKey, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -268,6 +282,37 @@ export default function DashboardPage() {
     core: "Core",
   };
 
+  async function activateDeload() {
+    if (!user || !fatigue) return;
+    setDeloadBusy(true);
+    setDeloadMessage("");
+    try {
+      const period = await startDeload(user.id, todayKey, fatigue.signals.join("; "));
+      setActiveDeload(period);
+      setDeloadDialogOpen(false);
+      setDeloadMessage("Semana de deload ativada. As sugestões automáticas usarão volume reduzido e RPE 6–7.");
+    } catch {
+      setDeloadMessage("Não foi possível ativar o deload. Verifique a conexão e tente novamente.");
+    } finally {
+      setDeloadBusy(false);
+    }
+  }
+
+  async function finishDeload() {
+    if (!user || !activeDeload) return;
+    setDeloadBusy(true);
+    setDeloadMessage("");
+    try {
+      await endDeload(user.id, activeDeload.id);
+      setActiveDeload(null);
+      setDeloadMessage("Semana de deload encerrada. O planejamento voltou ao volume normal.");
+    } catch {
+      setDeloadMessage("Não foi possível encerrar o deload. Verifique a conexão e tente novamente.");
+    } finally {
+      setDeloadBusy(false);
+    }
+  }
+
   return (
     <main className="training-dashboard">
         <section className="dashboard-welcome" aria-labelledby="dashboard-title">
@@ -330,11 +375,37 @@ export default function DashboardPage() {
               <p>{fatigue.summary}</p>
               {fatigue.signals.length > 0 && <ul>{fatigue.signals.map((signal) => <li key={signal}>{signal}</li>)}</ul>}
               <strong>{fatigue.recommendation}</strong>
+              {activeDeload && <div className="fatigue-card__deload">
+                <strong>Deload ativo até {new Intl.DateTimeFormat("pt-BR").format(fromDateKey(activeDeload.endsOn))}</strong>
+                <span>Volume −{activeDeload.volumeReductionPercent}% · alvo de RPE {activeDeload.targetRpeMin}–{activeDeload.targetRpeMax}</span>
+                <button type="button" disabled={deloadBusy} onClick={() => void finishDeload()}>{deloadBusy ? "Encerrando…" : "Encerrar deload"}</button>
+              </div>}
+              {!activeDeload && fatigue.level === "deload" && <button className="fatigue-card__action" type="button" onClick={() => setDeloadDialogOpen(true)}>Preparar semana de deload</button>}
+              {deloadMessage && <span className="fatigue-card__message" role="status">{deloadMessage}</span>}
             </>}
             {!fatigueLoading && !fatigue && <p>O planejamento continua disponível. Tente novamente quando a conexão estiver estável.</p>}
           </div>
           {fatigue && <div className="fatigue-card__badge">{fatigue.level === "deload" ? "DELOAD" : fatigue.level === "attention" ? "ATENÇÃO" : "NORMAL"}</div>}
         </section>
+
+        {deloadDialogOpen && <div className="confirmation-backdrop">
+          <section className="confirmation-dialog deload-dialog" role="dialog" aria-modal="true" aria-labelledby="deload-dialog-title">
+            <span className="setup-status">PLANO PREVENTIVO</span>
+            <h2 id="deload-dialog-title">Ativar 7 dias de deload?</h2>
+            <p>De {new Intl.DateTimeFormat("pt-BR").format(fromDateKey(todayKey))} a {new Intl.DateTimeFormat("pt-BR").format(addDays(fromDateKey(todayKey), 6))}, o EvoAI irá:</p>
+            <ul>
+              <li>preservar exercícios e ordem da divisão semanal;</li>
+              <li>reduzir aproximadamente 35% das séries nas sugestões automáticas;</li>
+              <li>orientar esforço entre RPE 6 e 7;</li>
+              <li>manter intactos cargas e históricos anteriores.</li>
+            </ul>
+            <p>Você poderá encerrar o deload a qualquer momento pelo painel.</p>
+            <div className="deload-dialog__actions">
+              <button type="button" disabled={deloadBusy} onClick={() => setDeloadDialogOpen(false)}>Cancelar</button>
+              <button className="primary-action" type="button" disabled={deloadBusy} onClick={() => void activateDeload()}>{deloadBusy ? "Ativando…" : "Ativar deload"}</button>
+            </div>
+          </section>
+        </div>}
 
         <section className="muscle-recovery" aria-labelledby="muscle-recovery-title">
           <div className="muscle-recovery__header">
