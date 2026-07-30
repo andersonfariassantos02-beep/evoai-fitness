@@ -970,18 +970,21 @@ main { padding: 64px 0 52px; }
 .manual-exercise span { display:grid; min-width:0; gap:3px; }
 .manual-exercise small { color:var(--muted); }
 .setup-review { display:grid; width:min(760px,100%); margin:0 auto; gap:14px; padding:24px; border:1px solid var(--line); border-radius:18px; background:white; }
-.readiness-checkin { display: grid; gap: 18px; width: min(900px,100%); margin: 0 auto 18px; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: white; }
-.readiness-checkin h2 { margin: 7px 0; color: var(--navy); }
+.readiness-checkin { display: grid; overflow:hidden; gap: 20px; width: min(1000px,100%); margin: 0 auto 18px; padding: 26px; border: 1px solid #cbdcf3; border-radius: 20px; background: linear-gradient(145deg,#fff 0%,#f8fbff 100%); box-shadow:0 14px 38px rgba(8,31,61,.07); }
+.readiness-checkin > div:first-child { display:grid; gap:5px; }
+.readiness-checkin h2 { margin: 2px 0; color: var(--navy); font-size:clamp(22px,3vw,28px); }
 .readiness-checkin p { margin: 0; color: var(--muted); }
 .readiness-checkin__fields { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
-.readiness-checkin__fields label { display: grid; gap: 6px; color: var(--navy); font-size: 11px; font-weight: 800; }
-.readiness-checkin__fields select { min-width: 0; }
-.readiness-checkin__toggle { display: flex !important; grid-column: 1 / -1; align-items: center; gap: 9px !important; }
-.readiness-checkin__toggle input { width: 18px; height: 18px; }
+.readiness-checkin__fields label { display: grid; min-width:0; gap: 7px; color: var(--navy); font-size: 11px; font-weight: 850; }
+.readiness-checkin__fields input:not([type="checkbox"]), .readiness-checkin__fields select { width:100%; min-width: 0; min-height:48px; padding:0 13px; border:1px solid #c7d7ea; border-radius:11px; outline:0; color:var(--navy); background:white; font:inherit; font-size:14px; font-weight:750; box-shadow:0 2px 8px rgba(8,31,61,.03); transition:border-color .16s ease,box-shadow .16s ease; }
+.readiness-checkin__fields input:not([type="checkbox"]):focus, .readiness-checkin__fields select:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(23,107,255,.13); }
+.readiness-checkin__toggle { display: flex !important; min-height:50px; grid-column: 1 / -1; padding:12px 14px; border:1px solid #d5e1f0; border-radius:12px; align-items: center; gap: 10px !important; cursor:pointer; background:#f3f7fc; }
+.readiness-checkin__toggle input { width: 20px; height: 20px; min-height:20px; margin:0; flex:0 0 20px; accent-color:var(--blue); }
 .readiness-checkin__actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-.readiness-checkin__actions button { width:auto; min-width:150px; }
+.readiness-checkin__actions button { width:auto; min-width:170px; min-height:44px; padding:0 16px; border:0; border-radius:10px; color:white; background:var(--blue); font-weight:900; box-shadow:0 8px 20px rgba(23,107,255,.2); }
+.readiness-checkin__actions button:disabled { color:#6d7f95; background:#e3eaf3; box-shadow:none; }
 .readiness-checkin__actions small { color:var(--muted); }
-.readiness-result { padding: 11px 13px; border-radius: 11px; font-size: 11px; line-height: 1.5; }
+.readiness-result { display:flex; min-height:46px; padding: 11px 13px; border:1px solid transparent; border-radius: 11px; align-items:center; font-size: 11px; font-weight:700; line-height: 1.5; }
 .readiness-result--ready { color: #09674f !important; background: #e7f8f1; }
 .readiness-result--caution { color: #805900 !important; background: #fff4d8; }
 .readiness-result--limited { color: #9b2934 !important; background: #ffe9ec; }
@@ -1056,8 +1059,10 @@ main { padding: 64px 0 52px; }
   .manual-muscle > div, .training-focus { grid-template-columns:1fr; }
   .manual-exercise { align-items:flex-start; min-height:62px; }
   .setup-review { padding:18px; }
-  .readiness-checkin { padding:18px; }
+  .readiness-checkin { padding:20px 16px; gap:16px; border-radius:18px; }
   .readiness-checkin__fields { grid-template-columns:1fr; }
+  .readiness-checkin__actions { display:grid; gap:8px; }
+  .readiness-checkin__actions button { width:100%; }
   .setup-review li { grid-template-columns:1fr; gap:5px; }
   .setup-review li strong, .setup-review li span { display:block; }
   .setup-review li > small { text-align:left; }
