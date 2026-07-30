@@ -44,6 +44,14 @@ export function evolutionChange(points: ExerciseEvolutionPoint[], metric: keyof 
   return Math.round(((last - first) / first) * 1000) / 10;
 }
 
+export function latestEvolutionChange(points: ExerciseEvolutionPoint[], metric: keyof Omit<ExerciseEvolutionPoint, "date">) {
+  if (points.length < 2) return null;
+  const previous = points[points.length - 2][metric];
+  const latest = points[points.length - 1][metric];
+  if (!previous) return null;
+  return Math.round(((latest - previous) / previous) * 1000) / 10;
+}
+
 export function chartCoordinates(values: number[], width = 640, height = 220, padding = 28) {
   if (!values.length) return [];
   const minimum = Math.min(...values);

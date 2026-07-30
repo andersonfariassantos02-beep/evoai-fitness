@@ -1008,6 +1008,9 @@ main { padding: 64px 0 52px; }
 .record-card dt { color: var(--app-muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .record-card dd { margin: 0; font-size: 15px; font-weight: 900; }
 .record-card dl small { color: var(--app-muted); font-size: 9px; }
+.record-card__evolution { width: calc(100% - 30px); min-height: 42px; margin: 0 15px 15px; padding: 0 14px; border: 1px solid var(--blue); border-radius: 10px; color: var(--blue); background: transparent; font-weight: 850; }
+.record-card__evolution:disabled { border-color: var(--app-line); color: var(--app-muted); opacity: .65; }
+#exercise-evolution { scroll-margin-top: 90px; }
 .records-empty { margin-top: 20px; padding: 32px; border: 1px dashed var(--app-line); border-radius: 15px; color: var(--app-muted); text-align: center; }
 .records-empty h2 { margin: 0 0 8px; color: var(--app-text); }
 .restriction-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

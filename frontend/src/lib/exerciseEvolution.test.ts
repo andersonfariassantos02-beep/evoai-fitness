@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReportWorkout } from "../services/reportService";
-import { buildExerciseEvolution, chartCoordinates, evolutionChange } from "./exerciseEvolution";
+import { buildExerciseEvolution, chartCoordinates, evolutionChange, latestEvolutionChange } from "./exerciseEvolution";
 
 function workout(date: string, loadKg: number, reps: number, volume: number): ReportWorkout {
   return {
@@ -21,6 +21,16 @@ describe("evolução por exercício", () => {
     ]);
     expect(result[0].points.map((point) => point.date)).toEqual(["2026-07-06", "2026-07-20"]);
     expect(evolutionChange(result[0].points, "loadKg")).toBe(10);
+  });
+
+  it("compara a execução mais recente somente com a sessão anterior", () => {
+    const points = buildExerciseEvolution([
+      workout("2026-07-01", 40, 10, 1200),
+      workout("2026-07-15", 50, 10, 1500),
+      workout("2026-07-29", 55, 10, 1650),
+    ])[0].points;
+
+    expect(latestEvolutionChange(points, "loadKg")).toBe(10);
   });
 
   it("ignora exercícios sem série válida", () => {
