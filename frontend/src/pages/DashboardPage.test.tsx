@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   loadActiveDeload: vi.fn().mockResolvedValue(null),
   startDeload: vi.fn(),
   endDeload: vi.fn().mockResolvedValue(undefined),
+  loadActiveTrainingCycle: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -53,6 +54,12 @@ vi.mock("../services/deloadService", () => ({
   startDeload: (...args: unknown[]) => mocks.startDeload(...args),
   endDeload: (...args: unknown[]) => mocks.endDeload(...args),
 }));
+vi.mock("../services/trainingCycleService", () => ({
+  loadActiveTrainingCycle: (...args: unknown[]) => mocks.loadActiveTrainingCycle(...args),
+}));
+vi.mock("../services/reportService", () => ({
+  loadWorkoutReport: vi.fn().mockResolvedValue({ completedSessions: 0 }),
+}));
 vi.mock("../services/weeklyMuscleVolumeService", () => ({
   loadWeeklyMuscleVolume: vi.fn().mockResolvedValue([
     { muscle: "peito", directSets: 6, indirectSets: 0, totalSets: 6 },
@@ -68,6 +75,7 @@ describe("painel principal", () => {
     mocks.fatigue.level = "attention";
     mocks.fatigue.title = "Recuperação merece atenção";
     mocks.loadActiveDeload.mockResolvedValue(null);
+    mocks.loadActiveTrainingCycle.mockResolvedValue(null);
     mocks.startDeload.mockResolvedValue({
       id: "deload-1", userId: "admin-1", startsOn: "2026-07-29", endsOn: "2026-08-04",
       status: "active", volumeReductionPercent: 35, targetRpeMin: 6, targetRpeMax: 7, reason: "fadiga",
@@ -105,6 +113,12 @@ describe("painel principal", () => {
     await user.click(screen.getByRole("button", { name: "Ativar deload" }));
     expect(mocks.startDeload).toHaveBeenCalledWith("admin-1", expect.any(String), expect.stringContaining("RPE"));
     expect(await screen.findByText(/Semana de deload ativada/)).toBeInTheDocument();
+  });
+
+  it("oferece a criação de um ciclo quando não existe ciclo ativo", async () => {
+    render(<DashboardPage />);
+    expect(await screen.findByRole("heading", { name: "Estruture sua próxima evolução" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Criar ciclo/ })).toHaveAttribute("href", "#/ciclo");
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {

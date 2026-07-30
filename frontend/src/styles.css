@@ -1409,6 +1409,37 @@ main { padding: 64px 0 52px; }
 .monthly-goal__progress span { color:var(--app-muted); }
 .monthly-goal--attention { border-color:rgba(240,174,55,.55); background:linear-gradient(135deg,rgba(53,35,8,.72),rgba(8,23,41,.98)); }
 .monthly-goal--completed { border-color:rgba(44,190,132,.48); background:linear-gradient(135deg,rgba(7,52,40,.72),rgba(8,23,41,.98)); }
+.cycle-summary { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,.35fr) auto; gap:22px; margin-bottom:18px; padding:22px; border:1px solid rgba(42,129,255,.52); border-radius:18px; align-items:center; background:linear-gradient(135deg,rgba(11,48,91,.92),rgba(6,18,34,.98)); }
+.cycle-summary h2 { margin:6px 0; color:white; font-size:clamp(21px,2.4vw,29px); }
+.cycle-summary p { margin:0; color:var(--app-muted); line-height:1.5; }
+.cycle-summary a { color:#65aaff; font-weight:850; white-space:nowrap; }
+.cycle-summary__progress { display:grid; grid-template-columns:1fr auto; gap:9px; align-items:center; }
+.cycle-summary__progress>div { height:7px; border-radius:999px; overflow:hidden; background:#19314c; }
+.cycle-summary__progress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#176bff,#43c7ff); }
+.cycle-summary__progress strong { color:white; }
+.cycle-page { display:grid; width:min(1080px,100%); margin:0 auto; padding:clamp(26px,4vw,52px); gap:18px; }
+.cycle-page>header h1 { margin:8px 0; color:var(--navy); font-size:clamp(38px,6vw,62px); }
+.cycle-page>header p { margin:0; color:var(--muted); font-size:17px; }
+.cycle-card { display:grid; gap:22px; padding:clamp(20px,3vw,30px); border:1px solid var(--line); border-radius:20px; background:white; }
+.cycle-card h2 { margin:7px 0; color:var(--navy); font-size:clamp(25px,3vw,34px); }
+.cycle-card p { margin:0; color:var(--muted); }
+.cycle-card__heading { display:flex; justify-content:space-between; gap:20px; align-items:start; }
+.cycle-card__heading>strong { padding:10px 13px; border-radius:999px; color:#075ed0; background:#e8f2ff; white-space:nowrap; }
+.cycle-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.cycle-metrics article { display:grid; min-height:120px; padding:16px; border:1px solid var(--line); border-radius:14px; align-content:center; background:#f7f9fc; }
+.cycle-metrics span,.cycle-metrics small { color:var(--muted); }
+.cycle-metrics strong { margin:5px 0; color:var(--navy); font-size:26px; }
+.cycle-progress { display:grid; gap:8px; color:var(--muted); font-size:13px; }
+.cycle-progress>div { height:10px; overflow:hidden; border-radius:999px; background:#e4ebf4; }
+.cycle-progress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#176bff,#3ab3ff); }
+.cycle-card__note,.cycle-confirmation { padding:14px; border-radius:12px; color:#33516f; background:#eef6ff; }
+.cycle-form { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.cycle-form label { display:grid; gap:7px; color:var(--navy); font-weight:800; }
+.cycle-form input,.cycle-form select { min-height:48px; padding:0 12px; border:1px solid var(--line); border-radius:11px; color:var(--navy); background:white; font:inherit; }
+.cycle-confirmation ul { margin:8px 0 0; padding-left:20px; }
+.cycle-card>.primary-action { min-height:50px; border:0; border-radius:11px; color:white; background:var(--blue); font-weight:900; }
+.cycle-notice { display:flex; width:min(1100px,100%); margin:0 auto; padding:12px 15px; border:1px solid #9cc5f7; border-radius:12px; gap:8px 16px; color:#073c7d; background:#edf6ff; }
+.cycle-notice span { color:#466987; font-size:13px; }
 
 .authenticated-content .calendar-hero { margin: 0 0 18px; }
 .authenticated-content .calendar-hero h2 {
@@ -1513,6 +1544,11 @@ main { padding: 64px 0 52px; }
   .app-mobile-menu .app-navigation__signout { margin-top: 2px; }
   .authenticated-content > .training-dashboard { padding: 24px 16px 42px; }
   .monthly-goal { grid-template-columns:1fr; gap:16px; padding:19px; }
+  .cycle-summary { grid-template-columns:1fr; gap:14px; padding:19px; }
+  .cycle-page { padding:24px 16px 42px; }
+  .cycle-card__heading,.cycle-notice { display:grid; }
+  .cycle-card__heading>strong { width:max-content; }
+  .cycle-metrics,.cycle-form { grid-template-columns:1fr; }
   .dashboard-welcome { align-items: flex-start; flex-direction: column; }
   .dashboard-welcome h1 { font-size: 34px; }
   .dashboard-overview { grid-template-columns: 1fr; }

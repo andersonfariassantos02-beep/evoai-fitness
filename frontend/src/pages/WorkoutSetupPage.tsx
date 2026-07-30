@@ -9,6 +9,7 @@ import { applyReadinessAdjustment, assessReadiness, type ReadinessCheckIn } from
 import { loadDailyReadiness, saveDailyReadiness } from "../services/readinessService";
 import { applyDeloadAdjustment } from "../lib/deload";
 import { loadActiveDeload, type DeloadPeriod } from "../services/deloadService";
+import { loadActiveTrainingCycle, type TrainingCycle } from "../services/trainingCycleService";
 
 type SetupMode = "loading" | "unauthorized" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
 
@@ -33,6 +34,7 @@ export default function WorkoutSetupPage() {
   const [busy, setBusy] = useState(false);
   const [readinessSaved, setReadinessSaved] = useState(false);
   const [activeDeload, setActiveDeload] = useState<DeloadPeriod | null>(null);
+  const [trainingCycle, setTrainingCycle] = useState<TrainingCycle | null>(null);
   const [readiness, setReadiness] = useState<ReadinessCheckIn>({
     sleepHours: 7, energy: 3, soreness: 2, fatigue: 2, jointDiscomfort: false, availableMinutes: 60,
   });
@@ -45,10 +47,12 @@ export default function WorkoutSetupPage() {
       loadExistingWorkout(user.id, date, sessionKind),
       testMode ? Promise.resolve(null) : loadDailyReadiness(user.id, date),
       testMode ? Promise.resolve(null) : loadActiveDeload(user.id, date),
+      testMode ? Promise.resolve(null) : loadActiveTrainingCycle(user.id),
     ])
-      .then(([items, profile, isAdmin, saved, savedReadiness, deload]) => {
+      .then(([items, profile, isAdmin, saved, savedReadiness, deload, cycle]) => {
         setCatalog(items); setRestrictions(profile.restrictions); setAdmin(isAdmin); setExisting(saved);
         setActiveDeload(deload);
+        setTrainingCycle(cycle);
         if (savedReadiness) {
           setReadiness(savedReadiness);
           setReadinessSaved(true);
@@ -152,6 +156,7 @@ export default function WorkoutSetupPage() {
     <header><Link to={testMode ? "/admin/testes" : "/app"}>← {testMode ? "Laboratório" : "Calendário"}</Link><div><span className="eyebrow">{testMode ? "SIMULAÇÃO ADMINISTRATIVA" : "MONTAGEM DA FICHA"}</span><h1>Revise antes de começar</h1><p>{testMode ? "Esta ficha é isolada e não altera seu calendário, evolução ou recomendações reais." : "A ficha só é gravada depois da sua confirmação e pode ser editada enquanto nenhuma série tiver sido concluída."}</p>{!testMode && mode !== "locked" && mode !== "confirm-restart" && <label className="setup-date">Data em que vou treinar<input type="date" value={date} onChange={(event) => changeTrainingDate(event.target.value)} /></label>}{admin && <span className="admin-badge">{testMode ? "Modo de teste" : "Conta administradora"}</span>}</div></header>
     {message && <p className="profile-message" role="status">{message}</p>}
     {activeDeload && <section className="deload-notice" role="status"><strong>Semana de deload ativa</strong><span>Volume reduzido em {activeDeload.volumeReductionPercent}% nas sugestões automáticas · alvo de RPE {activeDeload.targetRpeMin}–{activeDeload.targetRpeMax}. Exercícios e ordem são preservados.</span></section>}
+    {trainingCycle && <section className="cycle-notice"><strong>{trainingCycle.name}</strong><span>Este treino contará para o ciclo de {trainingCycle.durationWeeks} semanas. Fichas já iniciadas permanecem intactas.</span></section>}
 
     {mode === "loading" && <section className="setup-loading" aria-live="polite"><span className="setup-loading__spinner" aria-hidden="true" /><div><h2>Carregando ficha do dia…</h2><p>Estamos verificando se já existe um treino salvo.</p></div></section>}
     {mode === "unauthorized" && <section className="setup-review"><span className="setup-status setup-status--locked">ACESSO RESTRITO</span><h2>Laboratório não autorizado</h2><p>Somente administradores podem criar e executar sessões de teste.</p><div className="setup-review__actions"><Link className="primary-link" to="/app">Voltar ao calendário</Link></div></section>}

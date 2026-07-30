@@ -15,6 +15,7 @@ import AuthenticatedLayout from "./components/AuthenticatedLayout";
 import ReportsPage from "./pages/ReportsPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import ProfileRequiredRoute from "./components/ProfileRequiredRoute";
+import TrainingCyclePage from "./pages/TrainingCyclePage";
 
 function LoadingScreen() {
   return (
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/app" element={<DashboardPage />} />
             <Route path="/perfil" element={<ProfilePage />} />
             <Route path="/relatorios" element={<ReportsPage />} />
+            <Route path="/ciclo" element={<TrainingCyclePage />} />
             <Route path="/admin/exercicios" element={<ExerciseCatalogAdminPage />} />
             <Route path="/admin/usuarios" element={<UserAdminPage />} />
             <Route path="/admin/testes" element={<TestLabPage />} />

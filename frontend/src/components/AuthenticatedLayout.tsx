@@ -7,6 +7,7 @@ import { getAuthErrorMessage } from "../lib/authErrors";
 const primaryLinks = [
   { to: "/app", icon: "▦", label: "Painel", end: true },
   { to: "/relatorios", icon: "▥", label: "Relatórios", end: false },
+  { to: "/ciclo", icon: "◈", label: "Ciclo", end: false },
   { to: "/perfil", icon: "◎", label: "Perfil", end: false },
 ];
 
