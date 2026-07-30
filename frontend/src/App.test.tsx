@@ -11,6 +11,7 @@ vi.mock("./pages/RegisterPage", () => ({ default: () => <p>Cadastro</p> }));
 vi.mock("./pages/OnboardingPage", () => ({ default: () => <p>Primeiro acesso</p> }));
 vi.mock("./pages/ProfilePage", () => ({ default: () => <p>Meu perfil</p> }));
 vi.mock("./pages/BodyProgressPage", () => ({ default: () => <p>Evolução corporal</p> }));
+vi.mock("./pages/PersonalRecordsPage", () => ({ default: () => <p>Recordes pessoais</p> }));
 vi.mock("./pages/DashboardPage", () => ({ default: () => <p>Área protegida</p> }));
 vi.mock("./pages/WorkoutSessionPage", () => ({ default: () => <p>Treino</p> }));
 vi.mock("./components/AuthenticatedLayout", async () => {
@@ -46,5 +47,11 @@ describe("autenticação e sessão", () => {
     auth = { configured: true, loading: false, session: { access_token: "token" }, user: { id: "user-1" } };
     render(<MemoryRouter initialEntries={["/evolucao"]}><App /></MemoryRouter>);
     expect(screen.getByText("Evolução corporal")).toBeInTheDocument();
+  });
+
+  it("protege e libera os recordes pessoais somente após autenticação", () => {
+    auth = { configured: true, loading: false, session: { access_token: "token" }, user: { id: "user-1" } };
+    render(<MemoryRouter initialEntries={["/recordes"]}><App /></MemoryRouter>);
+    expect(screen.getByText("Recordes pessoais")).toBeInTheDocument();
   });
 });

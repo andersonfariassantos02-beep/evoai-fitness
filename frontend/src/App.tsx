@@ -17,6 +17,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import ProfileRequiredRoute from "./components/ProfileRequiredRoute";
 import TrainingCyclePage from "./pages/TrainingCyclePage";
 import BodyProgressPage from "./pages/BodyProgressPage";
+import PersonalRecordsPage from "./pages/PersonalRecordsPage";
 
 function LoadingScreen() {
   return (
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="/relatorios" element={<ReportsPage />} />
             <Route path="/ciclo" element={<TrainingCyclePage />} />
             <Route path="/evolucao" element={<BodyProgressPage />} />
+            <Route path="/recordes" element={<PersonalRecordsPage />} />
             <Route path="/admin/exercicios" element={<ExerciseCatalogAdminPage />} />
             <Route path="/admin/usuarios" element={<UserAdminPage />} />
             <Route path="/admin/testes" element={<TestLabPage />} />

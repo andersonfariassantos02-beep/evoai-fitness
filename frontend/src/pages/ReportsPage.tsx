@@ -8,6 +8,11 @@ import ExerciseEvolutionPanel from "../components/ExerciseEvolutionPanel";
 import { loadExerciseEvolution } from "../services/exerciseEvolutionService";
 import type { ExerciseEvolution } from "../lib/exerciseEvolution";
 import {
+  personalRecordHighlights,
+  type ExercisePersonalRecords,
+} from "../lib/personalRecord";
+import { loadPersonalRecords } from "../services/personalRecordService";
+import {
   confirmPasswordAndDeleteUnfinishedWorkout,
   loadUnfinishedWorkouts,
   loadWorkoutReport,
@@ -68,6 +73,7 @@ export default function ReportsPage() {
   const [previous, setPrevious] = useState<WorkoutReport | null>(null);
   const [unfinished, setUnfinished] = useState<UnfinishedWorkout[]>([]);
   const [evolution, setEvolution] = useState<ExerciseEvolution[]>([]);
+  const [personalRecords, setPersonalRecords] = useState<ExercisePersonalRecords[]>([]);
   const [deleting, setDeleting] = useState<UnfinishedWorkout | null>(null);
   const [password, setPassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -77,6 +83,10 @@ export default function ReportsPage() {
   const fallbackAthleteName = String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Atleta");
   const [athleteName, setAthleteName] = useState(fallbackAthleteName);
   const currentRange = useMemo(() => reportRange(period, anchor), [anchor, period]);
+  const recordHighlights = useMemo(
+    () => personalRecordHighlights(personalRecords, currentRange.startDate, currentRange.endDate),
+    [currentRange.endDate, currentRange.startDate, personalRecords],
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -92,16 +102,18 @@ export default function ReportsPage() {
     setMessage("");
     try {
       const previousRange = previousReportRange(period, currentRange.startDate);
-      const [currentReport, previousReport, unfinishedWorkouts, exerciseEvolution] = await Promise.all([
+      const [currentReport, previousReport, unfinishedWorkouts, exerciseEvolution, records] = await Promise.all([
         loadWorkoutReport(user.id, currentRange.startDate, currentRange.endDate),
         loadWorkoutReport(user.id, previousRange.startDate, previousRange.endDate),
         loadUnfinishedWorkouts(user.id, currentRange.startDate, currentRange.endDate),
         loadExerciseEvolution(user.id, currentRange.endDate).catch(() => []),
+        loadPersonalRecords(user.id).catch(() => []),
       ]);
       setReport(currentReport);
       setPrevious(previousReport);
       setUnfinished(unfinishedWorkouts);
       setEvolution(exerciseEvolution);
+      setPersonalRecords(records);
       if (!currentReport.completedSessions) setMessage("Nenhum treino real concluído neste período.");
     } catch {
       setMessage("Não foi possível carregar o relatório. Tente novamente.");
@@ -116,10 +128,10 @@ export default function ReportsPage() {
     setMessage("");
     try {
       if (share) {
-        const shared = await shareReportPdf(report, previous, athleteName);
+        const shared = await shareReportPdf(report, previous, athleteName, recordHighlights);
         if (!shared) setMessage("O compartilhamento direto não está disponível neste aparelho. O PDF foi salvo para você enviar manualmente.");
       } else {
-        await saveReportPdf(report, previous, athleteName);
+        await saveReportPdf(report, previous, athleteName, recordHighlights);
         setMessage("PDF gerado com sucesso.");
       }
     } catch (error) {
@@ -233,6 +245,22 @@ export default function ReportsPage() {
                 <BodyMetric label="Quadril" metric={report.bodyProgress.hipsCm} unit="cm" />
                 <BodyMetric label="Braço" metric={report.bodyProgress.armCm} unit="cm" />
                 <BodyMetric label="Coxa" metric={report.bodyProgress.thighCm} unit="cm" />
+              </div>
+            </section>
+          )}
+
+          {recordHighlights.length > 0 && (
+            <section className="report-records" aria-labelledby="report-records-title">
+              <header>
+                <div><span className="eyebrow">NOVOS RECORDES</span><h2 id="report-records-title">Conquistas do período</h2></div>
+                <Link to="/recordes">Ver todos os recordes</Link>
+              </header>
+              <div>
+                {recordHighlights.map((highlight) => <article key={`${highlight.exerciseKey}-${highlight.kind}`}>
+                  <small>{highlight.label} · {formatDate(highlight.date)}</small>
+                  <strong>{highlight.exerciseName}</strong>
+                  <span>{highlight.value}</span>
+                </article>)}
               </div>
             </section>
           )}
