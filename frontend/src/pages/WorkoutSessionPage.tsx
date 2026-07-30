@@ -433,7 +433,12 @@ export default function WorkoutSessionPage() {
           {guidance.mediaUrl && <a href={guidance.mediaUrl} target="_blank" rel="noreferrer">Abrir demonstração técnica ↗</a>}
         </details>}
         <div className={`progression progression--${exercise.recommendation.action}`}>
-          <div><strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg.toLocaleString("pt-BR")} kg sugeridos` : "Defina a carga inicial"}</strong><span>{exercise.recommendation.reason}</span></div>
+          <div>
+            <small>{exercise.recommendation.action === "increase" ? "AUMENTAR CARGA" : exercise.recommendation.action === "reduce" ? "REDUZIR CARGA" : "MANTER CARGA"}</small>
+            <strong>{exercise.recommendation.loadKg > 0 ? `${exercise.recommendation.loadKg.toLocaleString("pt-BR")} kg sugeridos` : "Defina a carga inicial"}</strong>
+            <span>{exercise.recommendation.reason}</span>
+            {exercise.recommendation.evidence?.length ? <ul>{exercise.recommendation.evidence.map((item) => <li key={item}>{item}</li>)}</ul> : null}
+          </div>
           {exercise.recommendation.loadKg > 0 && <button type="button" onClick={() => void applyRecommendedLoad(exercise)}>Aplicar às séries vazias</button>}
         </div>
         {personalRecord?.achieved && <div className="personal-record-banner" role="status">

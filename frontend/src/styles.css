@@ -754,7 +754,10 @@ main { padding: 64px 0 52px; }
 .exercise-guidance a { display: inline-block; margin-top: 10px; color: var(--blue); font-weight: 900; }
 .progression { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 11px 13px; border-radius: 11px; background: #edf4ff; color: var(--navy); font-size: 11px; }
 .progression > div { display: grid; gap: 3px; }
+.progression small { color: var(--blue); font-size: 9px; font-weight: 900; letter-spacing: .12em; }
 .progression span { color: var(--muted); }
+.progression ul { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; padding: 0; list-style: none; }
+.progression li { padding: 4px 7px; border: 1px solid rgba(23,107,255,.18); border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.65); font-size: 9px; font-weight: 700; }
 .progression button { flex: 0 0 auto; min-height: 38px; padding: 8px 12px; border-color: #a9c9ff; background: #fff; color: var(--blue); }
 .progression--increase { background: var(--green-soft); }
 .progression--reduce { background: var(--amber-soft); }

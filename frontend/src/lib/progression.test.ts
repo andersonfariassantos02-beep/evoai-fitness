@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recommendProgression, recommendProgressionFromSession } from "./progression";
+import { recommendProgression, recommendProgressionFromHistory, recommendProgressionFromSession } from "./progression";
 import { getSubstitutionCandidates } from "./workoutTemplates";
 
 describe("progressão determinística", () => {
@@ -39,6 +39,36 @@ describe("progressão determinística", () => {
     ]);
     expect(recommendation).toMatchObject({ action: "maintain", loadKg: 30 });
     expect(recommendation.reason).toContain("avance as repetições");
+  });
+
+  it("espera consistência antes de aumentar a carga pelo histórico", () => {
+    const session = [
+      { setNumber: 1, loadKg: 50, reps: 12, rpe: 8, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+      { setNumber: 2, loadKg: 50, reps: 12, rpe: 8, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+      { setNumber: 3, loadKg: 50, reps: 12, rpe: 8, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+    ];
+    expect(recommendProgressionFromHistory([session])).toMatchObject({
+      action: "maintain",
+      loadKg: 50,
+      sessionsAnalyzed: 1,
+    });
+    expect(recommendProgressionFromHistory([session, session])).toMatchObject({
+      action: "increase",
+      loadKg: 51.5,
+      sessionsAnalyzed: 2,
+    });
+  });
+
+  it("reduz imediatamente quando a última sessão indica excesso de esforço", () => {
+    const hardSession = [
+      { setNumber: 1, loadKg: 50, reps: 7, rpe: 10, failed: true, targetRepsMin: 8, targetRepsMax: 12 },
+      { setNumber: 2, loadKg: 50, reps: 7, rpe: 10, failed: false, targetRepsMin: 8, targetRepsMax: 12 },
+    ];
+    expect(recommendProgressionFromHistory([hardSession])).toMatchObject({
+      action: "reduce",
+      loadKg: 47.5,
+      sessionsAnalyzed: 1,
+    });
   });
 });
 
