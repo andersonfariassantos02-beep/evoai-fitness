@@ -41,6 +41,16 @@ const report = {
   startDate: "2026-07-27", endDate: "2026-08-02", plannedSessions: 3,
   workouts: [{ id: "w1", date: "2026-07-27", label: "Push", notes: "", startedAt: "", completedAt: "", completedSets: 1, skippedSets: 0, volume: 500, averageRpe: 8, exercises: [{ key: "bench", name: "Supino", originalKey: null, substitutionReason: null, volume: 500, estimated1Rm: 66.7, bestSet: { loadKg: 50, reps: 10 }, sets: [{ setNumber: 1, reps: 10, loadKg: 50, rpe: 8, isExtra: false, skipped: false, skipReason: null }] }] }],
   completedSessions: 1, adherence: 33.3, completedSets: 1, skippedSets: 0, totalReps: 10, totalVolume: 500, averageRpe: 8,
+  bodyProgress: {
+    entries: [{ id: "m1", measuredOn: "2026-07-27", weightKg: 81, bodyFatPercentage: null, waistCm: 87, chestCm: null, hipsCm: null, armCm: null, thighCm: null, notes: "" }],
+    weightKg: { initial: 81, final: 81, change: 0 },
+    bodyFatPercentage: null,
+    waistCm: { initial: 87, final: 87, change: 0 },
+    chestCm: null,
+    hipsCm: null,
+    armCm: null,
+    thighCm: null,
+  },
 };
 
 describe("página de relatórios", () => {
@@ -71,6 +81,8 @@ describe("página de relatórios", () => {
     expect(screen.getByRole("heading", { name: "Últimos 90 dias" })).toBeInTheDocument();
     expect(screen.getByLabelText("Exercício do gráfico")).toHaveValue("bench");
     expect(screen.getByText("+11,1%")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Medidas do período" })).toBeInTheDocument();
+    expect(screen.getByText("81 → 81")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Salvar PDF" }));
     expect(mocks.save).toHaveBeenCalledOnce();

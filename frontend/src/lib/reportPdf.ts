@@ -52,6 +52,33 @@ export async function createReportPdf(report: WorkoutReport, previous: WorkoutRe
   paragraph(`Resumo: ${report.completedSessions} treino(s), ${report.completedSets} series realizadas, ${report.totalReps} repeticoes e ${report.totalVolume.toLocaleString("pt-BR")} kg de volume.`);
   paragraph(`Adesao: ${report.adherence}% | RPE medio: ${report.averageRpe ?? "-"} | Series nao realizadas: ${report.skippedSets}${volumeChange === null ? "" : ` | Variacao de volume: ${volumeChange > 0 ? "+" : ""}${volumeChange}%`}.`, 9, [23, 107, 255]);
 
+  if (report.bodyProgress) {
+    ensureSpace(24);
+    document.setTextColor(7, 26, 51);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(13);
+    document.text("Evolucao corporal", margin, y);
+    y += 7;
+    const metrics = [
+      ["Peso", report.bodyProgress.weightKg, "kg"],
+      ["Gordura corporal", report.bodyProgress.bodyFatPercentage, "%"],
+      ["Cintura", report.bodyProgress.waistCm, "cm"],
+      ["Peitoral", report.bodyProgress.chestCm, "cm"],
+      ["Quadril", report.bodyProgress.hipsCm, "cm"],
+      ["Braco", report.bodyProgress.armCm, "cm"],
+      ["Coxa", report.bodyProgress.thighCm, "cm"],
+    ] as const;
+    metrics.forEach(([label, metric, unit]) => {
+      if (!metric) return;
+      paragraph(
+        `${label}: ${metric.initial.toLocaleString("pt-BR")} para ${metric.final.toLocaleString("pt-BR")} ${unit} (${metric.change > 0 ? "+" : ""}${metric.change.toLocaleString("pt-BR")} ${unit})`,
+        8,
+      );
+    });
+    paragraph(`${report.bodyProgress.entries.length} registro(s) corporal(is) no periodo.`, 8, [23, 107, 255]);
+    y += 2;
+  }
+
   report.workouts.forEach((workout) => {
     ensureSpace(22);
     document.setFillColor(235, 243, 255);

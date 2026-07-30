@@ -13,6 +13,7 @@ import {
   loadWorkoutReport,
   type UnfinishedWorkout,
   type WorkoutReport,
+  type BodyProgressMetric,
 } from "../services/reportService";
 
 function todayKey() {
@@ -35,6 +36,28 @@ function ChangeBadge({ value }: { value: number | null }) {
   return <small className={value >= 0 ? "report-change report-change--up" : "report-change report-change--down"}>
     {value > 0 ? "+" : ""}{value}% vs. período anterior
   </small>;
+}
+
+function BodyMetric({
+  label,
+  metric,
+  unit,
+}: {
+  label: string;
+  metric: BodyProgressMetric | null;
+  unit: string;
+}) {
+  if (!metric) return null;
+  const changeLabel = `${metric.change > 0 ? "+" : ""}${metric.change.toLocaleString("pt-BR")} ${unit}`;
+  return (
+    <article>
+      <span>{label}</span>
+      <strong>{metric.initial.toLocaleString("pt-BR")} → {metric.final.toLocaleString("pt-BR")} <i>{unit}</i></strong>
+      <small className={metric.change === 0 ? "" : metric.change < 0 ? "report-change report-change--down" : "report-change report-change--up"}>
+        Variação: {changeLabel}
+      </small>
+    </article>
+  );
 }
 
 export default function ReportsPage() {
@@ -192,18 +215,44 @@ export default function ReportsPage() {
             <article><span>RPE médio</span><strong>{report.averageRpe ?? "-"}</strong><small>{report.completedSets} séries realizadas</small></article>
           </section>
 
+          {report.bodyProgress && (
+            <section className="report-body-progress" aria-labelledby="body-progress-title">
+              <header>
+                <div>
+                  <span className="eyebrow">EVOLUÇÃO CORPORAL</span>
+                  <h2 id="body-progress-title">Medidas do período</h2>
+                  <p>{report.bodyProgress.entries.length} registro(s) entre {formatDate(report.startDate)} e {formatDate(report.endDate)}.</p>
+                </div>
+                <Link to="/evolucao">Ver histórico completo</Link>
+              </header>
+              <div className="report-body-progress__metrics">
+                <BodyMetric label="Peso" metric={report.bodyProgress.weightKg} unit="kg" />
+                <BodyMetric label="Gordura corporal" metric={report.bodyProgress.bodyFatPercentage} unit="%" />
+                <BodyMetric label="Cintura" metric={report.bodyProgress.waistCm} unit="cm" />
+                <BodyMetric label="Peitoral" metric={report.bodyProgress.chestCm} unit="cm" />
+                <BodyMetric label="Quadril" metric={report.bodyProgress.hipsCm} unit="cm" />
+                <BodyMetric label="Braço" metric={report.bodyProgress.armCm} unit="cm" />
+                <BodyMetric label="Coxa" metric={report.bodyProgress.thighCm} unit="cm" />
+              </div>
+            </section>
+          )}
+
           <ExerciseEvolutionPanel exercises={evolution} />
 
           <section className="report-detail">
             <div className="report-detail__header">
               <div><span className="eyebrow">DETALHAMENTO</span><h2>Treinos do período</h2></div>
               <div className="report-actions">
-                <button type="button" disabled={exporting || !report.completedSessions} onClick={() => void exportPdf(false)}>Salvar PDF</button>
-                <button className="report-share" type="button" disabled={exporting || !report.completedSessions} onClick={() => void exportPdf(true)}>Compartilhar</button>
+                <button type="button" disabled={exporting || (!report.completedSessions && !report.bodyProgress)} onClick={() => void exportPdf(false)}>Salvar PDF</button>
+                <button className="report-share" type="button" disabled={exporting || (!report.completedSessions && !report.bodyProgress)} onClick={() => void exportPdf(true)}>Compartilhar</button>
               </div>
             </div>
 
-            {!report.workouts.length && <div className="report-empty">Conclua um treino real para visualizar o detalhamento e gerar o PDF.</div>}
+            {!report.workouts.length && <div className="report-empty">
+              {report.bodyProgress
+                ? "Nenhum treino real concluído no período. O PDF incluirá a evolução corporal registrada."
+                : "Conclua um treino real ou registre medidas corporais para gerar o PDF."}
+            </div>}
             <div className="report-workouts">
               {report.workouts.map((workout) => (
                 <article className="report-workout" key={workout.id}>

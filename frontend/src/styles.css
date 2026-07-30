@@ -1689,6 +1689,17 @@ main { padding: 64px 0 52px; }
 .report-summary strong { color: white; font-size: 31px; }
 .report-summary strong i { color: #7f9bbd; font-size: 12px; font-style: normal; }
 .report-summary small { color: #7188a4; font-size: 9px; }
+.report-body-progress { display: grid; gap: 18px; margin-top: 20px; padding: clamp(18px, 3vw, 27px); border: 1px solid var(--app-border); border-radius: 20px; background: linear-gradient(145deg, #0a1c32, #061426); }
+.report-body-progress > header { display: flex; gap: 20px; align-items: center; justify-content: space-between; }
+.report-body-progress h2 { margin: 5px 0 3px; color: #fff; font-size: 24px; }
+.report-body-progress header p { margin: 0; color: #7890ad; font-size: 10px; }
+.report-body-progress header a { display: inline-flex; min-height: 40px; padding: 0 13px; border: 1px solid #31577f; border-radius: 10px; align-items: center; color: #d7e8fb; background: #0d223b; font-size: 11px; font-weight: 850; text-decoration: none; white-space: nowrap; }
+.report-body-progress__metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 9px; }
+.report-body-progress__metrics article { display: grid; min-height: 105px; gap: 7px; padding: 14px; border: 1px solid #193b5f; border-radius: 12px; align-content: center; background: #07172a; }
+.report-body-progress__metrics span { color: #7892b0; font-size: 9px; font-weight: 850; text-transform: uppercase; }
+.report-body-progress__metrics strong { color: #fff; font-size: 18px; }
+.report-body-progress__metrics strong i { color: #7f9bbd; font-size: 10px; font-style: normal; }
+.report-body-progress__metrics small { color: #7188a4; font-size: 9px; }
 .exercise-evolution { display:grid; gap:18px; margin-top:20px; padding:clamp(18px,3vw,27px); border:1px solid var(--app-border); border-radius:20px; background:linear-gradient(145deg,#0a1c32,#061426); }
 .exercise-evolution > header { display:flex; gap:20px; align-items:end; justify-content:space-between; }
 .exercise-evolution h2 { margin:5px 0 2px; color:#fff; font-size:24px; }
@@ -1755,6 +1766,10 @@ main { padding: 64px 0 52px; }
   .exercise-evolution header label { width:100%; }
   .evolution-summary { grid-template-columns:1fr; }
   .evolution-chart { padding:4px; }
+  .report-body-progress { padding: 16px 11px; }
+  .report-body-progress > header { align-items: stretch; flex-direction: column; }
+  .report-body-progress header a { justify-content: center; }
+  .report-body-progress__metrics { grid-template-columns: 1fr 1fr; }
   .report-summary article { min-height: 125px; padding: 15px; }
   .report-summary strong { font-size: 25px; }
   .report-detail { padding: 16px 11px; }

@@ -16,6 +16,7 @@ import { loadFatigueAssessment } from "./fatigueService";
 const emptyReport: WorkoutReport = {
   startDate: "", endDate: "", plannedSessions: 0, workouts: [], completedSessions: 0,
   adherence: 0, completedSets: 0, skippedSets: 0, totalReps: 0, totalVolume: 0, averageRpe: null,
+  bodyProgress: null,
 };
 
 describe("serviço de fadiga", () => {
