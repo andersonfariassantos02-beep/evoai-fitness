@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   share: vi.fn(),
   loadEvolution: vi.fn(),
+  loadRecords: vi.fn(),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -35,6 +36,9 @@ vi.mock("../lib/reportPdf", () => ({
 }));
 vi.mock("../services/exerciseEvolutionService", () => ({
   loadExerciseEvolution: mocks.loadEvolution,
+}));
+vi.mock("../services/personalRecordService", () => ({
+  loadPersonalRecords: mocks.loadRecords,
 }));
 
 const report = {
@@ -68,6 +72,14 @@ describe("página de relatórios", () => {
         { date: "2026-07-27", loadKg: 50, reps: 10, volume: 1500, estimated1Rm: 66.7 },
       ],
     }]);
+    mocks.loadRecords.mockResolvedValue([{
+      key: "bench",
+      name: "Supino",
+      sessions: 2,
+      bestLoad: { loadKg: 50, reps: 10, estimated1Rm: 66.7, date: "2026-07-27" },
+      bestEstimated1Rm: { loadKg: 50, reps: 10, estimated1Rm: 66.7, date: "2026-07-27" },
+      bestSessionVolume: { volumeKg: 1500, date: "2026-07-27" },
+    }]);
   });
 
   it("gera o relatório real e oferece PDF e compartilhamento", async () => {
@@ -83,6 +95,8 @@ describe("página de relatórios", () => {
     expect(screen.getByText("+11,1%")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Medidas do período" })).toBeInTheDocument();
     expect(screen.getByText("81 → 81")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Conquistas do período" })).toBeInTheDocument();
+    expect(screen.getByText("1.500 kg")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Salvar PDF" }));
     expect(mocks.save).toHaveBeenCalledOnce();

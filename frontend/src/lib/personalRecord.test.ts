@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluatePersonalRecord, findPersonalBest } from "./personalRecord";
+import {
+  buildExercisePersonalRecords,
+  evaluatePersonalRecord,
+  findPersonalBest,
+  personalRecordHighlights,
+} from "./personalRecord";
 import type { SetLog } from "../services/workoutSessionService";
 
 function set(overrides: Partial<SetLog>): SetLog {
@@ -34,5 +39,32 @@ describe("recordes pessoais", () => {
       [set({ completed: false, load_kg: 100 }), set({ skipped_at: "2026-07-20", load_kg: 100 })],
     ).achieved).toBe(false);
     expect(evaluatePersonalRecord(null, [set({ load_kg: 100 })]).achieved).toBe(false);
+  });
+
+  it("consolida carga, 1RM estimada e volume por exercício", () => {
+    const records = buildExercisePersonalRecords([
+      { exerciseKey: "bench", exerciseName: "Supino", date: "2026-07-01", loadKg: 50, reps: 10 },
+      { exerciseKey: "bench", exerciseName: "Supino", date: "2026-07-01", loadKg: 50, reps: 8 },
+      { exerciseKey: "bench", exerciseName: "Supino", date: "2026-07-15", loadKg: 55, reps: 8 },
+    ]);
+
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      sessions: 2,
+      bestLoad: { loadKg: 55, reps: 8, date: "2026-07-15" },
+      bestEstimated1Rm: { estimated1Rm: 69.7, date: "2026-07-15" },
+      bestSessionVolume: { volumeKg: 900, date: "2026-07-01" },
+    });
+  });
+
+  it("destaca apenas recordes cuja data pertence ao período", () => {
+    const records = buildExercisePersonalRecords([
+      { exerciseKey: "bench", exerciseName: "Supino", date: "2026-06-01", loadKg: 40, reps: 10 },
+      { exerciseKey: "bench", exerciseName: "Supino", date: "2026-07-15", loadKg: 55, reps: 8 },
+    ]);
+
+    expect(personalRecordHighlights(records, "2026-07-01", "2026-07-31").map((item) => item.kind))
+      .toEqual(["load", "estimated1Rm", "volume"]);
+    expect(personalRecordHighlights(records, "2026-08-01", "2026-08-31")).toEqual([]);
   });
 });
