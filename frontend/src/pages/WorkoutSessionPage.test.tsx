@@ -174,6 +174,35 @@ describe("percurso principal do treino", () => {
     }));
   });
 
+  it("reconstrói o descanso salvo na sessão quando o armazenamento do iPhone está vazio", async () => {
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...baseSession,
+      session_kind: "test",
+      exercises: [{
+        ...baseSession.exercises[0],
+        sets: [
+          {
+            ...baseSession.exercises[0].sets[0],
+            completed: true,
+            completed_at: new Date(Date.now() - 60_000).toISOString(),
+            target_rest_seconds: 120,
+            actual_rest_seconds: null,
+          },
+          { ...baseSession.exercises[0].sets[0], id: "set-2", set_number: 2, completed: false },
+        ],
+      }],
+    });
+
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body&test=1"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    expect(await screen.findByText("1:00")).toBeInTheDocument();
+    expect(screen.getByText("Próxima: Remada · série 2")).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("evoai:active-rest:session-1") ?? "null")).toEqual(expect.objectContaining({
+      sourceSetId: "set-1",
+      nextSetId: "set-2",
+    }));
+  });
+
   it("destaca um novo recorde pessoal no treino real", async () => {
     const user = userEvent.setup();
     startOrLoadWorkout.mockResolvedValueOnce({

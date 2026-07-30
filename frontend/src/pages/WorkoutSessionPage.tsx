@@ -42,16 +42,49 @@ function persistRestTimer(sessionId: string, rest: ActiveRest | null) {
 function loadPersistedRest(session: WorkoutSession): ActiveRest | null {
   try {
     const raw = localStorage.getItem(restStorageKey(session.id));
-    if (!raw) return null;
-    const validExercises = new Set(session.exercises.map((exercise) => exercise.id));
-    const validSets = new Set(session.exercises.flatMap((exercise) => exercise.sets.map((set) => set.id)));
-    const restored = restoreRestTimer(JSON.parse(raw), validSets, validExercises);
-    if (!restored) localStorage.removeItem(restStorageKey(session.id));
-    return restored;
+    if (raw) {
+      const validExercises = new Set(session.exercises.map((exercise) => exercise.id));
+      const validSets = new Set(session.exercises.flatMap((exercise) => exercise.sets.map((set) => set.id)));
+      const restored = restoreRestTimer(JSON.parse(raw), validSets, validExercises);
+      if (restored) return restored;
+      localStorage.removeItem(restStorageKey(session.id));
+    }
   } catch {
     localStorage.removeItem(restStorageKey(session.id));
-    return null;
   }
+
+  const orderedSets = session.exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise, set })));
+  const sourceIndex = orderedSets.findLastIndex(({ set }) =>
+    set.completed
+    && Boolean(set.completed_at)
+    && Number(set.target_rest_seconds ?? 0) > 0
+    && set.actual_rest_seconds === null);
+  if (sourceIndex < 0) return null;
+
+  const source = orderedSets[sourceIndex];
+  const next = orderedSets.slice(sourceIndex + 1).find(({ set }) => !set.completed && !set.skipped_at);
+  const startedAtMs = Date.parse(source.set.completed_at ?? "");
+  const targetSeconds = Number(source.set.target_rest_seconds ?? 0);
+  if (!next || !Number.isFinite(startedAtMs) || targetSeconds <= 0) return null;
+
+  const changesExercise = next.exercise.id !== source.exercise.id;
+  const remainingSeconds = getRemainingSeconds(startedAtMs + targetSeconds * 1000);
+  const recovered: ActiveRest = {
+    sourceExerciseId: source.exercise.id,
+    sourceSetId: source.set.id,
+    nextSetId: next.set.id,
+    kind: changesExercise ? "between_exercises" : "between_sets",
+    label: changesExercise ? "Descanso entre exercícios" : "Descanso entre séries",
+    nextLabel: `${next.exercise.exercise_name} · ${next.set.is_warmup ? `aquecimento ${next.set.set_number}` : `série ${next.set.set_number}`}`,
+    targetSeconds,
+    startedAtMs,
+    endsAtMs: startedAtMs + targetSeconds * 1000,
+    remainingSeconds,
+    paused: session.status === "paused",
+    ready: remainingSeconds === 0,
+  };
+  persistRestTimer(session.id, recovered);
+  return recovered;
 }
 
 interface SetEntryRowProps {
