@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  cacheProfileAccess,
+  clearCachedProfileAccess,
+  hasCachedProfileAccess,
+} from "../lib/profileAccessCache";
 import { hasLinkedProfile } from "../services/profileRestrictionService";
 
 export default function ProfileRequiredRoute() {
@@ -11,10 +16,22 @@ export default function ProfileRequiredRoute() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    setState("loading");
+    const hasOfflineAccess = hasCachedProfileAccess(user.id);
+    setState(hasOfflineAccess ? "ready" : "loading");
     void hasLinkedProfile(user.id)
-      .then((exists) => { if (active) setState(exists ? "ready" : "missing"); })
-      .catch(() => { if (active) setState("error"); });
+      .then((exists) => {
+        if (!active) return;
+        if (exists) {
+          cacheProfileAccess(user.id);
+          setState("ready");
+          return;
+        }
+        clearCachedProfileAccess(user.id);
+        setState("missing");
+      })
+      .catch(() => {
+        if (active && !hasOfflineAccess) setState("error");
+      });
     return () => { active = false; };
   }, [user]);
 
