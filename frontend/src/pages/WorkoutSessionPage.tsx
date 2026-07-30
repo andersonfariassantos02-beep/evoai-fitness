@@ -95,6 +95,11 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
         <option value="0">Nenhuma · RPE 10</option>
       </select></label>
     </div>
+    {set.previous_performance && <p className="set-row__previous">
+      <span>ÚLTIMO TREINO</span>
+      <strong>{set.previous_performance.loadKg.toLocaleString("pt-BR")} kg × {set.previous_performance.reps} repetições{set.previous_performance.rpe === null ? "" : ` · RPE ${set.previous_performance.rpe.toLocaleString("pt-BR")}`}</strong>
+      <small>{new Date(`${set.previous_performance.date}T12:00:00`).toLocaleDateString("pt-BR")}</small>
+    </p>}
     {validationMessage && <p className="set-row__validation" role="alert">{validationMessage}</p>}
   </div>;
 }

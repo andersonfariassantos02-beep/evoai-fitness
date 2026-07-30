@@ -5,7 +5,8 @@ import { recommendProgressionFromHistory, type ProgressionRecommendation } from 
 import { findPersonalBest, type PersonalBest } from "../lib/personalRecord";
 import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
-export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; skipped_at: string | null; skip_reason: string | null; }
+export interface PreviousSetPerformance { loadKg: number; reps: number; rpe: number | null; date: string; }
+export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; skipped_at: string | null; skip_reason: string | null; previous_performance?: PreviousSetPerformance | null; }
 export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; rest_seconds: number; transition_rest_seconds: number; recommendation: ProgressionRecommendation; personalBest: PersonalBest | null; sets: SetLog[]; }
 export type WorkoutSessionKind = "real" | "test";
 export interface WorkoutSession { id: string; training_date: string; workout_label: string; session_kind: WorkoutSessionKind; status: "active" | "paused" | "completed"; notes: string; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
@@ -51,6 +52,21 @@ async function getExerciseInsights(userId: string, exerciseKey: string, repsMin:
   const recentDates = Array.from(new Set(rows
     .map((row) => workoutFor(row)?.training_date)
     .filter((date): date is string => Boolean(date)))).slice(0, 2);
+  const latestDate = recentDates[0] ?? null;
+  const previousPerformanceBySet = new Map<number, PreviousSetPerformance>();
+  if (latestDate) {
+    rows.filter((row) => workoutFor(row)?.training_date === latestDate).forEach((row) => {
+      const loadKg = Number(row.load_kg ?? 0);
+      const reps = Number(row.actual_reps ?? 0);
+      if (loadKg < 0 || reps <= 0) return;
+      previousPerformanceBySet.set(Number(row.set_number), {
+        loadKg,
+        reps,
+        rpe: row.rpe === null ? null : Number(row.rpe),
+        date: latestDate,
+      });
+    });
+  }
   const recommendation = recommendProgressionFromHistory(recentDates.map((sessionDate) => rows
     .filter((row) => workoutFor(row)?.training_date === sessionDate)
     .map((row) => ({
@@ -67,7 +83,7 @@ async function getExerciseInsights(userId: string, exerciseKey: string, repsMin:
     reps: Number(row.actual_reps ?? 0),
     date: workoutFor(row)?.training_date ?? "",
   })));
-  return { recommendation, personalBest };
+  return { recommendation, personalBest, previousPerformanceBySet };
 }
 
 async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<WorkoutSession> {
@@ -84,7 +100,17 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
       ?? getWorkoutTemplate(session.workout_label).find((item) => item.key === exercise.exercise_key)
       ?? { repsMin: currentSets[0]?.target_reps_min ?? 8, repsMax: currentSets[0]?.target_reps_max ?? 12 };
     const insights = await getExerciseInsights((await supabase.auth.getUser()).data.user?.id ?? "", exercise.exercise_key, template.repsMin, template.repsMax);
-    result.push({ ...exercise, rest_seconds: Number(exercise.rest_seconds ?? 120), transition_rest_seconds: Number(exercise.transition_rest_seconds ?? 180), ...insights, sets: currentSets });
+    result.push({
+      ...exercise,
+      rest_seconds: Number(exercise.rest_seconds ?? 120),
+      transition_rest_seconds: Number(exercise.transition_rest_seconds ?? 180),
+      recommendation: insights.recommendation,
+      personalBest: insights.personalBest,
+      sets: currentSets.map((set) => ({
+        ...set,
+        previous_performance: insights.previousPerformanceBySet.get(set.set_number) ?? null,
+      })),
+    });
   }
   return { ...session, exercises: result };
 }

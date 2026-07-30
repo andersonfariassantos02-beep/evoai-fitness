@@ -43,7 +43,7 @@ vi.mock("../services/workoutSessionService", async (importOriginal) => {
 describe("percurso principal do treino", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    startOrLoadWorkout.mockResolvedValue(baseSession);
+    startOrLoadWorkout.mockResolvedValue(structuredClone(baseSession));
     finishWorkoutWithPending.mockResolvedValue(1);
   });
   afterEach(() => cleanup());
@@ -166,6 +166,24 @@ describe("percurso principal do treino", () => {
     expect(saveSet).toHaveBeenCalledWith(expect.objectContaining({ id: "set-1", load_kg: 42.5 }));
     expect(screen.getByRole("spinbutton", { name: "Carga da série 1" })).toHaveValue(42.5);
     expect(screen.getByRole("spinbutton", { name: "Carga da série 2" })).toHaveValue(40);
+  });
+
+  it("mostra a execução anterior como referência em cada série", async () => {
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...baseSession,
+      exercises: [{
+        ...baseSession.exercises[0],
+        sets: [{
+          ...baseSession.exercises[0].sets[0],
+          previous_performance: { loadKg: 47.5, reps: 11, rpe: 8, date: "2026-07-13" },
+        }],
+      }],
+    });
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    expect(await screen.findByText("ÚLTIMO TREINO")).toBeInTheDocument();
+    expect(screen.getByText("47,5 kg × 11 repetições · RPE 8")).toBeInTheDocument();
+    expect(screen.getByText("13/07/2026")).toBeInTheDocument();
   });
 
   it("informa as séries pendentes e finaliza somente após confirmação", async () => {
