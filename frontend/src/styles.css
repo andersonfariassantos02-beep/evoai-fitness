@@ -718,6 +718,10 @@ main { padding: 64px 0 52px; }
 .workout-progress { display: flex; width: min(900px, 100%); margin: 18px auto; gap: 14px; align-items: center; color: var(--navy); }
 .workout-progress span { overflow: hidden; flex: 1; height: 8px; border-radius: 99px; background: #dce4ef; }
 .workout-progress i { display: block; height: 100%; background: var(--green); transition: width 180ms ease; }
+.workout-set-sync { align-items: center; color: #526178; display: flex; font-size: .82rem; font-weight: 800; gap: .5rem; margin: -8px auto 16px; width: min(900px, 100%); }
+.workout-set-sync i { background: #208a61; border-radius: 50%; display: block; height: .55rem; width: .55rem; }
+.workout-set-sync--pending i { animation: pulse 1s infinite; background: #176bff; }
+.workout-set-sync--offline i, .workout-set-sync--error i { background: #d89519; }
 .workout-tools { display: flex; width: min(900px, 100%); margin: -8px auto 14px; gap: 8px; justify-content: flex-end; }
 .workout-tools button { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--navy); background: white; font-size: 11px; font-weight: 800; }
 .workout-tools button:disabled { opacity: .5; }
