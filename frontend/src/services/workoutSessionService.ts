@@ -7,7 +7,7 @@ import { buildWarmupPrescription } from "../lib/warmup";
 import { loadActiveProfileContext, restrictionSnapshot, type ProfileRestriction } from "./profileRestrictionService";
 
 export interface PreviousSetPerformance { loadKg: number; reps: number; rpe: number | null; date: string; }
-export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; is_warmup?: boolean; skipped_at: string | null; skip_reason: string | null; previous_performance?: PreviousSetPerformance | null; }
+export interface SetLog { id: string; set_number: number; target_reps_min: number; target_reps_max: number; actual_reps: number | null; load_kg: number | null; rpe: number | null; notes: string; completed: boolean; completed_at?: string | null; target_rest_seconds: number | null; actual_rest_seconds: number | null; is_extra: boolean; is_warmup?: boolean; skipped_at: string | null; skip_reason: string | null; previous_performance?: PreviousSetPerformance | null; }
 export interface ExerciseLog { id: string; exercise_key: string; exercise_name: string; original_exercise_key: string | null; substitution_reason: string | null; position: number; rest_seconds: number; transition_rest_seconds: number; recommendation: ProgressionRecommendation; personalBest: PersonalBest | null; sets: SetLog[]; }
 export type WorkoutSessionKind = "real" | "test";
 export interface WorkoutSession { id: string; training_date: string; workout_label: string; session_kind: WorkoutSessionKind; status: "active" | "paused" | "completed"; notes: string; session_rpe?: number | null; session_quality?: number | null; post_workout_discomfort?: boolean; profile_id: string | null; profile_name: string | null; applied_restrictions: ProfileRestriction[]; exercises: ExerciseLog[]; }
@@ -101,7 +101,7 @@ async function loadDetails(session: Omit<WorkoutSession, "exercises">): Promise<
   if (error) throw error;
   const result: ExerciseLog[] = [];
   for (const exercise of exercises ?? []) {
-    const { data: sets, error: setsError } = await supabase.from("set_logs").select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, target_rest_seconds, actual_rest_seconds, is_extra, is_warmup, skipped_at, skip_reason").eq("exercise_log_id", exercise.id).order("is_warmup", { ascending: false }).order("set_number");
+    const { data: sets, error: setsError } = await supabase.from("set_logs").select("id, set_number, target_reps_min, target_reps_max, actual_reps, load_kg, rpe, notes, completed, completed_at, target_rest_seconds, actual_rest_seconds, is_extra, is_warmup, skipped_at, skip_reason").eq("exercise_log_id", exercise.id).order("is_warmup", { ascending: false }).order("set_number");
     if (setsError) throw setsError;
     const currentSets = (sets ?? []) as SetLog[];
     const template = catalog.find((item) => item.key === exercise.exercise_key)
