@@ -149,6 +149,31 @@ describe("percurso principal do treino", () => {
     expect(screen.getByText("Próxima: Remada · série 2")).toBeInTheDocument();
   });
 
+  it("grava o descanso imediatamente ao concluir uma série", async () => {
+    const user = userEvent.setup();
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...baseSession,
+      exercises: [{
+        ...baseSession.exercises[0],
+        sets: [
+          { ...baseSession.exercises[0].sets[0] },
+          { ...baseSession.exercises[0].sets[0], id: "set-2", set_number: 2, completed: false },
+        ],
+      }],
+    });
+
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+    await user.click((await screen.findAllByRole("button", { name: "Concluir" }))[0]);
+
+    const persisted = JSON.parse(localStorage.getItem("evoai:active-rest:session-1") ?? "null");
+    expect(persisted).toEqual(expect.objectContaining({
+      sourceSetId: "set-1",
+      nextSetId: "set-2",
+      paused: false,
+      ready: false,
+    }));
+  });
+
   it("destaca um novo recorde pessoal no treino real", async () => {
     const user = userEvent.setup();
     startOrLoadWorkout.mockResolvedValueOnce({
