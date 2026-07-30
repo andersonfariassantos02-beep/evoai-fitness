@@ -1,15 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
+import ExerciseEvolutionPanel from "../components/ExerciseEvolutionPanel";
 import { useAuth } from "../contexts/AuthContext";
+import type { ExerciseEvolution } from "../lib/exerciseEvolution";
 import type { ExercisePersonalRecords } from "../lib/personalRecord";
+import { loadExerciseEvolution } from "../services/exerciseEvolutionService";
 import { loadPersonalRecords } from "../services/personalRecordService";
 
 function formatDate(value: string) {
   return value.split("-").reverse().join("/");
 }
 
+function todayKey() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
 export default function PersonalRecordsPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<ExercisePersonalRecords[]>([]);
+  const [evolution, setEvolution] = useState<ExerciseEvolution[]>([]);
+  const [selectedExerciseKey, setSelectedExerciseKey] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -18,8 +29,16 @@ export default function PersonalRecordsPage() {
     if (!user) return;
     let active = true;
     setLoading(true);
-    void loadPersonalRecords(user.id)
-      .then((data) => { if (active) setRecords(data); })
+    void Promise.all([
+      loadPersonalRecords(user.id),
+      loadExerciseEvolution(user.id, todayKey()).catch(() => []),
+    ])
+      .then(([recordData, evolutionData]) => {
+        if (!active) return;
+        setRecords(recordData);
+        setEvolution(evolutionData);
+        setSelectedExerciseKey(evolutionData[0]?.key ?? "");
+      })
       .catch(() => { if (active) setMessage("Não foi possível carregar seus recordes."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -50,6 +69,14 @@ export default function PersonalRecordsPage() {
         <article><small>MAIOR VOLUME</small><strong>{highestVolume.bestSessionVolume.volumeKg.toLocaleString("pt-BR")} <i>kg</i></strong><span>{highestVolume.name} · {formatDate(highestVolume.bestSessionVolume.date)}</span></article>
       </section>
 
+      <div id="exercise-evolution">
+        <ExerciseEvolutionPanel
+          exercises={evolution}
+          selectedExerciseKey={selectedExerciseKey}
+          onSelectExercise={setSelectedExerciseKey}
+        />
+      </div>
+
       <section className="records-catalog">
         <header>
           <div><span className="eyebrow">POR EXERCÍCIO</span><h2>{records.length} exercício(s) com histórico</h2></div>
@@ -64,6 +91,17 @@ export default function PersonalRecordsPage() {
               <div><dt>Melhor 1RM estimada</dt><dd>{record.bestEstimated1Rm.estimated1Rm.toLocaleString("pt-BR")} kg</dd><small>{record.bestEstimated1Rm.loadKg.toLocaleString("pt-BR")} kg × {record.bestEstimated1Rm.reps} · {formatDate(record.bestEstimated1Rm.date)}</small></div>
               <div><dt>Maior volume</dt><dd>{record.bestSessionVolume.volumeKg.toLocaleString("pt-BR")} kg</dd><small>{formatDate(record.bestSessionVolume.date)}</small></div>
             </dl>
+            <button
+              className="record-card__evolution"
+              type="button"
+              disabled={!evolution.some((item) => item.key === record.key)}
+              onClick={() => {
+                setSelectedExerciseKey(record.key);
+                document.getElementById("exercise-evolution")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              Ver evolução
+            </button>
           </article>)}
         </div>
       </section>

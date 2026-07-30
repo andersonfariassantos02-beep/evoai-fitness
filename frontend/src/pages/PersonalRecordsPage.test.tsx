@@ -3,9 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PersonalRecordsPage from "./PersonalRecordsPage";
 
 const load = vi.fn();
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }));
+const loadEvolution = vi.fn();
+const authUser = { id: "user-1" };
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: authUser }) }));
 vi.mock("../services/personalRecordService", () => ({
   loadPersonalRecords: (...args: unknown[]) => load(...args),
+}));
+vi.mock("../services/exerciseEvolutionService", () => ({
+  loadExerciseEvolution: (...args: unknown[]) => loadEvolution(...args),
 }));
 
 const records = [{
@@ -23,11 +28,28 @@ const records = [{
   bestEstimated1Rm: { loadKg: 70, reps: 8, estimated1Rm: 88.7, date: "2026-07-29" },
   bestSessionVolume: { volumeKg: 1800, date: "2026-07-29" },
 }];
+const evolution = [{
+  key: "bench",
+  name: "Supino articulado",
+  points: [
+    { date: "2026-07-16", loadKg: 70, reps: 10, volume: 1800, estimated1Rm: 93.3 },
+    { date: "2026-07-30", loadKg: 80, reps: 6, volume: 2200, estimated1Rm: 96 },
+  ],
+}, {
+  key: "row",
+  name: "Remada",
+  points: [
+    { date: "2026-07-15", loadKg: 65, reps: 8, volume: 1500, estimated1Rm: 82.3 },
+    { date: "2026-07-29", loadKg: 70, reps: 8, volume: 1800, estimated1Rm: 88.7 },
+  ],
+}];
 
 describe("página de recordes pessoais", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     load.mockResolvedValue(records);
+    loadEvolution.mockResolvedValue(evolution);
+    HTMLElement.prototype.scrollIntoView = vi.fn();
   });
   afterEach(cleanup);
 
@@ -38,6 +60,17 @@ describe("página de recordes pessoais", () => {
     expect(screen.getAllByText("Supino articulado · 30/07/2026")).not.toHaveLength(0);
     expect(screen.getByRole("heading", { name: "Supino articulado" })).toBeInTheDocument();
     expect(screen.getAllByText("100 kg")).not.toHaveLength(0);
+  });
+
+  it("abre a evolução do exercício selecionado e compara com a sessão anterior", async () => {
+    render(<PersonalRecordsPage />);
+    await screen.findByRole("heading", { name: "Supino articulado" });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver evolução" })[1]);
+
+    expect(screen.getByLabelText("Exercício do gráfico")).toHaveValue("row");
+    expect(screen.getByText("Comparação com a anterior")).toBeInTheDocument();
+    expect(screen.getByText("+7,7%")).toBeInTheDocument();
   });
 
   it("filtra os recordes pelo nome do exercício", async () => {
