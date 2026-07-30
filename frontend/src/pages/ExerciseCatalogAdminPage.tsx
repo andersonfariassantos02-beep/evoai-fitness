@@ -16,9 +16,11 @@ const MUSCLES = [
   ["ombros", "Ombros"],
   ["quadriceps", "Quadríceps"],
   ["posteriores", "Posteriores de coxa"],
+  ["gluteos", "Glúteos"],
   ["panturrilhas", "Panturrilhas"],
   ["biceps", "Bíceps"],
   ["triceps", "Tríceps"],
+  ["core", "Core"],
 ] as const;
 
 function emptyExercise(muscle = ""): ExerciseCatalogAdminItem {
@@ -36,6 +38,16 @@ function emptyExercise(muscle = ""): ExerciseCatalogAdminItem {
     cautions: [],
     media_url: null,
     equipment_variants: [],
+    muscle_region: "",
+    secondary_muscles: [],
+    mechanics: "composto",
+    laterality: "bilateral",
+    resistance_profile: "variavel",
+    movement_vector: "",
+    systemic_demand: "moderada",
+    stability_demand: "moderada",
+    technical_complexity: "moderada",
+    exercise_family: "",
     active: true,
   };
 }
@@ -154,7 +166,8 @@ export default function ExerciseCatalogAdminPage() {
                   <article className={`admin-item ${item.active ? "" : "admin-item--inactive"}`} key={item.key}>
                     <div>
                       <strong>{item.name}</strong>
-                      <small>{item.equipment} · {item.default_sets}×{item.reps_min}–{item.reps_max}</small>
+                      <small>{item.equipment} · {item.mechanics === "isometrico" ? "isométrico" : item.mechanics}</small>
+                      <small>{item.muscle_region || item.movement_vector || item.movement}</small>
                       <small>{item.instructions ? "Orientação cadastrada" : "Orientação pendente"}{item.media_url ? " · mídia vinculada" : ""}</small>
                     </div>
                     <div>
@@ -211,18 +224,42 @@ export default function ExerciseCatalogAdminPage() {
             <option value="">Selecione</option>
             {MUSCLES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
           </select></label>
-          <label>Padrão de movimento<input required value={form.movement} onChange={(event) => setForm({ ...form, movement: event.target.value })} placeholder="Ex.: empurrar horizontal" /></label>
+          <label>Região muscular<input value={form.muscle_region} onChange={(event) => setForm({ ...form, muscle_region: event.target.value })} placeholder="Ex.: fibras claviculares" /></label>
+          <label>Padrão de movimento<input required value={form.movement} onChange={(event) => setForm({ ...form, movement: event.target.value })} placeholder="Ex.: empurrar-horizontal" /></label>
+          <label>Vetor do movimento<input required value={form.movement_vector} onChange={(event) => setForm({ ...form, movement_vector: event.target.value })} placeholder="Ex.: empurrar diagonal convergente" /></label>
           <label>Equipamento<input required value={form.equipment} onChange={(event) => setForm({ ...form, equipment: event.target.value })} placeholder="Ex.: máquina, halteres ou cabo" /></label>
 
-          <div className="admin-numbers">
-            <label>Séries<input type="number" min="1" max="10" value={form.default_sets} onChange={(event) => setForm({ ...form, default_sets: +event.target.value })} /></label>
-            <label>Reps mín.<input type="number" min="1" value={form.reps_min} onChange={(event) => setForm({ ...form, reps_min: +event.target.value })} /></label>
-            <label>Reps máx.<input type="number" min="1" value={form.reps_max} onChange={(event) => setForm({ ...form, reps_max: +event.target.value })} /></label>
+          <div className="admin-numbers catalog-taxonomy-grid">
+            <label>Mecânica<select value={form.mechanics} onChange={(event) => setForm({ ...form, mechanics: event.target.value as ExerciseCatalogAdminItem["mechanics"] })}>
+              <option value="composto">Composto</option><option value="isolado">Isolado</option><option value="isometrico">Isométrico</option>
+            </select></label>
+            <label>Lateralidade<select value={form.laterality} onChange={(event) => setForm({ ...form, laterality: event.target.value as ExerciseCatalogAdminItem["laterality"] })}>
+              <option value="bilateral">Bilateral</option><option value="unilateral">Unilateral</option><option value="alternado">Alternado</option>
+            </select></label>
+            <label>Perfil de resistência<select value={form.resistance_profile} onChange={(event) => setForm({ ...form, resistance_profile: event.target.value as ExerciseCatalogAdminItem["resistance_profile"] })}>
+              <option value="alongada">Maior na posição alongada</option><option value="intermediaria">Maior na posição intermediária</option>
+              <option value="encurtada">Maior na posição encurtada</option><option value="continua">Tensão contínua</option>
+              <option value="variavel">Variável</option><option value="dependente-da-maquina">Dependente da máquina</option>
+            </select></label>
+          </div>
+
+          <div className="admin-numbers catalog-taxonomy-grid">
+            <label>Demanda sistêmica<select value={form.systemic_demand} onChange={(event) => setForm({ ...form, systemic_demand: event.target.value as ExerciseCatalogAdminItem["systemic_demand"] })}>
+              <option value="baixa">Baixa</option><option value="moderada">Moderada</option><option value="alta">Alta</option>
+            </select></label>
+            <label>Demanda de estabilidade<select value={form.stability_demand} onChange={(event) => setForm({ ...form, stability_demand: event.target.value as ExerciseCatalogAdminItem["stability_demand"] })}>
+              <option value="baixa">Baixa</option><option value="moderada">Moderada</option><option value="alta">Alta</option>
+            </select></label>
+            <label>Complexidade técnica<select value={form.technical_complexity} onChange={(event) => setForm({ ...form, technical_complexity: event.target.value as ExerciseCatalogAdminItem["technical_complexity"] })}>
+              <option value="baixa">Baixa</option><option value="moderada">Moderada</option><option value="alta">Alta</option>
+            </select></label>
           </div>
 
           <details className="catalog-advanced-fields">
             <summary>Orientações e dados avançados</summary>
             <label>Identificador técnico<input required readOnly={editing} value={form.key} onChange={(event) => { setKeyEdited(true); setForm({ ...form, key: event.target.value }); }} /></label>
+            <label>Família do exercício<input value={form.exercise_family} onChange={(event) => setForm({ ...form, exercise_family: event.target.value })} placeholder="Ex.: supino-inclinado" /></label>
+            <label>Músculos secundários <small>(separados por vírgulas)</small><input value={form.secondary_muscles.join(", ")} onChange={(event) => setForm({ ...form, secondary_muscles: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) })} /></label>
             <label>Evitar quando <small>(separado por vírgulas)</small><input value={form.avoid_when.join(", ")} onChange={(event) => setForm({ ...form, avoid_when: event.target.value.split(",").map((value) => value.trim()) })} /></label>
             <label>Instruções técnicas<textarea value={form.instructions} onChange={(event) => setForm({ ...form, instructions: event.target.value })} placeholder="Passos claros para executar o movimento" /></label>
             <label>Pontos de atenção <small>(separados por vírgulas)</small><input value={form.cautions.join(", ")} onChange={(event) => setForm({ ...form, cautions: event.target.value.split(",").map((value) => value.trim()) })} /></label>

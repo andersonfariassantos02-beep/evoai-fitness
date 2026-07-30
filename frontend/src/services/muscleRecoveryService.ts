@@ -2,7 +2,7 @@ import { calculateMuscleRecovery, type MuscleRecovery, type MuscleStimulus } fro
 import { getSupabaseClient } from "../lib/supabase";
 import type { MuscleGroup } from "../lib/workoutTemplates";
 
-const TRACKED_MUSCLES: MuscleGroup[] = ["peito", "costas", "ombros", "quadriceps", "posteriores", "gluteos", "panturrilhas", "biceps", "triceps"];
+const TRACKED_MUSCLES: MuscleGroup[] = ["peito", "costas", "ombros", "quadriceps", "posteriores", "gluteos", "panturrilhas", "biceps", "triceps", "core"];
 
 interface RecoverySessionRow {
   completed_at: string | null;

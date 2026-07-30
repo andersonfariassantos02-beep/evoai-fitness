@@ -6,7 +6,13 @@ describe("Banco Mestre de Exercícios", () => {
     expect(mapExerciseCatalogRow({
       key: "leg-press", name: "Leg press", default_sets: 4, reps_min: 10, reps_max: 15,
       muscle: "quadriceps", movement: "agachar", equipment: "máquina", avoid_when: ["joelho"],
-    })).toMatchObject({ key: "leg-press", sets: 4, repsMin: 10, repsMax: 15, avoidWhen: ["joelho"] });
+      muscle_region: "reto femoral e vastos", mechanics: "composto",
+      systemic_demand: "alta", stability_demand: "baixa",
+    })).toMatchObject({
+      key: "leg-press", sets: 4, repsMin: 10, repsMax: 15, avoidWhen: ["joelho"],
+      muscleRegion: "reto femoral e vastos", mechanics: "composto",
+      restSeconds: 165, transitionRestSeconds: 210,
+    });
   });
 
   it("normaliza instruções, cuidados, mídia e variações", () => {
@@ -23,11 +29,16 @@ describe("Banco Mestre de Exercícios", () => {
       key: "base", name: "Base", default_sets: 3, reps_min: 8, reps_max: 12,
       muscle: "", movement: "", equipment: "", avoid_when: [], instructions: "",
       cautions: [], media_url: null, equipment_variants: [], active: true,
+      muscle_region: "", secondary_muscles: [], mechanics: "composto",
+      laterality: "bilateral", resistance_profile: "variavel", movement_vector: "",
+      systemic_demand: "moderada", stability_demand: "moderada",
+      technical_complexity: "moderada", exercise_family: "",
     };
     const groups = groupExerciseCatalogByMuscle([
       { ...base, key: "row", name: "Remada", muscle: "costas" },
       { ...base, key: "press", name: "Press", muscle: "peito" },
       { ...base, key: "curl", name: "Rosca", muscle: "biceps" },
+      { ...base, key: "plank", name: "Prancha", muscle: "core" },
       { ...base, key: "pulldown", name: "Puxada", muscle: "costas" },
     ]);
 
@@ -35,6 +46,7 @@ describe("Banco Mestre de Exercícios", () => {
       ["Peito", ["press"]],
       ["Costas", ["row", "pulldown"]],
       ["Bíceps", ["curl"]],
+      ["Core", ["plank"]],
     ]);
   });
 });
