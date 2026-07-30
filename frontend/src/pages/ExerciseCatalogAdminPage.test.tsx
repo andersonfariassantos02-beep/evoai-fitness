@@ -36,6 +36,16 @@ const base = {
   cautions: [],
   media_url: null,
   equipment_variants: [],
+  muscle_region: "fibras esternocostais",
+  secondary_muscles: [],
+  mechanics: "composto",
+  laterality: "bilateral",
+  resistance_profile: "variavel",
+  movement_vector: "empurrar horizontal",
+  systemic_demand: "moderada",
+  stability_demand: "baixa",
+  technical_complexity: "baixa",
+  exercise_family: "supino",
   active: true,
 };
 
@@ -88,7 +98,12 @@ describe("catálogo administrativo compacto", () => {
     expect(within(dialog).getByLabelText("Nome do exercício")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Grupo muscular")).toHaveValue("peito");
     expect(within(dialog).getByLabelText("Padrão de movimento")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Mecânica")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Perfil de resistência")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Demanda sistêmica")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Equipamento")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Séries")).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Reps mín.")).not.toBeInTheDocument();
     expect(within(dialog).queryByText("key")).not.toBeInTheDocument();
   });
 });

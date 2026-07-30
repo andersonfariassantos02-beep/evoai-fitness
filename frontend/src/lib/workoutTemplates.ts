@@ -1,21 +1,45 @@
-export type MuscleGroup = "peito" | "costas" | "ombros" | "quadriceps" | "posteriores" | "gluteos" | "panturrilhas" | "biceps" | "triceps";
-export type MovementPattern = "empurrar-horizontal" | "puxar-horizontal" | "empurrar-vertical" | "puxar-vertical" | "agachar" | "flexionar-joelho" | "estender-joelho" | "estender-quadril" | "panturrilha" | "isolar-braco";
+import type {
+  DemandLevel,
+  ExerciseLaterality,
+  ExerciseMechanics,
+  MovementPattern,
+  MuscleGroup,
+  ResistanceProfile,
+} from "./exerciseTaxonomy";
 
-export interface WorkoutExerciseTemplate {
+export type { MovementPattern, MuscleGroup } from "./exerciseTaxonomy";
+
+export interface ExerciseDefinition {
   key: string;
   name: string;
-  sets: number;
-  repsMin: number;
-  repsMax: number;
   muscle: MuscleGroup;
   movement: MovementPattern;
   equipment: string;
   stimulus?: string;
+  avoidWhen?: string[];
+  muscleRegion?: string;
+  secondaryMuscles?: MuscleGroup[];
+  mechanics?: ExerciseMechanics;
+  laterality?: ExerciseLaterality;
+  resistanceProfile?: ResistanceProfile;
+  movementVector?: string;
+  systemicDemand?: DemandLevel;
+  stabilityDemand?: DemandLevel;
+  technicalComplexity?: DemandLevel;
+  exerciseFamily?: string;
+}
+
+export interface ExercisePrescription {
+  sets: number;
+  repsMin: number;
+  repsMax: number;
   restSeconds?: number;
   transitionRestSeconds?: number;
   setRepRanges?: ReadonlyArray<{ min: number; max: number }>;
-  avoidWhen?: string[];
+  targetRpe?: number;
 }
+
+export interface WorkoutExerciseTemplate extends ExerciseDefinition, ExercisePrescription {}
 
 export const exerciseCatalog: WorkoutExerciseTemplate[] = [
   { key: "machine-bench-press", name: "Supino articulado", sets: 3, repsMin: 10, repsMax: 12, muscle: "peito", movement: "empurrar-horizontal", equipment: "máquina articulada", stimulus: "peito-press-horizontal" },

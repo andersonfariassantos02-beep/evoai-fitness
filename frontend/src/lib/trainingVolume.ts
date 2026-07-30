@@ -20,7 +20,7 @@ export interface PerformedExerciseVolume {
 
 const MUSCLE_ORDER: MuscleGroup[] = [
   "peito", "costas", "ombros", "quadriceps", "posteriores", "gluteos",
-  "panturrilhas", "biceps", "triceps",
+  "panturrilhas", "biceps", "triceps", "core",
 ];
 
 export const MUSCLE_LABELS: Record<MuscleGroup, string> = {
@@ -33,6 +33,7 @@ export const MUSCLE_LABELS: Record<MuscleGroup, string> = {
   panturrilhas: "Panturrilhas",
   biceps: "Bíceps",
   triceps: "Tríceps",
+  core: "Core",
 };
 
 function secondaryContributions(exercise: WorkoutExerciseTemplate): Partial<Record<MuscleGroup, number>> {
