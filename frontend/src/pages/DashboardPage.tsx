@@ -34,6 +34,9 @@ import { endDeload, loadActiveDeload, startDeload, type DeloadPeriod } from "../
 import { loadActiveTrainingCycle, type TrainingCycle } from "../services/trainingCycleService";
 import { calculateTrainingCycleProgress } from "../lib/trainingCycle";
 import { loadWorkoutReport } from "../services/reportService";
+import { loadExerciseGoals } from "../services/exerciseGoalService";
+import { loadPersonalRecords } from "../services/personalRecordService";
+import { buildExerciseGoalSummary } from "../lib/exerciseGoalProgress";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -94,6 +97,8 @@ export default function DashboardPage() {
   const [completedMuscleVolume, setCompletedMuscleVolume] = useState<MuscleVolumeSummary[]>([]);
   const [monthlyCompletedDates, setMonthlyCompletedDates] = useState<string[]>([]);
   const [monthlyGoalLoading, setMonthlyGoalLoading] = useState(true);
+  const [exerciseGoalSummary, setExerciseGoalSummary] = useState(() => buildExerciseGoalSummary([], []));
+  const [exerciseGoalsLoading, setExerciseGoalsLoading] = useState(true);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -197,6 +202,26 @@ export default function DashboardPage() {
       .finally(() => { if (active) setMonthlyGoalLoading(false); });
     return () => { active = false; };
   }, [calendarCursor, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    setExerciseGoalsLoading(true);
+    void Promise.all([
+      loadExerciseGoals(user.id),
+      loadPersonalRecords(user.id),
+    ])
+      .then(([goals, records]) => {
+        if (active) setExerciseGoalSummary(buildExerciseGoalSummary(goals, records));
+      })
+      .catch(() => {
+        if (active) setExerciseGoalSummary(buildExerciseGoalSummary([], []));
+      })
+      .finally(() => {
+        if (active) setExerciseGoalsLoading(false);
+      });
+    return () => { active = false; };
+  }, [user]);
 
   useEffect(() => {
     saveCalendarEntries(storageKey, entries);
@@ -373,6 +398,43 @@ export default function DashboardPage() {
             </div>
             <a href="#/perfil">Ajustar foco <b aria-hidden="true">→</b></a>
           </article>
+        </section>
+
+        <section className="performance-goals-summary" aria-labelledby="performance-goals-title">
+          <div>
+            <span className="eyebrow">METAS DE DESEMPENHO</span>
+            <h2 id="performance-goals-title">
+              {exerciseGoalsLoading
+                ? "Calculando seu progresso…"
+                : exerciseGoalSummary.featured
+                  ? exerciseGoalSummary.featured.reached
+                    ? "Meta alcançada"
+                    : "Você está mais perto desta meta"
+                  : "Transforme evolução em objetivo"}
+            </h2>
+            {!exerciseGoalsLoading && exerciseGoalSummary.featured && <p>
+              <strong>{exerciseGoalSummary.featured.goal.exerciseName}</strong>
+              {" · "}
+              {exerciseGoalSummary.featured.currentValue.toLocaleString("pt-BR")} de{" "}
+              {exerciseGoalSummary.featured.goal.targetValue.toLocaleString("pt-BR")} kg
+              {exerciseGoalSummary.featured.goal.targetDate
+                ? ` · até ${new Intl.DateTimeFormat("pt-BR").format(fromDateKey(exerciseGoalSummary.featured.goal.targetDate))}`
+                : ""}
+            </p>}
+            {!exerciseGoalsLoading && !exerciseGoalSummary.featured && <p>
+              Defina uma meta de carga ou 1RM estimada para acompanhar seu avanço em cada exercício.
+            </p>}
+          </div>
+          <div className="performance-goals-summary__progress">
+            {exerciseGoalSummary.featured && <>
+              <div><strong>{exerciseGoalSummary.featured.progressPercent}%</strong><span>da meta</span></div>
+              <div className="overview-progress" aria-label={`${exerciseGoalSummary.featured.progressPercent}% da meta do exercício`}>
+                <i style={{ width: `${exerciseGoalSummary.featured.progressPercent}%` }} />
+              </div>
+              <small>{exerciseGoalSummary.reachedCount} alcançada(s) · {exerciseGoalSummary.activeCount} ativa(s)</small>
+            </>}
+            <a href="#/recordes">{exerciseGoalSummary.activeCount ? "Ver todas as metas" : "Definir primeira meta"} <b aria-hidden="true">→</b></a>
+          </div>
         </section>
 
         <section className="cycle-summary" aria-labelledby="cycle-summary-title">
