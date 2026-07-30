@@ -33,30 +33,56 @@ function formatNumber(value: number | null, unit: string) {
   return value === null ? "—" : `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${unit}`;
 }
 
-function WeightTrend({ measurements }: { measurements: BodyMeasurement[] }) {
+type TrendMetric = Exclude<keyof BodyMeasurement, "id" | "measuredOn" | "notes">;
+
+const trendMetrics: Array<{ key: TrendMetric; label: string; unit: string }> = [
+  { key: "weightKg", label: "Peso", unit: "kg" },
+  { key: "bodyFatPercentage", label: "Gordura", unit: "%" },
+  { key: "waistCm", label: "Cintura", unit: "cm" },
+  { key: "chestCm", label: "Peito", unit: "cm" },
+  { key: "hipsCm", label: "Quadril", unit: "cm" },
+  { key: "armCm", label: "Braço", unit: "cm" },
+  { key: "thighCm", label: "Coxa", unit: "cm" },
+];
+
+function MeasurementTrend({
+  measurements,
+  metric,
+}: {
+  measurements: BodyMeasurement[];
+  metric: (typeof trendMetrics)[number];
+}) {
   const points = measurements
-    .filter((item) => item.weightKg !== null)
+    .filter((item) => item[metric.key] !== null)
     .slice()
     .reverse()
     .slice(-12);
-  if (points.length < 2) return <p className="body-progress-empty">Registre peso em pelo menos duas datas para visualizar a tendência.</p>;
+  if (points.length < 2) return <p className="body-progress-empty">Registre {metric.label.toLocaleLowerCase("pt-BR")} em pelo menos duas datas para visualizar a tendência.</p>;
 
-  const weights = points.map((item) => item.weightKg as number);
-  const minimum = Math.min(...weights);
-  const maximum = Math.max(...weights);
+  const values = points.map((item) => item[metric.key] as number);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
   const range = maximum - minimum || 1;
   const coordinates = points.map((item, index) => {
     const x = points.length === 1 ? 50 : 5 + (index / (points.length - 1)) * 90;
-    const y = 88 - (((item.weightKg as number) - minimum) / range) * 70;
+    const y = 88 - (((item[metric.key] as number) - minimum) / range) * 70;
     return { x, y, item };
   });
+  const initial = points[0][metric.key] as number;
+  const final = points.at(-1)?.[metric.key] as number;
+  const change = Math.round((final - initial) * 10) / 10;
 
   return <div className="body-progress-chart">
-    <svg viewBox="0 0 100 100" role="img" aria-label="Evolução do peso corporal">
+    <div className="body-progress-chart__summary">
+      <span>Primeiro<strong>{formatNumber(initial, metric.unit)}</strong></span>
+      <span>Atual<strong>{formatNumber(final, metric.unit)}</strong></span>
+      <span>Variação<strong className={change === 0 ? "" : change < 0 ? "negative" : "positive"}>{change > 0 ? "+" : ""}{formatNumber(change, metric.unit)}</strong></span>
+    </div>
+    <svg viewBox="0 0 100 100" role="img" aria-label={`Evolução de ${metric.label.toLocaleLowerCase("pt-BR")}`}>
       <polyline points={coordinates.map(({ x, y }) => `${x},${y}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-      {coordinates.map(({ x, y, item }) => <circle key={item.id} cx={x} cy={y} r="2.4"><title>{`${item.measuredOn}: ${item.weightKg} kg`}</title></circle>)}
+      {coordinates.map(({ x, y, item }) => <circle key={item.id} cx={x} cy={y} r="2.4"><title>{`${item.measuredOn}: ${item[metric.key]} ${metric.unit}`}</title></circle>)}
     </svg>
-    <div><span>{points[0].measuredOn.split("-").reverse().join("/")}</span><strong>{minimum.toLocaleString("pt-BR")}–{maximum.toLocaleString("pt-BR")} kg</strong><span>{points.at(-1)?.measuredOn.split("-").reverse().join("/")}</span></div>
+    <div className="body-progress-chart__axis"><span>{points[0].measuredOn.split("-").reverse().join("/")}</span><strong>{minimum.toLocaleString("pt-BR")}–{maximum.toLocaleString("pt-BR")} {metric.unit}</strong><span>{points.at(-1)?.measuredOn.split("-").reverse().join("/")}</span></div>
   </div>;
 }
 
@@ -65,6 +91,7 @@ export default function BodyProgressPage() {
   const [measurements, setMeasurements] = useState<BodyMeasurement[]>([]);
   const [input, setInput] = useState<BodyMeasurementInput>(emptyInput);
   const [message, setMessage] = useState("");
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>("weightKg");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -125,6 +152,7 @@ export default function BodyProgressPage() {
   }
 
   const latest = measurements[0];
+  const selectedTrend = trendMetrics.find((metric) => metric.key === trendMetric) ?? trendMetrics[0];
 
   return <main className="body-progress-page">
     <header className="body-progress-header">
@@ -160,8 +188,22 @@ export default function BodyProgressPage() {
       </form>
 
       <section className="body-progress-card">
-        <div><span className="eyebrow">TENDÊNCIA</span><h2>Peso corporal</h2></div>
-        <WeightTrend measurements={measurements} />
+        <div><span className="eyebrow">TENDÊNCIA</span><h2>{selectedTrend.label}</h2></div>
+        <div className="body-progress-metric-selector" role="tablist" aria-label="Indicador do gráfico">
+          {trendMetrics.map((metric) => (
+            <button
+              key={metric.key}
+              type="button"
+              role="tab"
+              aria-selected={trendMetric === metric.key}
+              className={trendMetric === metric.key ? "active" : ""}
+              onClick={() => setTrendMetric(metric.key)}
+            >
+              {metric.label}
+            </button>
+          ))}
+        </div>
+        <MeasurementTrend measurements={measurements} metric={selectedTrend} />
       </section>
 
       <section className="body-progress-card body-progress-history">
