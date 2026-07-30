@@ -9,6 +9,7 @@ import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPresc
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
 import { evaluatePersonalRecord } from "../lib/personalRecord";
+import { clearCachedWorkoutSession, loadCachedWorkoutSession, saveCachedWorkoutSession } from "../lib/workoutSessionCache";
 
 interface ActiveRest {
   sourceExerciseId: string;
@@ -172,29 +173,36 @@ export default function WorkoutSessionPage() {
   const label = search.get("label") || "Treino planejado";
   const completedWasPlanned = search.get("planned") === "1";
   const testMode = search.get("test") === "1";
+  const sessionKind = testMode ? "test" : "real";
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [session, setSession] = useState<WorkoutSession | null>(null);
-  const [message, setMessage] = useState("Carregando treino…");
-  const [profileRestrictions, setProfileRestrictions] = useState<ProfileRestriction[]>([]);
+  const cachedSession = useRef(user && date ? loadCachedWorkoutSession(user.id, date, sessionKind) : null);
+  const [session, setSession] = useState<WorkoutSession | null>(cachedSession.current);
+  const [message, setMessage] = useState(cachedSession.current ? "Sincronizando treino em segundo plano…" : "Carregando treino…");
+  const [profileRestrictions, setProfileRestrictions] = useState<ProfileRestriction[]>(cachedSession.current?.applied_restrictions ?? []);
   const [guidanceByKey, setGuidanceByKey] = useState<Record<string, ExerciseGuidance>>({});
-  const [activeRest, setActiveRest] = useState<ActiveRest | null>(null);
+  const [activeRest, setActiveRest] = useState<ActiveRest | null>(() => cachedSession.current ? loadPersistedRest(cachedSession.current) : null);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("evoai-rest-sound") !== "off");
   const [addingExerciseId, setAddingExerciseId] = useState<string | null>(null);
   const [changingWarmup, setChangingWarmup] = useState(false);
   const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
   const [skipReason, setSkipReason] = useState("Treino encerrado antes do planejado");
   const [finishing, setFinishing] = useState(false);
-  const [checkout, setCheckout] = useState<WorkoutCheckout>({ sessionRpe: 8, sessionQuality: 4, discomfort: false });
+  const [checkout, setCheckout] = useState<WorkoutCheckout>({
+    sessionRpe: cachedSession.current?.session_rpe ?? 8,
+    sessionQuality: cachedSession.current?.session_quality ?? 4,
+    discomfort: Boolean(cachedSession.current?.post_workout_discomfort),
+  });
   const restWasFinalized = useRef(false);
-  const hydratedRestSessionId = useRef<string | null>(null);
+  const hydratedRestSessionId = useRef<string | null>(cachedSession.current?.id ?? null);
 
   useEffect(() => {
     if (!user || !date) return;
-    void startOrLoadWorkout(user.id, date, label, testMode ? "test" : "real")
+    void startOrLoadWorkout(user.id, date, label, sessionKind)
       .then((data) => {
         const restoredRest = loadPersistedRest(data);
         hydratedRestSessionId.current = data.id;
+        saveCachedWorkoutSession(user.id, date, sessionKind, data);
         setSession(data);
         setActiveRest(restoredRest);
         setProfileRestrictions(data.applied_restrictions);
@@ -205,12 +213,19 @@ export default function WorkoutSessionPage() {
         });
         setMessage("");
       })
-      .catch((error) => setMessage(error instanceof Error && error.message.startsWith("PROFILE_RESTRICTION_BLOCKS_PLAN")
+      .catch((error) => setMessage(session
+        ? "Treino restaurado neste aparelho. A sincronização será retomada quando a conexão responder."
+        : error instanceof Error && error.message.startsWith("PROFILE_RESTRICTION_BLOCKS_PLAN")
         ? "As restrições do perfil bloqueiam um exercício sem substituto seguro. Revise o perfil antes de iniciar."
         : error instanceof Error && error.message === "MULTIPLE_ACTIVE_LINKED_PROFILES"
           ? "Há mais de um perfil ativo ligado à sua conta. Selecione ou desative um perfil antes de planejar o treino."
           : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
-  }, [date, label, testMode, user]);
+  }, [date, label, sessionKind, user]);
+
+  useEffect(() => {
+    if (!session || !user || !date) return;
+    saveCachedWorkoutSession(user.id, date, sessionKind, session);
+  }, [date, session, sessionKind, user]);
 
   useEffect(() => {
     if (!session || hydratedRestSessionId.current !== session.id) return;
@@ -511,6 +526,7 @@ export default function WorkoutSessionPage() {
   async function completeNavigation() {
     if (!session || !user) return;
     persistRestTimer(session.id, null);
+    clearCachedWorkoutSession(user.id, date, sessionKind);
     setActiveRest(null);
     if (testMode) {
       navigate("/admin/testes");
