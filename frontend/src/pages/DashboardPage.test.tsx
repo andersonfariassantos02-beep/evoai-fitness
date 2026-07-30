@@ -19,6 +19,16 @@ const mocks = vi.hoisted(() => ({
   startDeload: vi.fn(),
   endDeload: vi.fn().mockResolvedValue(undefined),
   loadActiveTrainingCycle: vi.fn().mockResolvedValue(null),
+  loadExerciseGoals: vi.fn().mockResolvedValue([{
+    id: "goal-1", exerciseKey: "bench", exerciseName: "Supino articulado",
+    metric: "load", targetValue: 100, targetDate: "2026-08-31",
+  }]),
+  loadPersonalRecords: vi.fn().mockResolvedValue([{
+    key: "bench", name: "Supino articulado", sessions: 2,
+    bestLoad: { loadKg: 80, reps: 8, date: "2026-07-29" },
+    bestEstimated1Rm: { estimated1Rm: 101, loadKg: 80, reps: 8, date: "2026-07-29" },
+    bestSessionVolume: { volumeKg: 2400, date: "2026-07-29" },
+  }]),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -68,6 +78,12 @@ vi.mock("../services/weeklyMuscleVolumeService", () => ({
 vi.mock("../services/monthlyTrainingGoalService", () => ({
   loadMonthlyCompletedWorkoutDates: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../services/exerciseGoalService", () => ({
+  loadExerciseGoals: (...args: unknown[]) => mocks.loadExerciseGoals(...args),
+}));
+vi.mock("../services/personalRecordService", () => ({
+  loadPersonalRecords: (...args: unknown[]) => mocks.loadPersonalRecords(...args),
+}));
 
 describe("painel principal", () => {
   beforeEach(() => {
@@ -99,6 +115,9 @@ describe("painel principal", () => {
     expect(await screen.findByRole("heading", { name: "Séries da semana" })).toBeInTheDocument();
     expect(screen.getByText(/6 de .* séries/)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Defina sua meta no calendário" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Você está mais perto desta meta" })).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.includes("80 de 100 kg") === true)).toBeInTheDocument();
+    expect(screen.getByLabelText("80% da meta do exercício")).toBeInTheDocument();
   });
 
   it("permite confirmar e ativar o deload sugerido", async () => {
