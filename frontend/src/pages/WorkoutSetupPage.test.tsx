@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorkoutSetupPage from "./WorkoutSetupPage";
 
-const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness } = vi.hoisted(() => {
+const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness, loadActiveDeload } = vi.hoisted(() => {
   const row = { key: "row", name: "Remada", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "máquina" };
   const legPress = { key: "leg-press", name: "Leg press", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "agachar", equipment: "máquina" };
   return {
@@ -16,6 +16,7 @@ const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWork
     previewAutomaticWorkout: vi.fn().mockResolvedValue([row, legPress]),
     loadDailyReadiness: vi.fn().mockResolvedValue(null),
     saveDailyReadiness: vi.fn().mockResolvedValue(undefined),
+    loadActiveDeload: vi.fn().mockResolvedValue(null),
   };
 });
 
@@ -39,13 +40,16 @@ vi.mock("../services/readinessService", () => ({
   loadDailyReadiness: (...args: unknown[]) => loadDailyReadiness(...args),
   saveDailyReadiness: (...args: unknown[]) => saveDailyReadiness(...args),
 }));
+vi.mock("../services/deloadService", () => ({
+  loadActiveDeload: (...args: unknown[]) => loadActiveDeload(...args),
+}));
 
 function renderSetup() {
   return render(<MemoryRouter initialEntries={["/preparar-treino/2026-07-22?label=Full%20body%20A&planned=1"]}><Routes><Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} /><Route path="/treino/:date" element={<p>Sessão aberta</p>} /></Routes></MemoryRouter>);
 }
 
 describe("preparação do treino", () => {
-  beforeEach(() => { vi.clearAllMocks(); loadExistingWorkout.mockResolvedValue(null); loadDailyReadiness.mockResolvedValue(null); previewAutomaticWorkout.mockResolvedValue([row, legPress]); });
+  beforeEach(() => { vi.clearAllMocks(); loadExistingWorkout.mockResolvedValue(null); loadDailyReadiness.mockResolvedValue(null); loadActiveDeload.mockResolvedValue(null); previewAutomaticWorkout.mockResolvedValue([row, legPress]); });
   afterEach(cleanup);
 
   it("aguarda a consulta do treino salvo sem exibir escolhas prematuramente", async () => {
@@ -68,6 +72,23 @@ describe("preparação do treino", () => {
     await user.click(screen.getByRole("button", { name: "Confirmar e criar treino" }));
     await waitFor(() => expect(createManualWorkout).toHaveBeenCalledWith("admin-1", "2026-07-22", "Full body A", [row, legPress]));
     expect(await screen.findByText("Sessão aberta")).toBeInTheDocument();
+  });
+
+  it("aplica o deload ativo à sugestão automática sem trocar exercícios", async () => {
+    loadActiveDeload.mockResolvedValue({
+      id: "deload-1", userId: "admin-1", startsOn: "2026-07-22", endsOn: "2026-07-28",
+      status: "active", volumeReductionPercent: 35, targetRpeMin: 6, targetRpeMax: 7, reason: "fadiga",
+    });
+    const user = userEvent.setup();
+    renderSetup();
+    expect(await screen.findByText("Semana de deload ativa")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ver sugestão" }));
+    expect(await screen.findByText(/Deload aplicado: 35% menos volume/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirmar e criar treino" }));
+    await waitFor(() => expect(createManualWorkout).toHaveBeenCalledWith(
+      "admin-1", "2026-07-22", "Full body A",
+      [expect.objectContaining({ key: "row", sets: 2 }), expect.objectContaining({ key: "leg-press", sets: 2 })],
+    ));
   });
 
   it("permite editar uma ficha persistida que ainda não começou", async () => {

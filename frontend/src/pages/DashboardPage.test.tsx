@@ -7,6 +7,17 @@ const mocks = vi.hoisted(() => ({
   user: { id: "admin-1" },
   signOut: vi.fn().mockResolvedValue(undefined),
   isAdmin: vi.fn().mockResolvedValue(true),
+  fatigue: {
+    level: "attention",
+    title: "Recuperação merece atenção",
+    summary: "Há sinais de esforço elevado.",
+    recommendation: "Evite buscar recordes na próxima sessão.",
+    signals: ["RPE médio recente elevado (8,8)"],
+    recentSessions: 3,
+  },
+  loadActiveDeload: vi.fn().mockResolvedValue(null),
+  startDeload: vi.fn(),
+  endDeload: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -35,14 +46,12 @@ vi.mock("../services/muscleRecoveryService", () => ({
   ]),
 }));
 vi.mock("../services/fatigueService", () => ({
-  loadFatigueAssessment: vi.fn().mockResolvedValue({
-    level: "attention",
-    title: "Recuperação merece atenção",
-    summary: "Há sinais de esforço elevado.",
-    recommendation: "Evite buscar recordes na próxima sessão.",
-    signals: ["RPE médio recente elevado (8,8)"],
-    recentSessions: 3,
-  }),
+  loadFatigueAssessment: vi.fn().mockImplementation(() => Promise.resolve(mocks.fatigue)),
+}));
+vi.mock("../services/deloadService", () => ({
+  loadActiveDeload: (...args: unknown[]) => mocks.loadActiveDeload(...args),
+  startDeload: (...args: unknown[]) => mocks.startDeload(...args),
+  endDeload: (...args: unknown[]) => mocks.endDeload(...args),
 }));
 vi.mock("../services/weeklyMuscleVolumeService", () => ({
   loadWeeklyMuscleVolume: vi.fn().mockResolvedValue([
@@ -54,7 +63,16 @@ vi.mock("../services/monthlyTrainingGoalService", () => ({
 }));
 
 describe("painel principal", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.fatigue.level = "attention";
+    mocks.fatigue.title = "Recuperação merece atenção";
+    mocks.loadActiveDeload.mockResolvedValue(null);
+    mocks.startDeload.mockResolvedValue({
+      id: "deload-1", userId: "admin-1", startsOn: "2026-07-29", endsOn: "2026-08-04",
+      status: "active", volumeReductionPercent: 35, targetRpeMin: 6, targetRpeMax: 7, reason: "fadiga",
+    });
+  });
   afterEach(() => cleanup());
 
   it("apresenta o resumo de treino sem repetir a explicação antiga", async () => {
@@ -73,6 +91,20 @@ describe("painel principal", () => {
     expect(await screen.findByRole("heading", { name: "Séries da semana" })).toBeInTheDocument();
     expect(screen.getByText(/6 de .* séries/)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Defina sua meta no calendário" })).toBeInTheDocument();
+  });
+
+  it("permite confirmar e ativar o deload sugerido", async () => {
+    mocks.fatigue.level = "deload";
+    mocks.fatigue.title = "Deload sugerido";
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Preparar semana de deload" }));
+    expect(screen.getByRole("dialog", { name: "Ativar 7 dias de deload?" })).toBeInTheDocument();
+    expect(screen.getByText(/reduzir aproximadamente 35% das séries/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ativar deload" }));
+    expect(mocks.startDeload).toHaveBeenCalledWith("admin-1", expect.any(String), expect.stringContaining("RPE"));
+    expect(await screen.findByText(/Semana de deload ativada/)).toBeInTheDocument();
   });
 
   it("exibe os botões Semanal e Mensal e mantém o botão ativo", async () => {

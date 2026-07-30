@@ -7,6 +7,8 @@ import { cancelStartedWorkout, createManualWorkout, loadExistingWorkout, preview
 import { formatWorkoutPrescription, type WorkoutExerciseTemplate } from "../lib/workoutTemplates";
 import { applyReadinessAdjustment, assessReadiness, type ReadinessCheckIn } from "../lib/readiness";
 import { loadDailyReadiness, saveDailyReadiness } from "../services/readinessService";
+import { applyDeloadAdjustment } from "../lib/deload";
+import { loadActiveDeload, type DeloadPeriod } from "../services/deloadService";
 
 type SetupMode = "loading" | "unauthorized" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
 
@@ -30,6 +32,7 @@ export default function WorkoutSetupPage() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [readinessSaved, setReadinessSaved] = useState(false);
+  const [activeDeload, setActiveDeload] = useState<DeloadPeriod | null>(null);
   const [readiness, setReadiness] = useState<ReadinessCheckIn>({
     sleepHours: 7, energy: 3, soreness: 2, fatigue: 2, jointDiscomfort: false, availableMinutes: 60,
   });
@@ -41,9 +44,11 @@ export default function WorkoutSetupPage() {
       loadExerciseCatalog(), loadActiveProfileContext(user.id, date), isExerciseCatalogAdmin(user.id),
       loadExistingWorkout(user.id, date, sessionKind),
       testMode ? Promise.resolve(null) : loadDailyReadiness(user.id, date),
+      testMode ? Promise.resolve(null) : loadActiveDeload(user.id, date),
     ])
-      .then(([items, profile, isAdmin, saved, savedReadiness]) => {
+      .then(([items, profile, isAdmin, saved, savedReadiness, deload]) => {
         setCatalog(items); setRestrictions(profile.restrictions); setAdmin(isAdmin); setExisting(saved);
+        setActiveDeload(deload);
         if (savedReadiness) {
           setReadiness(savedReadiness);
           setReadinessSaved(true);
@@ -78,7 +83,9 @@ export default function WorkoutSetupPage() {
         setReadinessSaved(true);
       }
       const suggestion = await previewAutomaticWorkout(user.id, date, suggestedLabel);
-      setPreview(applyReadinessAdjustment(suggestion, readinessAssessment));
+      setPreview(activeDeload
+        ? applyDeloadAdjustment(suggestion, activeDeload.volumeReductionPercent)
+        : applyReadinessAdjustment(suggestion, readinessAssessment));
       setLabel(suggestedLabel);
       setMode("preview");
     }
@@ -144,6 +151,7 @@ export default function WorkoutSetupPage() {
   return <main className="workout-setup">
     <header><Link to={testMode ? "/admin/testes" : "/app"}>← {testMode ? "Laboratório" : "Calendário"}</Link><div><span className="eyebrow">{testMode ? "SIMULAÇÃO ADMINISTRATIVA" : "MONTAGEM DA FICHA"}</span><h1>Revise antes de começar</h1><p>{testMode ? "Esta ficha é isolada e não altera seu calendário, evolução ou recomendações reais." : "A ficha só é gravada depois da sua confirmação e pode ser editada enquanto nenhuma série tiver sido concluída."}</p>{!testMode && mode !== "locked" && mode !== "confirm-restart" && <label className="setup-date">Data em que vou treinar<input type="date" value={date} onChange={(event) => changeTrainingDate(event.target.value)} /></label>}{admin && <span className="admin-badge">{testMode ? "Modo de teste" : "Conta administradora"}</span>}</div></header>
     {message && <p className="profile-message" role="status">{message}</p>}
+    {activeDeload && <section className="deload-notice" role="status"><strong>Semana de deload ativa</strong><span>Volume reduzido em {activeDeload.volumeReductionPercent}% nas sugestões automáticas · alvo de RPE {activeDeload.targetRpeMin}–{activeDeload.targetRpeMax}. Exercícios e ordem são preservados.</span></section>}
 
     {mode === "loading" && <section className="setup-loading" aria-live="polite"><span className="setup-loading__spinner" aria-hidden="true" /><div><h2>Carregando ficha do dia…</h2><p>Estamos verificando se já existe um treino salvo.</p></div></section>}
     {mode === "unauthorized" && <section className="setup-review"><span className="setup-status setup-status--locked">ACESSO RESTRITO</span><h2>Laboratório não autorizado</h2><p>Somente administradores podem criar e executar sessões de teste.</p><div className="setup-review__actions"><Link className="primary-link" to="/app">Voltar ao calendário</Link></div></section>}
@@ -168,7 +176,7 @@ export default function WorkoutSetupPage() {
       </section>
     </>}
 
-    {mode === "preview" && <section className="setup-review"><span className="setup-status">SUGESTÃO NÃO CONFIRMADA</span><h2>{label}</h2><p>Confira a ficha. Você pode usá-la como está ou personalizar antes de salvar.</p><p className={`readiness-result readiness-result--${readinessAssessment.level}`}>{readinessAssessment.message}</p><ol>{preview.map((item) => <li key={item.key}><span className="setup-exercise-copy"><strong>{item.name}</strong><span>{item.equipment}</span></span><small>{formatWorkoutPrescription(item)}</small></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Voltar</button><button type="button" onClick={() => openManual(preview.map((item) => item.key))}>Personalizar</button><button className="primary-action" type="button" disabled={busy} onClick={() => void persist(preview)}>{busy ? "Salvando…" : existing ? "Substituir ficha atual" : "Confirmar e criar treino"}</button></div></section>}
+    {mode === "preview" && <section className="setup-review"><span className="setup-status">SUGESTÃO NÃO CONFIRMADA</span><h2>{label}</h2><p>Confira a ficha. Você pode usá-la como está ou personalizar antes de salvar.</p><p className={`readiness-result readiness-result--${activeDeload ? "caution" : readinessAssessment.level}`}>{activeDeload ? `Deload aplicado: ${activeDeload.volumeReductionPercent}% menos volume, com alvo de RPE ${activeDeload.targetRpeMin}–${activeDeload.targetRpeMax}.` : readinessAssessment.message}</p><ol>{preview.map((item) => <li key={item.key}><span className="setup-exercise-copy"><strong>{item.name}</strong><span>{item.equipment}</span></span><small>{formatWorkoutPrescription(item)}</small></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Voltar</button><button type="button" onClick={() => openManual(preview.map((item) => item.key))}>Personalizar</button><button className="primary-action" type="button" disabled={busy} onClick={() => void persist(preview)}>{busy ? "Salvando…" : existing ? "Substituir ficha atual" : "Confirmar e criar treino"}</button></div></section>}
 
     {mode === "existing" && existing && <section className="setup-review"><span className="setup-status setup-status--ready">FICHA PRONTA · AINDA NÃO INICIADA</span><h2>{existing.workout_label}</h2><p>Você ainda pode editar, trocar pela sugestão do EvoAI ou começar o treino.</p><ol>{existing.exercises.map((item) => <li key={item.id}><strong>{item.exercise_name}</strong><span>{item.sets.length} séries</span></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => openManual(existing.exercises.map((item) => item.exercise_key))}>Editar ficha</button><button type="button" onClick={() => void showAutomaticPreview()}>Ver nova sugestão</button><Link className="primary-link" to={sessionHref}>Começar treino</Link></div></section>}
 

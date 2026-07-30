@@ -940,6 +940,15 @@ main { padding: 64px 0 52px; }
 .fatigue-card--deload { border-color:#72313a; background:linear-gradient(135deg,#2b1118,#0a1d34 70%); }
 .fatigue-card--deload .fatigue-card__status { background:#e35d6a; }
 .fatigue-card--deload .fatigue-card__badge { color:#ffd0d5; background:rgba(227,93,106,.16); }
+.fatigue-card__action,.fatigue-card__deload button { width:max-content; min-height:42px; padding:9px 14px; border:1px solid #e26a75; border-radius:10px; color:white; background:#a83e49; font-weight:850; }
+.fatigue-card__deload { display:grid; width:min(560px,100%); gap:5px; margin-top:6px; padding:13px; border:1px solid rgba(255,255,255,.16); border-radius:12px; background:rgba(0,0,0,.14); }
+.fatigue-card__deload strong { color:white; }
+.fatigue-card__deload span,.fatigue-card__message { color:#c7d7e8; font-size:12px; line-height:1.5; }
+.deload-dialog ul { display:grid; gap:8px; padding-left:22px; color:var(--muted); }
+.deload-dialog__actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+.deload-dialog__actions .primary-action { border-color:var(--blue); color:white; background:var(--blue); }
+.deload-notice { display:flex; width:min(1100px,100%); margin:0 auto; padding:13px 16px; border:1px solid #e1b04c; border-radius:12px; gap:8px 16px; align-items:center; color:#704a00; background:#fff4d5; }
+.deload-notice span { color:#765d2e; font-size:13px; }
 .muscle-recovery { display:grid; gap:18px; padding:24px; border:1px solid #173f6d; border-radius:20px; background:linear-gradient(135deg,#081b32,#0b213c); }
 .muscle-recovery__header { display:flex; justify-content:space-between; gap:18px; align-items:end; }
 .muscle-recovery__header h2 { margin:5px 0 0; color:white; font-size:clamp(22px,3vw,30px); }
@@ -1069,6 +1078,8 @@ main { padding: 64px 0 52px; }
   .fatigue-card { grid-template-columns:7px minmax(0,1fr); padding:18px; gap:13px; }
   .fatigue-card__badge { grid-column:2; justify-self:start; grid-row:2; }
   .fatigue-card__content ul { display:grid; gap:4px; }
+  .fatigue-card__action,.fatigue-card__deload button { width:100%; }
+  .deload-dialog__actions,.deload-notice { display:grid; }
   .muscle-recovery { padding:18px; }
   .muscle-recovery__header { align-items:start; flex-direction:column; }
   .muscle-recovery__grid { grid-template-columns:1fr 1fr; }
