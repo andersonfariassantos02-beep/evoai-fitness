@@ -31,6 +31,9 @@ import { loadWeeklyMuscleVolume } from "../services/weeklyMuscleVolumeService";
 import { buildMonthlyTrainingGoal, monthDateRange } from "../lib/monthlyTrainingGoal";
 import { loadMonthlyCompletedWorkoutDates } from "../services/monthlyTrainingGoalService";
 import { endDeload, loadActiveDeload, startDeload, type DeloadPeriod } from "../services/deloadService";
+import { loadActiveTrainingCycle, type TrainingCycle } from "../services/trainingCycleService";
+import { calculateTrainingCycleProgress } from "../lib/trainingCycle";
+import { loadWorkoutReport } from "../services/reportService";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -86,6 +89,8 @@ export default function DashboardPage() {
   const [deloadDialogOpen, setDeloadDialogOpen] = useState(false);
   const [deloadBusy, setDeloadBusy] = useState(false);
   const [deloadMessage, setDeloadMessage] = useState("");
+  const [trainingCycle, setTrainingCycle] = useState<TrainingCycle | null>(null);
+  const [cycleCompletedSessions, setCycleCompletedSessions] = useState(0);
   const [completedMuscleVolume, setCompletedMuscleVolume] = useState<MuscleVolumeSummary[]>([]);
   const [monthlyCompletedDates, setMonthlyCompletedDates] = useState<string[]>([]);
   const [monthlyGoalLoading, setMonthlyGoalLoading] = useState(true);
@@ -155,6 +160,20 @@ export default function DashboardPage() {
       .catch(() => { if (active) setDeloadMessage("Não foi possível consultar a semana de deload agora."); });
     return () => { active = false; };
   }, [todayKey, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void loadActiveTrainingCycle(user.id).then(async (cycle) => {
+      if (!active) return;
+      setTrainingCycle(cycle);
+      if (!cycle) return;
+      const progress = calculateTrainingCycleProgress(cycle, 0, today);
+      const report = await loadWorkoutReport(user.id, cycle.startsOn, progress.endsOn);
+      if (active) setCycleCompletedSessions(report.completedSessions);
+    }).catch(() => { if (active) setTrainingCycle(null); });
+    return () => { active = false; };
+  }, [today, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -281,6 +300,9 @@ export default function DashboardPage() {
     arms: "Braços",
     core: "Core",
   };
+  const cycleProgress = trainingCycle
+    ? calculateTrainingCycleProgress(trainingCycle, cycleCompletedSessions, today)
+    : null;
 
   async function activateDeload() {
     if (!user || !fatigue) return;
@@ -351,6 +373,18 @@ export default function DashboardPage() {
             </div>
             <a href="#/perfil">Ajustar foco <b aria-hidden="true">→</b></a>
           </article>
+        </section>
+
+        <section className="cycle-summary" aria-labelledby="cycle-summary-title">
+          <div>
+            <span className="eyebrow">CICLO DE TREINO</span>
+            <h2 id="cycle-summary-title">{trainingCycle ? trainingCycle.name : "Estruture sua próxima evolução"}</h2>
+            <p>{trainingCycle && cycleProgress
+              ? `Semana ${cycleProgress.currentWeek} de ${trainingCycle.durationWeeks} · ${cycleProgress.completedSessions} de ${cycleProgress.totalTargetSessions} treinos concluídos`
+              : "Organize 4–6 semanas com objetivo, frequência e acompanhamento do que foi realmente executado."}</p>
+          </div>
+          {trainingCycle && cycleProgress && <div className="cycle-summary__progress"><div><i style={{ width: `${cycleProgress.progressPercent}%` }} /></div><strong>{cycleProgress.progressPercent}%</strong></div>}
+          <a href="#/ciclo">{trainingCycle ? "Acompanhar ciclo" : "Criar ciclo"} <b aria-hidden="true">→</b></a>
         </section>
 
         <section className={`monthly-goal monthly-goal--${monthlyGoal.status}`} aria-labelledby="monthly-goal-title">

@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorkoutSetupPage from "./WorkoutSetupPage";
 
-const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness, loadActiveDeload } = vi.hoisted(() => {
+const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness, loadActiveDeload, loadActiveTrainingCycle } = vi.hoisted(() => {
   const row = { key: "row", name: "Remada", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "máquina" };
   const legPress = { key: "leg-press", name: "Leg press", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "agachar", equipment: "máquina" };
   return {
@@ -17,6 +17,7 @@ const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWork
     loadDailyReadiness: vi.fn().mockResolvedValue(null),
     saveDailyReadiness: vi.fn().mockResolvedValue(undefined),
     loadActiveDeload: vi.fn().mockResolvedValue(null),
+    loadActiveTrainingCycle: vi.fn().mockResolvedValue(null),
   };
 });
 
@@ -43,13 +44,16 @@ vi.mock("../services/readinessService", () => ({
 vi.mock("../services/deloadService", () => ({
   loadActiveDeload: (...args: unknown[]) => loadActiveDeload(...args),
 }));
+vi.mock("../services/trainingCycleService", () => ({
+  loadActiveTrainingCycle: (...args: unknown[]) => loadActiveTrainingCycle(...args),
+}));
 
 function renderSetup() {
   return render(<MemoryRouter initialEntries={["/preparar-treino/2026-07-22?label=Full%20body%20A&planned=1"]}><Routes><Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} /><Route path="/treino/:date" element={<p>Sessão aberta</p>} /></Routes></MemoryRouter>);
 }
 
 describe("preparação do treino", () => {
-  beforeEach(() => { vi.clearAllMocks(); loadExistingWorkout.mockResolvedValue(null); loadDailyReadiness.mockResolvedValue(null); loadActiveDeload.mockResolvedValue(null); previewAutomaticWorkout.mockResolvedValue([row, legPress]); });
+  beforeEach(() => { vi.clearAllMocks(); loadExistingWorkout.mockResolvedValue(null); loadDailyReadiness.mockResolvedValue(null); loadActiveDeload.mockResolvedValue(null); loadActiveTrainingCycle.mockResolvedValue(null); previewAutomaticWorkout.mockResolvedValue([row, legPress]); });
   afterEach(cleanup);
 
   it("aguarda a consulta do treino salvo sem exibir escolhas prematuramente", async () => {
