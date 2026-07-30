@@ -5,7 +5,7 @@ import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
 import { addExtraSet, addWarmupSets, finishWorkoutWithPending, removeExtraSet, removeWarmupSets, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutCheckout, type WorkoutSession } from "../services/workoutSessionService";
-import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
+import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, restoreRestTimer, type RestKind } from "../lib/restTimer";
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
 import { evaluatePersonalRecord } from "../lib/personalRecord";
@@ -23,6 +23,25 @@ interface ActiveRest {
   remainingSeconds: number;
   paused: boolean;
   ready: boolean;
+}
+
+function restStorageKey(sessionId: string) {
+  return `evoai:active-rest:${sessionId}`;
+}
+
+function loadPersistedRest(session: WorkoutSession): ActiveRest | null {
+  try {
+    const raw = localStorage.getItem(restStorageKey(session.id));
+    if (!raw) return null;
+    const validExercises = new Set(session.exercises.map((exercise) => exercise.id));
+    const validSets = new Set(session.exercises.flatMap((exercise) => exercise.sets.map((set) => set.id)));
+    const restored = restoreRestTimer(JSON.parse(raw), validSets, validExercises);
+    if (!restored) localStorage.removeItem(restStorageKey(session.id));
+    return restored;
+  } catch {
+    localStorage.removeItem(restStorageKey(session.id));
+    return null;
+  }
 }
 
 interface SetEntryRowProps {
@@ -131,6 +150,7 @@ export default function WorkoutSessionPage() {
     void startOrLoadWorkout(user.id, date, label, testMode ? "test" : "real")
       .then((data) => {
         setSession(data);
+        setActiveRest(loadPersistedRest(data));
         setProfileRestrictions(data.applied_restrictions);
         setCheckout({
           sessionRpe: data.session_rpe ?? 8,
@@ -145,6 +165,22 @@ export default function WorkoutSessionPage() {
           ? "Há mais de um perfil ativo ligado à sua conta. Selecione ou desative um perfil antes de planejar o treino."
           : "Não foi possível abrir o treino. Verifique a conexão e a migração do banco."));
   }, [date, label, testMode, user]);
+
+  useEffect(() => {
+    if (!session) return;
+    const key = restStorageKey(session.id);
+    if (!activeRest) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify(activeRest));
+  }, [
+    session?.id,
+    activeRest?.endsAtMs,
+    activeRest?.paused,
+    activeRest?.ready,
+    activeRest?.sourceSetId,
+  ]);
 
   const exerciseKeys = useMemo(() => (session?.exercises ?? []).filter(Boolean).map((exercise) => exercise.exercise_key).join("|"), [session]);
   useEffect(() => {
@@ -395,6 +431,8 @@ export default function WorkoutSessionPage() {
 
   async function completeNavigation() {
     if (!session || !user) return;
+    localStorage.removeItem(restStorageKey(session.id));
+    setActiveRest(null);
     if (testMode) {
       navigate("/admin/testes");
       return;

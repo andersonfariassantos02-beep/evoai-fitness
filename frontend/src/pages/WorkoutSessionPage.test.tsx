@@ -43,6 +43,7 @@ vi.mock("../services/workoutSessionService", async (importOriginal) => {
 describe("percurso principal do treino", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     startOrLoadWorkout.mockResolvedValue(structuredClone(baseSession));
     finishWorkoutWithPending.mockResolvedValue(1);
   });
@@ -122,6 +123,30 @@ describe("percurso principal do treino", () => {
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
     expect(screen.getByRole("spinbutton", { name: "Repetições da série 1" })).toHaveFocus();
+  });
+
+  it("restaura o descanso pelo relógio real ao voltar para o treino", async () => {
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...baseSession,
+      exercises: [{
+        ...baseSession.exercises[0],
+        sets: [
+          { ...baseSession.exercises[0].sets[0], completed: true },
+          { ...baseSession.exercises[0].sets[0], id: "set-2", set_number: 2, completed: false },
+        ],
+      }],
+    });
+    localStorage.setItem("evoai:active-rest:session-1", JSON.stringify({
+      sourceExerciseId: "exercise-1", sourceSetId: "set-1", nextSetId: "set-2",
+      kind: "between_sets", label: "Descanso entre séries", nextLabel: "Remada · série 2",
+      targetSeconds: 120, startedAtMs: Date.now() - 60_000, endsAtMs: Date.now() + 60_000,
+      remainingSeconds: 120, paused: false, ready: false,
+    }));
+
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    expect(await screen.findByText("1:00")).toBeInTheDocument();
+    expect(screen.getByText("Próxima: Remada · série 2")).toBeInTheDocument();
   });
 
   it("destaca um novo recorde pessoal no treino real", async () => {
