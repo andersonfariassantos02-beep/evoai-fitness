@@ -86,8 +86,8 @@ As marcações são locais primeiro e sincronizadas com `training_calendar_entri
 
 ### Fase 2
 - Nutrição
-- Peso e medidas
-- Gráficos
+- [x] Peso e medidas
+- [x] Gráfico de evolução do peso
 
 ### Fase 3
 - IA Coach
