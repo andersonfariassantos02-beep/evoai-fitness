@@ -4,6 +4,9 @@ import PersonalRecordsPage from "./PersonalRecordsPage";
 
 const load = vi.fn();
 const loadEvolution = vi.fn();
+const loadGoals = vi.fn();
+const saveGoal = vi.fn();
+const deleteGoal = vi.fn();
 const authUser = { id: "user-1" };
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: authUser }) }));
 vi.mock("../services/personalRecordService", () => ({
@@ -11,6 +14,11 @@ vi.mock("../services/personalRecordService", () => ({
 }));
 vi.mock("../services/exerciseEvolutionService", () => ({
   loadExerciseEvolution: (...args: unknown[]) => loadEvolution(...args),
+}));
+vi.mock("../services/exerciseGoalService", () => ({
+  loadExerciseGoals: (...args: unknown[]) => loadGoals(...args),
+  saveExerciseGoal: (...args: unknown[]) => saveGoal(...args),
+  deleteExerciseGoal: (...args: unknown[]) => deleteGoal(...args),
 }));
 
 const records = [{
@@ -49,6 +57,9 @@ describe("página de recordes pessoais", () => {
     vi.clearAllMocks();
     load.mockResolvedValue(records);
     loadEvolution.mockResolvedValue(evolution);
+    loadGoals.mockResolvedValue([]);
+    saveGoal.mockResolvedValue(undefined);
+    deleteGoal.mockResolvedValue(undefined);
     HTMLElement.prototype.scrollIntoView = vi.fn();
   });
   afterEach(cleanup);
@@ -71,6 +82,21 @@ describe("página de recordes pessoais", () => {
     expect(screen.getByLabelText("Exercício do gráfico")).toHaveValue("row");
     expect(screen.getByText("Comparação com a anterior")).toBeInTheDocument();
     expect(screen.getByText("+7,7%")).toBeInTheDocument();
+  });
+
+  it("permite definir uma meta de carga para o exercício", async () => {
+    render(<PersonalRecordsPage />);
+    await screen.findByRole("heading", { name: "Supino articulado" });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Definir meta" })[0]);
+    fireEvent.change(screen.getByLabelText("Meta em kg"), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar meta" }));
+
+    await waitFor(() => expect(saveGoal).toHaveBeenCalledWith("user-1", expect.objectContaining({
+      exerciseKey: "bench",
+      metric: "load",
+      targetValue: "100",
+    })));
   });
 
   it("filtra os recordes pelo nome do exercício", async () => {

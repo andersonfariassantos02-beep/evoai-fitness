@@ -1010,6 +1010,21 @@ main { padding: 64px 0 52px; }
 .record-card dl small { color: var(--app-muted); font-size: 9px; }
 .record-card__evolution { width: calc(100% - 30px); min-height: 42px; margin: 0 15px 15px; padding: 0 14px; border: 1px solid var(--blue); border-radius: 10px; color: var(--blue); background: transparent; font-weight: 850; }
 .record-card__evolution:disabled { border-color: var(--app-line); color: var(--app-muted); opacity: .65; }
+.record-card__goal { width: calc(100% - 30px); min-height: 42px; margin: 15px 15px 8px; padding: 0 14px; border: 0; border-radius: 10px; color: #fff; background: var(--blue); font-weight: 850; }
+.record-goal { display: grid; gap: 10px; margin: 15px 15px 0; padding: 14px; border: 1px solid rgba(244, 184, 70, .45); border-radius: 12px; background: rgba(244, 184, 70, .08); }
+.record-goal > div:first-child { display: grid; gap: 4px; }
+.record-goal small { color: #ca8c17; font-size: 9px; font-weight: 900; letter-spacing: .08em; }
+.record-goal strong { color: var(--app-text); font-size: 16px; }
+.record-goal span { color: var(--app-muted); font-size: 10px; }
+.record-goal__track { overflow: hidden; height: 8px; border-radius: 999px; background: var(--app-line); }
+.record-goal__track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #176bff, #59a6ff); }
+.record-goal-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 15px; padding: 14px; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-card); }
+.record-goal-form label { display: grid; gap: 6px; color: var(--app-muted); font-size: 10px; font-weight: 850; }
+.record-goal-form input, .record-goal-form select { width: 100%; min-height: 42px; padding: 0 10px; border: 1px solid var(--app-line); border-radius: 9px; color: var(--app-text); background: var(--app-bg); }
+.record-goal-form > div { display: flex; grid-column: 1 / -1; gap: 8px; flex-wrap: wrap; }
+.record-goal-form button { min-height: 40px; padding: 0 13px; border: 1px solid var(--app-line); border-radius: 9px; color: var(--app-text); background: transparent; font-weight: 850; }
+.record-goal-form button:first-child { border-color: var(--blue); color: #fff; background: var(--blue); }
+.record-goal-form button.danger { border-color: #dba7ac; color: #a72e3a; }
 #exercise-evolution { scroll-margin-top: 90px; }
 .records-empty { margin-top: 20px; padding: 32px; border: 1px dashed var(--app-line); border-radius: 15px; color: var(--app-muted); text-align: center; }
 .records-empty h2 { margin: 0 0 8px; color: var(--app-text); }
@@ -1190,6 +1205,7 @@ main { padding: 64px 0 52px; }
   .record-card dl { grid-template-columns: 1fr; }
   .record-card dl > div { border-right: 0; border-bottom: 1px solid var(--app-line); }
   .record-card dl > div:last-child { border-bottom: 0; }
+  .record-goal-form { grid-template-columns: 1fr; }
   .onboarding-shell { min-height:100svh; padding:22px 18px 34px; grid-template-columns:1fr; gap:22px; background:linear-gradient(180deg,#061a36 0 31%,#f4f7fb 31% 100%); align-items:start; }
   .onboarding-intro h1 { font-size:38px; }
   .onboarding-intro > p { margin-bottom:0; }
