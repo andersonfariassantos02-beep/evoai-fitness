@@ -10,6 +10,7 @@ vi.mock("./pages/LoginPage", () => ({ default: () => <p>Tela de login</p> }));
 vi.mock("./pages/RegisterPage", () => ({ default: () => <p>Cadastro</p> }));
 vi.mock("./pages/OnboardingPage", () => ({ default: () => <p>Primeiro acesso</p> }));
 vi.mock("./pages/ProfilePage", () => ({ default: () => <p>Meu perfil</p> }));
+vi.mock("./pages/BodyProgressPage", () => ({ default: () => <p>Evolução corporal</p> }));
 vi.mock("./pages/DashboardPage", () => ({ default: () => <p>Área protegida</p> }));
 vi.mock("./pages/WorkoutSessionPage", () => ({ default: () => <p>Treino</p> }));
 vi.mock("./components/AuthenticatedLayout", async () => {
@@ -39,5 +40,11 @@ describe("autenticação e sessão", () => {
     auth = { configured: true, loading: false, session: { access_token: "token" }, user: { id: "user-1" } };
     render(<MemoryRouter initialEntries={["/perfil"]}><App /></MemoryRouter>);
     expect(screen.getByText("Meu perfil")).toBeInTheDocument();
+  });
+
+  it("protege e libera a evolução corporal somente após autenticação", () => {
+    auth = { configured: true, loading: false, session: { access_token: "token" }, user: { id: "user-1" } };
+    render(<MemoryRouter initialEntries={["/evolucao"]}><App /></MemoryRouter>);
+    expect(screen.getByText("Evolução corporal")).toBeInTheDocument();
   });
 });
