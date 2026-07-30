@@ -6,6 +6,7 @@ export interface ReportSet {
   loadKg: number;
   rpe: number | null;
   isExtra: boolean;
+  isWarmup?: boolean;
   skipped: boolean;
   skipReason: string | null;
 }
@@ -65,6 +66,7 @@ interface SetRow {
   rpe: number | null;
   completed: boolean;
   is_extra: boolean;
+  is_warmup?: boolean;
   skipped_at: string | null;
   skip_reason: string | null;
 }
@@ -97,6 +99,7 @@ interface UnfinishedSessionRow {
     set_logs: Array<{
       completed: boolean;
       skipped_at: string | null;
+      is_warmup?: boolean;
     }> | null;
   }> | null;
 }
@@ -117,6 +120,7 @@ export function aggregateWorkoutReport(
       .sort((left, right) => left.position - right.position)
       .map((exercise): ReportExercise => {
         const sets = [...(exercise.set_logs ?? [])]
+          .filter((set) => !set.is_warmup)
           .sort((left, right) => left.set_number - right.set_number)
           .map((set): ReportSet => ({
             setNumber: set.set_number,
@@ -124,6 +128,7 @@ export function aggregateWorkoutReport(
             loadKg: Number(set.load_kg ?? 0),
             rpe: set.rpe === null ? null : Number(set.rpe),
             isExtra: Boolean(set.is_extra),
+            isWarmup: false,
             skipped: Boolean(set.skipped_at),
             skipReason: set.skip_reason,
           }));
@@ -187,7 +192,7 @@ export async function loadWorkoutReport(userId: string, startDate: string, endDa
   const supabase = getSupabaseClient();
   const [sessionsResult, calendarResult] = await Promise.all([
     supabase.from("workout_sessions")
-      .select("id, training_date, workout_label, notes, started_at, completed_at, exercise_logs(exercise_key, exercise_name, original_exercise_key, substitution_reason, position, set_logs(set_number, actual_reps, load_kg, rpe, completed, is_extra, skipped_at, skip_reason))")
+      .select("id, training_date, workout_label, notes, started_at, completed_at, exercise_logs(exercise_key, exercise_name, original_exercise_key, substitution_reason, position, set_logs(set_number, actual_reps, load_kg, rpe, completed, is_extra, is_warmup, skipped_at, skip_reason))")
       .eq("user_id", userId)
       .eq("session_kind", "real")
       .eq("status", "completed")
@@ -213,7 +218,7 @@ export async function loadWorkoutReport(userId: string, startDate: string, endDa
 
 export function mapUnfinishedWorkouts(rows: UnfinishedSessionRow[]): UnfinishedWorkout[] {
   return rows.map((session) => {
-    const sets = (session.exercise_logs ?? []).flatMap((exercise) => exercise.set_logs ?? []);
+    const sets = (session.exercise_logs ?? []).flatMap((exercise) => exercise.set_logs ?? []).filter((set) => !set.is_warmup);
     return {
       id: session.id,
       date: session.training_date,
@@ -232,7 +237,7 @@ export async function loadUnfinishedWorkouts(
 ): Promise<UnfinishedWorkout[]> {
   const { data, error } = await getSupabaseClient()
     .from("workout_sessions")
-    .select("id, training_date, workout_label, status, exercise_logs(set_logs(completed, skipped_at))")
+    .select("id, training_date, workout_label, status, exercise_logs(set_logs(completed, skipped_at, is_warmup))")
     .eq("user_id", userId)
     .eq("session_kind", "real")
     .in("status", ["active", "paused"])

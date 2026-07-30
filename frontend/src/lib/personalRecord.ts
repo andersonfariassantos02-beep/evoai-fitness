@@ -29,7 +29,7 @@ export function findPersonalBest(rows: Array<{ loadKg: number; reps: number; dat
 
 export function evaluatePersonalRecord(previous: PersonalBest | null, sets: SetLog[]): PersonalRecordResult {
   const current = findPersonalBest(sets
-    .filter((set) => set.completed && !set.skipped_at)
+    .filter((set) => set.completed && !set.skipped_at && !set.is_warmup)
     .map((set) => ({
       loadKg: Number(set.load_kg ?? 0),
       reps: Number(set.actual_reps ?? 0),

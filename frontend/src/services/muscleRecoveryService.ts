@@ -8,7 +8,7 @@ interface RecoverySessionRow {
   completed_at: string | null;
   exercise_logs: Array<{
     exercise_key: string;
-    set_logs: Array<{ completed: boolean; skipped_at: string | null; rpe: number | null }> | null;
+    set_logs: Array<{ completed: boolean; skipped_at: string | null; rpe: number | null; is_warmup: boolean }> | null;
   }> | null;
 }
 
@@ -17,7 +17,7 @@ export async function loadMuscleRecovery(userId: string, now = new Date()): Prom
   start.setDate(start.getDate() - 7);
   const supabase = getSupabaseClient();
   const { data: sessions, error } = await supabase.from("workout_sessions")
-    .select("completed_at, exercise_logs(exercise_key, set_logs(completed, skipped_at, rpe))")
+    .select("completed_at, exercise_logs(exercise_key, set_logs(completed, skipped_at, rpe, is_warmup))")
     .eq("user_id", userId)
     .eq("session_kind", "real")
     .eq("status", "completed")
@@ -40,7 +40,7 @@ export async function loadMuscleRecovery(userId: string, now = new Date()): Prom
     (session.exercise_logs ?? []).forEach((exercise) => {
       const muscle = muscleByKey.get(exercise.exercise_key);
       if (!muscle) return;
-      const performed = (exercise.set_logs ?? []).filter((set) => set.completed && !set.skipped_at);
+      const performed = (exercise.set_logs ?? []).filter((set) => set.completed && !set.skipped_at && !set.is_warmup);
       if (!performed.length) return;
       const current = byMuscle.get(muscle) ?? { sets: 0, rpes: [] };
       current.sets += performed.length;

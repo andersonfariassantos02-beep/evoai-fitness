@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
 import { restrictionText, type ProfileRestriction } from "../services/profileRestrictionService";
-import { addExtraSet, finishWorkoutWithPending, removeExtraSet, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
+import { addExtraSet, addWarmupSets, finishWorkoutWithPending, removeExtraSet, removeWarmupSets, saveSet, startOrLoadWorkout, substituteExercise, updateSession, type ExerciseLog, type SetLog, type WorkoutSession } from "../services/workoutSessionService";
 import { findNextPendingIndex, formatRestTime, getRemainingSeconds, getRestPrescription, type RestKind } from "../lib/restTimer";
 import { playRestFinishedSound, unlockRestAudio } from "../lib/restAudio";
 import { repsInReserveFromRpe, rpeFromRepsInReserve } from "../lib/workoutEffort";
@@ -72,9 +72,9 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
     await onComplete(nextDraft);
   }
 
-  return <div id={`workout-set-${set.id}`} className={`set-row ${set.completed ? "set-row--done" : ""} ${set.skipped_at ? "set-row--skipped" : ""}`}>
+  return <div id={`workout-set-${set.id}`} className={`set-row ${set.is_warmup ? "set-row--warmup" : ""} ${set.completed ? "set-row--done" : ""} ${set.skipped_at ? "set-row--skipped" : ""}`}>
     <div className="set-row__header">
-      <strong>Série {set.set_number}{set.is_extra && <small>extra</small>}{set.skipped_at && <small>não realizada</small>}</strong>
+      <strong>{set.is_warmup ? `Aquecimento ${set.set_number}` : `Série ${set.set_number}`}{set.is_extra && <small>extra</small>}{set.is_warmup && <small>preparatória</small>}{set.skipped_at && <small>não realizada</small>}</strong>
       <div>
         {set.is_extra && !set.completed && !set.skipped_at && <button className="set-row__remove" type="button" onClick={() => void onRemove(set)}>Excluir</button>}
         <button type="button" disabled={Boolean(set.skipped_at)} onPointerDown={() => { completing.current = true; }} onClick={async () => {
@@ -86,14 +86,14 @@ function SetEntryRow({ set, onSave, onComplete, onRemove }: SetEntryRowProps) {
     <div className="set-row__fields">
       <label>Reps<input aria-label={`Repetições da série ${set.set_number}`} aria-invalid={validationMessage.includes("repetições")} disabled={Boolean(set.skipped_at)} min="1" inputMode="numeric" type="number" value={actualReps} onChange={(event) => { setActualReps(event.target.value); setValidationMessage(""); }} onBlur={() => void saveDraft()} /></label>
       <label>Kg<input aria-label={`Carga da série ${set.set_number}`} aria-invalid={validationMessage.includes("carga")} disabled={Boolean(set.skipped_at)} min="0" inputMode="decimal" type="number" step="0.5" value={loadKg} onChange={(event) => { setLoadKg(event.target.value); setValidationMessage(""); }} onBlur={() => void saveDraft()} /></label>
-      <label>RPE automático<select aria-label={`Esforço da série ${set.set_number}`} disabled={Boolean(set.skipped_at)} value={repsInReserve} onChange={(event) => setRepsInReserve(event.target.value)} onBlur={() => void saveDraft()}>
+      {!set.is_warmup && <label>RPE automático<select aria-label={`Esforço da série ${set.set_number}`} disabled={Boolean(set.skipped_at)} value={repsInReserve} onChange={(event) => setRepsInReserve(event.target.value)} onBlur={() => void saveDraft()}>
         <option value="">Esforço</option>
         <option value="4">4+ sobrariam · RPE 6</option>
         <option value="3">3 sobrariam · RPE 7</option>
         <option value="2">2 sobrariam · RPE 8</option>
         <option value="1">1 sobraria · RPE 9</option>
         <option value="0">Nenhuma · RPE 10</option>
-      </select></label>
+      </select></label>}
     </div>
     {set.previous_performance && <p className="set-row__previous">
       <span>ÚLTIMO TREINO</span>
@@ -119,6 +119,7 @@ export default function WorkoutSessionPage() {
   const [activeRest, setActiveRest] = useState<ActiveRest | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("evoai-rest-sound") !== "off");
   const [addingExerciseId, setAddingExerciseId] = useState<string | null>(null);
+  const [changingWarmup, setChangingWarmup] = useState(false);
   const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
   const [skipReason, setSkipReason] = useState("Treino encerrado antes do planejado");
   const [finishing, setFinishing] = useState(false);
@@ -145,12 +146,13 @@ export default function WorkoutSessionPage() {
   }, [exerciseKeys]);
 
   const allSets = useMemo(() => (session?.exercises ?? []).filter(Boolean).flatMap((exercise) => exercise.sets.map((set) => ({ exercise, set }))) ?? [], [session]);
-  const pendingSets = allSets.filter((item) => !item.set.completed && !item.set.skipped_at);
-  const next = pendingSets[0];
-  const completed = allSets.filter((item) => item.set.completed).length;
+  const workingSets = allSets.filter((item) => !item.set.is_warmup);
+  const pendingSets = workingSets.filter((item) => !item.set.completed && !item.set.skipped_at);
+  const next = allSets.find((item) => !item.set.completed && !item.set.skipped_at);
+  const completed = workingSets.filter((item) => item.set.completed).length;
   const pendingExercises = useMemo(() => (session?.exercises ?? []).filter(Boolean).map((exercise) => ({
     exercise,
-    sets: exercise.sets.filter((set) => !set.completed && !set.skipped_at),
+    sets: exercise.sets.filter((set) => !set.is_warmup && !set.completed && !set.skipped_at),
   })).filter((item) => item.sets.length > 0), [session]);
 
   useEffect(() => {
@@ -225,7 +227,7 @@ export default function WorkoutSessionPage() {
       nextSetId: nextItem.set.id,
       kind: prescription.kind,
       label: prescription.label,
-      nextLabel: `${nextItem.exercise.exercise_name} · série ${nextItem.set.set_number}`,
+      nextLabel: `${nextItem.exercise.exercise_name} · ${nextItem.set.is_warmup ? `aquecimento ${nextItem.set.set_number}` : `série ${nextItem.set.set_number}`}`,
       targetSeconds: prescription.seconds,
       startedAtMs,
       endsAtMs: startedAtMs + prescription.seconds * 1000,
@@ -300,6 +302,45 @@ export default function WorkoutSessionPage() {
       setMessage("Não foi possível adicionar a série extra.");
     } finally {
       setAddingExerciseId(null);
+    }
+  }
+
+  async function toggleWarmup(exercise: ExerciseLog) {
+    const existing = exercise.sets.filter((set) => set.is_warmup);
+    setChangingWarmup(true);
+    try {
+      if (existing.length) {
+        await removeWarmupSets(exercise);
+        setSession((current) => current ? {
+          ...current,
+          exercises: current.exercises.map((item) => item.id === exercise.id
+            ? { ...item, sets: item.sets.filter((set) => !set.is_warmup) }
+            : item),
+        } : current);
+        setMessage("Aquecimento removido.");
+        return;
+      }
+      let workingLoad = exercise.recommendation.loadKg;
+      if (workingLoad <= 0) {
+        const answer = window.prompt("Qual carga de trabalho você pretende usar neste exercício (kg)?", "");
+        workingLoad = Number(answer?.replace(",", ".") ?? 0);
+      }
+      const warmups = await addWarmupSets(exercise, workingLoad);
+      setSession((current) => current ? {
+        ...current,
+        exercises: current.exercises.map((item) => item.id === exercise.id
+          ? { ...item, sets: [...warmups, ...item.sets] }
+          : item),
+      } : current);
+      setMessage(`Aquecimento criado com 50% e 70% da carga de trabalho de ${workingLoad.toLocaleString("pt-BR")} kg.`);
+    } catch (error) {
+      setMessage(error instanceof Error && error.message === "WORKING_LOAD_REQUIRED"
+        ? "Informe uma carga de trabalho maior que zero para gerar o aquecimento."
+        : error instanceof Error && error.message === "WARMUP_ALREADY_STARTED"
+          ? "O aquecimento iniciado não pode ser removido."
+          : "Não foi possível alterar o aquecimento.");
+    } finally {
+      setChangingWarmup(false);
     }
   }
 
@@ -398,7 +439,7 @@ export default function WorkoutSessionPage() {
 
   return <div className="workout-shell">
     <header className="workout-header"><button onClick={() => navigate(testMode ? "/admin/testes" : "/app")}>← {testMode ? "Laboratório" : "Calendário"}</button><div><small>{testMode ? "SIMULAÇÃO · sem impacto no histórico real" : date}</small><h1>{session.workout_label}</h1></div><button onClick={togglePause}>{session.status === "paused" ? "Retomar" : "Pausar"}</button></header>
-    <div className="workout-progress"><strong>{completed}/{allSets.length} séries</strong><span><i style={{ width: `${allSets.length ? completed / allSets.length * 100 : 0}%` }} /></span></div>
+    <div className="workout-progress"><strong>{completed}/{workingSets.length} séries válidas</strong><span><i style={{ width: `${workingSets.length ? completed / workingSets.length * 100 : 0}%` }} /></span></div>
     <div className="workout-tools">
       <button type="button" onClick={() => {
         const enabled = !soundEnabled;
@@ -419,7 +460,7 @@ export default function WorkoutSessionPage() {
       {activeRest.paused && <em>Relógio pausado junto com o treino</em>}
     </aside>}
     {next && !activeRest && <aside className="next-set">
-      <div><span>PRÓXIMA SÉRIE</span><strong>{next.exercise.exercise_name} · série {next.set.set_number}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></div>
+      <div><span>PRÓXIMA SÉRIE</span><strong>{next.exercise.exercise_name} · {next.set.is_warmup ? `aquecimento ${next.set.set_number}` : `série ${next.set.set_number}`}</strong><small>{next.set.target_reps_min}–{next.set.target_reps_max} repetições</small></div>
       <button type="button" onClick={() => goToSet(next.set.id)}>Ir para série</button>
     </aside>}
     <main className="exercise-list">
@@ -429,6 +470,8 @@ export default function WorkoutSessionPage() {
         const guidance = guidanceByKey[exercise.exercise_key ?? ""];
         const hasGuidance = Boolean(guidance && (guidance.instructions || guidance.cautions.length || guidance.equipmentVariants.length || guidance.mediaUrl));
         const personalRecord = session.session_kind === "real" ? evaluatePersonalRecord(exercise.personalBest, exercise.sets) : null;
+        const isWarmupExercise = exercise.position === 1;
+        const hasWarmup = exercise.sets.some((set) => set.is_warmup);
         return <section className="exercise-card" key={exercise.id}><div className="exercise-title"><h2>{exercise.position}. {exercise.exercise_name}</h2><button onClick={() => void replaceExercise(exercise)}>Substituir</button></div>
         {exercise.original_exercise_key && <p className="substitution-note">Substituição registrada · motivo: {exercise.substitution_reason}</p>}
         {hasGuidance && <details className="exercise-guidance"><summary>Como executar com segurança</summary>
@@ -450,6 +493,12 @@ export default function WorkoutSessionPage() {
           <span>RECORDE PESSOAL</span>
           <strong>{personalRecord.title}</strong>
           <small>{personalRecord.message}</small>
+        </div>}
+        {isWarmupExercise && <div className="warmup-control">
+          <div><small>AQUECIMENTO ESTRUTURADO</small><strong>{hasWarmup ? "Séries preparatórias incluídas" : "Prepare o movimento antes das séries válidas"}</strong><span>50% × 10 e 70% × 5 da carga de trabalho. Não entram no volume nem nos recordes.</span></div>
+          <button type="button" disabled={changingWarmup || exercise.sets.some((set) => Boolean(set.is_warmup && set.completed))} onClick={() => void toggleWarmup(exercise)}>
+            {changingWarmup ? "Aguarde…" : hasWarmup ? "Remover aquecimento" : "+ Adicionar aquecimento"}
+          </button>
         </div>}
         {exercise.sets.map((set) => <SetEntryRow key={set.id} set={set}
           onSave={async (draft) => { changeSet(exercise.id, set.id, draft); await persistSet(draft); }}
@@ -476,7 +525,7 @@ export default function WorkoutSessionPage() {
       <section className="confirmation-dialog finish-pending-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-pending-title">
         <span className="setup-status setup-status--locked">EXISTEM SÉRIES PENDENTES</span>
         <h2 id="finish-pending-title">Finalizar mesmo assim?</h2>
-        <p>Você concluiu <strong>{completed}</strong> de <strong>{allSets.length}</strong> séries. As demais serão registradas como não realizadas.</p>
+        <p>Você concluiu <strong>{completed}</strong> de <strong>{workingSets.length}</strong> séries válidas. As demais serão registradas como não realizadas.</p>
         <ul>{pendingExercises.map(({ exercise, sets }) => <li key={exercise.id}><strong>{exercise.exercise_name}</strong><span>Séries {sets.map((set) => set.set_number).join(", ")}</span></li>)}</ul>
         <label>Motivo<select value={skipReason} onChange={(event) => setSkipReason(event.target.value)}>
           <option>Treino encerrado antes do planejado</option>
