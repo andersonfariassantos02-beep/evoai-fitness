@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateWorkoutReport, mapUnfinishedWorkouts } from "./reportService";
+import { aggregateWorkoutReport, mapUnfinishedWorkouts, summarizeBodyProgress } from "./reportService";
 
 describe("agregação do relatório", () => {
   it("calcula volume, RPE e séries ignoradas apenas com registros reais recebidos", () => {
@@ -44,6 +44,20 @@ describe("agregação do relatório", () => {
       bestSet: { loadKg: 55, reps: 8 },
       estimated1Rm: 69.7,
     });
+  });
+});
+
+describe("evolução corporal do relatório", () => {
+  it("ordena os registros e calcula a variação de cada medida disponível", () => {
+    const progress = summarizeBodyProgress([
+      { id: "2", measuredOn: "2026-07-30", weightKg: 79.4, bodyFatPercentage: null, waistCm: 84, chestCm: null, hipsCm: null, armCm: null, thighCm: null, notes: "" },
+      { id: "1", measuredOn: "2026-07-01", weightKg: 81, bodyFatPercentage: null, waistCm: 87, chestCm: null, hipsCm: null, armCm: null, thighCm: null, notes: "" },
+    ]);
+
+    expect(progress?.entries.map((entry) => entry.id)).toEqual(["1", "2"]);
+    expect(progress?.weightKg).toEqual({ initial: 81, final: 79.4, change: -1.6 });
+    expect(progress?.waistCm).toEqual({ initial: 87, final: 84, change: -3 });
+    expect(progress?.bodyFatPercentage).toBeNull();
   });
 });
 

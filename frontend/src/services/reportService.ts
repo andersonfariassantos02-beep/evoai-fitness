@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "../lib/supabase";
+import type { BodyMeasurement } from "./bodyMeasurementService";
 
 export interface ReportSet {
   setNumber: number;
@@ -51,6 +52,24 @@ export interface WorkoutReport {
   totalReps: number;
   totalVolume: number;
   averageRpe: number | null;
+  bodyProgress: BodyProgressSummary | null;
+}
+
+export interface BodyProgressMetric {
+  initial: number;
+  final: number;
+  change: number;
+}
+
+export interface BodyProgressSummary {
+  entries: BodyMeasurement[];
+  weightKg: BodyProgressMetric | null;
+  bodyFatPercentage: BodyProgressMetric | null;
+  waistCm: BodyProgressMetric | null;
+  chestCm: BodyProgressMetric | null;
+  hipsCm: BodyProgressMetric | null;
+  armCm: BodyProgressMetric | null;
+  thighCm: BodyProgressMetric | null;
 }
 
 export interface UnfinishedWorkout {
@@ -115,11 +134,40 @@ function round(value: number, precision = 1) {
   return Math.round(value * factor) / factor;
 }
 
+function summarizeMetric(
+  entries: BodyMeasurement[],
+  field: Exclude<keyof BodyMeasurement, "id" | "measuredOn" | "notes">,
+): BodyProgressMetric | null {
+  const values = entries.flatMap((entry) => entry[field] === null ? [] : [entry[field] as number]);
+  if (!values.length) return null;
+  return {
+    initial: values[0],
+    final: values.at(-1) as number,
+    change: round((values.at(-1) as number) - values[0]),
+  };
+}
+
+export function summarizeBodyProgress(measurements: BodyMeasurement[]): BodyProgressSummary | null {
+  if (!measurements.length) return null;
+  const entries = [...measurements].sort((left, right) => left.measuredOn.localeCompare(right.measuredOn));
+  return {
+    entries,
+    weightKg: summarizeMetric(entries, "weightKg"),
+    bodyFatPercentage: summarizeMetric(entries, "bodyFatPercentage"),
+    waistCm: summarizeMetric(entries, "waistCm"),
+    chestCm: summarizeMetric(entries, "chestCm"),
+    hipsCm: summarizeMetric(entries, "hipsCm"),
+    armCm: summarizeMetric(entries, "armCm"),
+    thighCm: summarizeMetric(entries, "thighCm"),
+  };
+}
+
 export function aggregateWorkoutReport(
   startDate: string,
   endDate: string,
   plannedSessions: number,
   rows: SessionRow[],
+  bodyMeasurements: BodyMeasurement[] = [],
 ): WorkoutReport {
   const workouts = rows.map((session): ReportWorkout => {
     const exercises = [...(session.exercise_logs ?? [])]
@@ -194,12 +242,13 @@ export function aggregateWorkoutReport(
     totalReps: allSets.filter((set) => !set.skipped).reduce((total, set) => total + set.reps, 0),
     totalVolume: round(workouts.reduce((total, workout) => total + workout.volume, 0)),
     averageRpe: validRpes.length ? round(validRpes.reduce((total, value) => total + value, 0) / validRpes.length) : null,
+    bodyProgress: summarizeBodyProgress(bodyMeasurements),
   };
 }
 
 export async function loadWorkoutReport(userId: string, startDate: string, endDate: string): Promise<WorkoutReport> {
   const supabase = getSupabaseClient();
-  const [sessionsResult, calendarResult] = await Promise.all([
+  const [sessionsResult, calendarResult, measurementsResult] = await Promise.all([
     supabase.from("workout_sessions")
       .select("id, training_date, workout_label, notes, started_at, completed_at, session_rpe, session_quality, post_workout_discomfort, exercise_logs(exercise_key, exercise_name, original_exercise_key, substitution_reason, position, set_logs(set_number, actual_reps, load_kg, rpe, completed, is_extra, is_warmup, skipped_at, skip_reason))")
       .eq("user_id", userId)
@@ -214,14 +263,34 @@ export async function loadWorkoutReport(userId: string, startDate: string, endDa
       .eq("available", true)
       .gte("training_date", startDate)
       .lte("training_date", endDate),
+    supabase.from("body_measurements")
+      .select("id,measured_on,weight_kg,body_fat_percentage,waist_cm,chest_cm,hips_cm,arm_cm,thigh_cm,notes")
+      .eq("user_id", userId)
+      .gte("measured_on", startDate)
+      .lte("measured_on", endDate)
+      .order("measured_on"),
   ]);
   if (sessionsResult.error) throw sessionsResult.error;
   if (calendarResult.error) throw calendarResult.error;
+  if (measurementsResult.error) throw measurementsResult.error;
+  const measurements = (measurementsResult.data ?? []).map((row) => ({
+    id: row.id,
+    measuredOn: row.measured_on,
+    weightKg: row.weight_kg,
+    bodyFatPercentage: row.body_fat_percentage,
+    waistCm: row.waist_cm,
+    chestCm: row.chest_cm,
+    hipsCm: row.hips_cm,
+    armCm: row.arm_cm,
+    thighCm: row.thigh_cm,
+    notes: row.notes ?? "",
+  })) as BodyMeasurement[];
   return aggregateWorkoutReport(
     startDate,
     endDate,
     calendarResult.data?.length ?? 0,
     (sessionsResult.data ?? []) as unknown as SessionRow[],
+    measurements,
   );
 }
 
