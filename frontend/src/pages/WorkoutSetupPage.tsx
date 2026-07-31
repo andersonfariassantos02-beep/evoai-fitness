@@ -17,6 +17,7 @@ type SetupMode = "loading" | "unauthorized" | "choice" | "preview" | "manual" | 
 
 const adjustmentLabel: Record<IntelligentPrescriptionResult["adjustment"], string> = {
   normal: "Volume normal",
+  expanded: "Volume ampliado",
   reduced: "Volume reduzido",
   deload: "Deload ativo",
 };

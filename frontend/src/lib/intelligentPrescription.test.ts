@@ -46,6 +46,36 @@ describe("motor inteligente de prescrição", () => {
     expect(result.reasons.join(" ")).toContain("meta semanal");
   });
 
+  it("amplia o volume com segurança quando há mais tempo e déficit semanal", () => {
+    const sixtyMinutes = buildIntelligentPrescription(getWorkoutTemplate("PULL"), {
+      goal: "general_fitness",
+      readiness: { ...ready, availableMinutes: 60 },
+      readinessAssessment: assessReadiness({ ...ready, availableMinutes: 60 }),
+    });
+    const seventyFiveMinutes = buildIntelligentPrescription(getWorkoutTemplate("PULL"), {
+      goal: "general_fitness",
+      readiness: { ...ready, availableMinutes: 75 },
+      readinessAssessment: assessReadiness({ ...ready, availableMinutes: 75 }),
+    });
+
+    expect(sixtyMinutes.plannedSets).toBeGreaterThan(sixtyMinutes.originalSets);
+    expect(seventyFiveMinutes.plannedSets).toBeGreaterThan(sixtyMinutes.plannedSets);
+    expect(seventyFiveMinutes.estimatedMinutes).toBeGreaterThan(sixtyMinutes.estimatedMinutes);
+    expect(seventyFiveMinutes.adjustment).toBe("expanded");
+    expect(seventyFiveMinutes.reasons.join(" ")).toContain("déficit semanal");
+  });
+
+  it("não expande uma prescrição periodizada bloqueada apenas para ocupar tempo", () => {
+    const result = buildIntelligentPrescription(getWorkoutTemplate("PUSH pesado"), {
+      goal: "hypertrophy",
+      readiness: { ...ready, availableMinutes: 75 },
+      readinessAssessment: assessReadiness({ ...ready, availableMinutes: 75 }),
+    });
+
+    expect(result.plannedSets).toBe(result.originalSets);
+    expect(result.reasons.join(" ")).toContain("tempo extra foi preservado");
+  });
+
   it("aplica deload sobre qualquer objetivo", () => {
     const result = buildIntelligentPrescription(getWorkoutTemplate("LEGS"), {
       goal: "strength", readiness: ready, readinessAssessment: assessReadiness(ready),
