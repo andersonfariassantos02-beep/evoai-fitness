@@ -27,7 +27,7 @@ export interface IntelligentPrescriptionResult {
   plannedSets: number;
   targetRpe: number;
   restRange: { min: number; max: number };
-  adjustment: "normal" | "reduced" | "deload";
+  adjustment: "normal" | "expanded" | "reduced" | "deload";
 }
 
 const WEEKLY_DIRECT_SET_TARGET: Record<TrainingGoal, Partial<Record<MuscleGroup, number>>> = {
@@ -62,6 +62,11 @@ function goalRepRange(exercise: WorkoutExerciseTemplate, goal: TrainingGoal) {
 
 function completedDirectSets(muscle: MuscleGroup, completed: MuscleVolumeSummary[]) {
   return completed.find((item) => item.muscle === muscle)?.directSets ?? 0;
+}
+
+function weeklySetTarget(goal: TrainingGoal, muscle: MuscleGroup, availableMinutes: number) {
+  const baseTarget = WEEKLY_DIRECT_SET_TARGET[goal][muscle] ?? 6;
+  return availableMinutes >= 75 ? Math.ceil(baseTarget * 1.25) : baseTarget;
 }
 
 function volumeMultiplier(context: IntelligentPrescriptionContext) {
@@ -132,6 +137,60 @@ export function buildIntelligentPrescription(
   });
 
   let estimatedMinutes = estimateMinutes(exercises);
+  if (!context.deload && context.readinessAssessment.level === "ready" && context.readiness.availableMinutes >= 60) {
+    const maximumSessionMinutes = Math.max(1, context.readiness.availableMinutes - 10);
+    const initialSetsByKey = new Map(exercises.map((exercise) => [exercise.key, exercise.sets]));
+    const plannedByMuscle = new Map<MuscleGroup, number>();
+    exercises.forEach((exercise) => {
+      plannedByMuscle.set(
+        exercise.muscle,
+        (plannedByMuscle.get(exercise.muscle) ?? completedDirectSets(exercise.muscle, completed)) + exercise.sets,
+      );
+    });
+
+    let addedSets = 0;
+    let changed = true;
+    while (changed && estimatedMinutes < maximumSessionMinutes) {
+      changed = false;
+      const candidates = exercises
+        .filter((exercise) => {
+          const target = weeklySetTarget(context.goal, exercise.muscle, context.readiness.availableMinutes);
+          const current = plannedByMuscle.get(exercise.muscle) ?? 0;
+          const initialSets = initialSetsByKey.get(exercise.key) ?? exercise.sets;
+          return !exercise.prescriptionLocked && current < target && exercise.sets < initialSets + 2;
+        })
+        .sort((left, right) => {
+          const leftTarget = weeklySetTarget(context.goal, left.muscle, context.readiness.availableMinutes);
+          const rightTarget = weeklySetTarget(context.goal, right.muscle, context.readiness.availableMinutes);
+          const leftDeficit = leftTarget - (plannedByMuscle.get(left.muscle) ?? 0);
+          const rightDeficit = rightTarget - (plannedByMuscle.get(right.muscle) ?? 0);
+          return rightDeficit / rightTarget - leftDeficit / leftTarget
+            || Number(left.mechanics !== "isolado") - Number(right.mechanics !== "isolado");
+        });
+
+      for (const candidate of candidates) {
+        const target = weeklySetTarget(context.goal, candidate.muscle, context.readiness.availableMinutes);
+        if ((plannedByMuscle.get(candidate.muscle) ?? 0) >= target) continue;
+        candidate.sets += 1;
+        const nextEstimate = estimateMinutes(exercises);
+        if (nextEstimate > maximumSessionMinutes) {
+          candidate.sets -= 1;
+          continue;
+        }
+        plannedByMuscle.set(candidate.muscle, (plannedByMuscle.get(candidate.muscle) ?? 0) + 1);
+        estimatedMinutes = nextEstimate;
+        addedSets += 1;
+        changed = true;
+      }
+    }
+
+    if (addedSets > 0) {
+      reasons.push(`Boa recuperação, tempo disponível e déficit semanal permitiram acrescentar ${addedSets} série${addedSets === 1 ? "" : "s"} com segurança.`);
+    } else {
+      reasons.push("O tempo extra foi preservado como margem porque o volume semanal planejado já está adequado.");
+    }
+  }
+
   if (context.readiness.availableMinutes > 0 && estimatedMinutes > context.readiness.availableMinutes) {
     const candidates = [...exercises].sort((left, right) =>
       Number(left.mechanics === "isolado") - Number(right.mechanics === "isolado")
@@ -157,6 +216,8 @@ export function buildIntelligentPrescription(
   };
   const adjustment = context.deload
     ? "deload"
+    : plannedSets > originalSets
+      ? "expanded"
     : plannedSets < originalSets || context.readinessAssessment.reduceVolume
       ? "reduced"
       : "normal";
