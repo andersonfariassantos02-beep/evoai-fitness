@@ -633,6 +633,17 @@ main { padding: 64px 0 52px; }
 .weekly-preview-dialog__alert { margin: 0; padding: 11px 13px; border-radius: 10px; color: #294b70; background: #edf5ff; font-size: 11px; line-height: 1.45; }
 .weekly-preview-dialog__alert--warning { color: #72520d; background: #fff3d3; }
 .weekly-preview-dialog__alert--blocking { color: #8b2632; background: #ffe8eb; }
+.weekly-preview-dialog__balance {
+  justify-self: start;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #9fc5ff;
+  border-radius: 11px;
+  color: #075ac9;
+  background: #edf5ff;
+  font-weight: 850;
+}
+.weekly-preview-dialog__balance:hover { background: #deecff; }
 .weekly-preview-dialog__actions { display: flex; gap: 10px; justify-content: flex-end; }
 .weekly-preview-dialog__actions button { min-height: 44px; padding: 0 16px; border-radius: 11px; font-weight: 850; }
 
