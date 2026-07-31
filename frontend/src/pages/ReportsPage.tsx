@@ -12,6 +12,7 @@ import {
   type ExercisePersonalRecords,
 } from "../lib/personalRecord";
 import { loadPersonalRecords } from "../services/personalRecordService";
+import { buildReportCoachingSummary } from "../lib/reportCoachingSummary";
 import {
   confirmPasswordAndDeleteUnfinishedWorkout,
   loadUnfinishedWorkouts,
@@ -87,6 +88,10 @@ export default function ReportsPage() {
     () => personalRecordHighlights(personalRecords, currentRange.startDate, currentRange.endDate),
     [currentRange.endDate, currentRange.startDate, personalRecords],
   );
+  const coachingSummary = useMemo(
+    () => report ? buildReportCoachingSummary(report, previous, evolution) : null,
+    [evolution, previous, report],
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -128,10 +133,10 @@ export default function ReportsPage() {
     setMessage("");
     try {
       if (share) {
-        const shared = await shareReportPdf(report, previous, athleteName, recordHighlights);
+        const shared = await shareReportPdf(report, previous, athleteName, recordHighlights, coachingSummary ?? undefined);
         if (!shared) setMessage("O compartilhamento direto não está disponível neste aparelho. O PDF foi salvo para você enviar manualmente.");
       } else {
-        await saveReportPdf(report, previous, athleteName, recordHighlights);
+        await saveReportPdf(report, previous, athleteName, recordHighlights, coachingSummary ?? undefined);
         setMessage("PDF gerado com sucesso.");
       }
     } catch (error) {
@@ -226,6 +231,28 @@ export default function ReportsPage() {
             <article><span>Volume total</span><strong>{report.totalVolume.toLocaleString("pt-BR")} <i>kg</i></strong><ChangeBadge value={change(report.totalVolume, previous?.totalVolume ?? 0)} /></article>
             <article><span>RPE médio</span><strong>{report.averageRpe ?? "-"}</strong><small>{report.completedSets} séries realizadas</small></article>
           </section>
+
+          {coachingSummary && (
+            <section className="report-coaching" aria-labelledby="report-coaching-title">
+              <header>
+                <div>
+                  <span className="eyebrow">LEITURA INTELIGENTE</span>
+                  <h2 id="report-coaching-title">{coachingSummary.title}</h2>
+                  <p>{coachingSummary.description}</p>
+                </div>
+                <span>Baseado apenas nos seus registros</span>
+              </header>
+              <div>
+                {coachingSummary.insights.map((insight) => (
+                  <article className={`report-coaching__insight report-coaching__insight--${insight.level}`} key={insight.id}>
+                    <i aria-hidden="true" />
+                    <div><strong>{insight.title}</strong><p>{insight.message}</p></div>
+                  </article>
+                ))}
+              </div>
+              <small>Orientação de treino, não diagnóstico. Dor persistente ou sintomas incomuns exigem avaliação profissional.</small>
+            </section>
+          )}
 
           {report.bodyProgress && (
             <section className="report-body-progress" aria-labelledby="body-progress-title">

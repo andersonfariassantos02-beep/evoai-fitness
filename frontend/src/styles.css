@@ -1926,6 +1926,20 @@ main { padding: 64px 0 52px; }
 .report-summary strong { color: white; font-size: 31px; }
 .report-summary strong i { color: #7f9bbd; font-size: 12px; font-style: normal; }
 .report-summary small { color: #7188a4; font-size: 9px; }
+.report-coaching { display: grid; gap: 17px; margin-top: 20px; padding: clamp(18px, 3vw, 27px); border: 1px solid #24598c; border-radius: 20px; background: linear-gradient(145deg, #0b2340, #061426); }
+.report-coaching > header { display: flex; gap: 20px; align-items: start; justify-content: space-between; }
+.report-coaching h2 { margin: 5px 0 4px; color: #fff; font-size: 24px; }
+.report-coaching header p { max-width: 720px; margin: 0; color: #8ca6c4; font-size: 11px; line-height: 1.5; }
+.report-coaching header > span { padding: 7px 10px; border: 1px solid #315f8d; border-radius: 999px; color: #9fc9f5; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.report-coaching > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.report-coaching__insight { display: grid; min-height: 105px; padding: 14px; border: 1px solid #244666; border-radius: 13px; grid-template-columns: 8px minmax(0, 1fr); gap: 11px; background: #07182b; }
+.report-coaching__insight > i { width: 8px; height: 8px; margin-top: 4px; border-radius: 99px; background: #35a7ff; }
+.report-coaching__insight--positive > i { background: #27b77e; }
+.report-coaching__insight--attention > i { background: #e3a62b; }
+.report-coaching__insight--action > i { background: #e45d68; }
+.report-coaching__insight strong { color: #fff; font-size: 13px; }
+.report-coaching__insight p { margin: 5px 0 0; color: #8ca6c4; font-size: 10px; line-height: 1.5; }
+.report-coaching > small { color: #6f89a7; font-size: 9px; }
 .report-body-progress { display: grid; gap: 18px; margin-top: 20px; padding: clamp(18px, 3vw, 27px); border: 1px solid var(--app-border); border-radius: 20px; background: linear-gradient(145deg, #0a1c32, #061426); }
 .report-body-progress > header { display: flex; gap: 20px; align-items: center; justify-content: space-between; }
 .report-body-progress h2 { margin: 5px 0 3px; color: #fff; font-size: 24px; }
@@ -2019,6 +2033,10 @@ main { padding: 64px 0 52px; }
   .report-period-toggle button { flex: 1; }
   .report-range { border-left: 0; border-top: 2px solid #176bff; }
   .report-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .report-coaching { padding: 16px 11px; }
+  .report-coaching > header { align-items: stretch; flex-direction: column; }
+  .report-coaching header > span { align-self: start; }
+  .report-coaching > div { grid-template-columns: 1fr; }
   .exercise-evolution { padding:16px 11px; }
   .exercise-evolution > header { align-items:stretch; flex-direction:column; }
   .exercise-evolution header label { width:100%; }
