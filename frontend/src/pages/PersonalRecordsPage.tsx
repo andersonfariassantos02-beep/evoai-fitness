@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import ExerciseEvolutionPanel from "../components/ExerciseEvolutionPanel";
 import { useAuth } from "../contexts/AuthContext";
 import type { ExerciseEvolution } from "../lib/exerciseEvolution";
@@ -23,8 +24,16 @@ function todayKey() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
+const EVOLUTION_PERIODS = [
+  { days: 30, label: "30 dias" },
+  { days: 90, label: "90 dias" },
+  { days: 180, label: "6 meses" },
+  { days: 3650, label: "Todo histórico" },
+] as const;
+
 export default function PersonalRecordsPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<ExercisePersonalRecords[]>([]);
   const [evolution, setEvolution] = useState<ExerciseEvolution[]>([]);
   const [goals, setGoals] = useState<ExerciseGoal[]>([]);
@@ -35,6 +44,7 @@ export default function PersonalRecordsPage() {
   const [goalDate, setGoalDate] = useState("");
   const [goalBusy, setGoalBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [lookbackDays, setLookbackDays] = useState(90);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -44,7 +54,7 @@ export default function PersonalRecordsPage() {
     setLoading(true);
     void Promise.all([
       loadPersonalRecords(user.id),
-      loadExerciseEvolution(user.id, todayKey()).catch(() => []),
+      loadExerciseEvolution(user.id, todayKey(), lookbackDays).catch(() => []),
       loadExerciseGoals(user.id).catch(() => []),
     ])
       .then(([recordData, evolutionData, goalData]) => {
@@ -52,12 +62,17 @@ export default function PersonalRecordsPage() {
         setRecords(recordData);
         setEvolution(evolutionData);
         setGoals(goalData);
-        setSelectedExerciseKey(evolutionData[0]?.key ?? "");
+        const requestedExercise = searchParams.get("exercicio") ?? "";
+        setSelectedExerciseKey(
+          evolutionData.some((item) => item.key === requestedExercise)
+            ? requestedExercise
+            : evolutionData[0]?.key ?? "",
+        );
       })
       .catch(() => { if (active) setMessage("Não foi possível carregar seus recordes."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [user]);
+  }, [lookbackDays, user]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
@@ -118,8 +133,8 @@ export default function PersonalRecordsPage() {
   return <main className="records-page">
     <header className="records-header">
       <span className="eyebrow">DESEMPENHO MÁXIMO</span>
-      <h1>Recordes pessoais</h1>
-      <p>Somente séries válidas de treinos reais concluídos entram nos recordes. Aquecimentos e séries não realizadas são ignorados.</p>
+      <h1>Evolução e recordes</h1>
+      <p>Acompanhe carga, repetições, volume e 1RM estimada. Somente séries válidas de treinos reais concluídos entram na análise.</p>
     </header>
 
     {loading && <p className="records-message" role="status">Calculando recordes…</p>}
@@ -133,10 +148,26 @@ export default function PersonalRecordsPage() {
       </section>
 
       <div id="exercise-evolution">
+        <div className="evolution-periods" role="group" aria-label="Período da evolução">
+          {EVOLUTION_PERIODS.map((period) => <button
+            type="button"
+            key={period.days}
+            className={lookbackDays === period.days ? "active" : ""}
+            aria-pressed={lookbackDays === period.days}
+            onClick={() => setLookbackDays(period.days)}
+          >{period.label}</button>)}
+        </div>
         <ExerciseEvolutionPanel
           exercises={evolution}
           selectedExerciseKey={selectedExerciseKey}
-          onSelectExercise={setSelectedExerciseKey}
+          periodLabel={EVOLUTION_PERIODS.find((period) => period.days === lookbackDays)?.label ?? "Período selecionado"}
+          onSelectExercise={(key) => {
+            setSelectedExerciseKey(key);
+            const next = new URLSearchParams(searchParams);
+            if (key) next.set("exercicio", key);
+            else next.delete("exercicio");
+            setSearchParams(next, { replace: true });
+          }}
         />
       </div>
 

@@ -763,6 +763,7 @@ main { padding: 64px 0 52px; }
 .progression ul { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 0; padding: 0; list-style: none; }
 .progression li { padding: 4px 7px; border: 1px solid rgba(23,107,255,.18); border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.65); font-size: 9px; font-weight: 700; }
 .progression button { flex: 0 0 auto; min-height: 38px; padding: 8px 12px; border-color: #a9c9ff; background: #fff; color: var(--blue); }
+.progression__history { display: inline-flex; min-height: 38px; padding: 8px 12px; border: 1px solid #a9c9ff; border-radius: 9px; align-items: center; justify-content: center; color: var(--blue); background: rgba(255,255,255,.72); font-weight: 850; text-decoration: none; }
 .progression--increase { background: var(--green-soft); }
 .progression--reduce { background: var(--amber-soft); }
 .personal-record-banner { display: grid; gap: 3px; margin: 12px 0; padding: 13px 15px; border: 1px solid #89d8bd; border-radius: 12px; background: linear-gradient(135deg, #e7fff6, #dff5ff); color: var(--navy); }
@@ -1037,6 +1038,9 @@ main { padding: 64px 0 52px; }
 .record-goal-form button:first-child { border-color: var(--blue); color: #fff; background: var(--blue); }
 .record-goal-form button.danger { border-color: #dba7ac; color: #a72e3a; }
 #exercise-evolution { scroll-margin-top: 90px; }
+.evolution-periods { display: flex; gap: 8px; margin-top: 20px; padding: 8px; border: 1px solid var(--app-line); border-radius: 13px; background: var(--app-card); flex-wrap: wrap; }
+.evolution-periods button { min-height: 38px; padding: 0 14px; border: 1px solid var(--app-line); border-radius: 9px; color: var(--app-muted); background: var(--app-bg); font-weight: 850; }
+.evolution-periods button.active { border-color: var(--blue); color: #fff; background: var(--blue); }
 .records-empty { margin-top: 20px; padding: 32px; border: 1px dashed var(--app-line); border-radius: 15px; color: var(--app-muted); text-align: center; }
 .records-empty h2 { margin: 0 0 8px; color: var(--app-text); }
 .restriction-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1824,6 +1828,18 @@ main { padding: 64px 0 52px; }
 .evolution-summary strong small { color:#7f9bbd; font-size:10px; }
 .evolution-summary .positive { color:#6be2ac; }
 .evolution-summary .negative { color:#ffabb4; }
+.evolution-insight { display:flex; gap:18px; padding:15px; border:1px solid #315478; border-radius:13px; align-items:center; justify-content:space-between; background:#0b2139; }
+.evolution-insight > div { display:grid; gap:4px; }
+.evolution-insight span { color:#62a9ff; font-size:9px; font-weight:900; letter-spacing:.1em; }
+.evolution-insight strong { color:#fff; font-size:17px; }
+.evolution-insight p { margin:0; color:#9bb1ca; font-size:11px; line-height:1.5; }
+.evolution-insight > small { max-width:190px; color:#7890ad; font-size:10px; text-align:right; }
+.evolution-insight--progressing { border-color:#267a5a; background:rgba(20,91,65,.28); }
+.evolution-insight--progressing span { color:#6be2ac; }
+.evolution-insight--declining { border-color:#86414a; background:rgba(126,35,47,.2); }
+.evolution-insight--declining span { color:#ffabb4; }
+.evolution-insight--stable { border-color:#80662a; background:rgba(112,78,15,.2); }
+.evolution-insight--stable span { color:#ffd77e; }
 .evolution-chart { overflow-x:auto; padding:8px; border:1px solid #193b5f; border-radius:14px; background:#061426; }
 .evolution-chart svg { display:block; width:100%; min-width:560px; height:auto; }
 .evolution-chart line { stroke:#254564; stroke-width:1; }
@@ -1873,6 +1889,8 @@ main { padding: 64px 0 52px; }
   .exercise-evolution > header { align-items:stretch; flex-direction:column; }
   .exercise-evolution header label { width:100%; }
   .evolution-summary { grid-template-columns:1fr; }
+  .evolution-insight { align-items:flex-start; flex-direction:column; }
+  .evolution-insight > small { max-width:none; text-align:left; }
   .evolution-chart { padding:4px; }
   .report-body-progress { padding: 16px 11px; }
   .report-body-progress > header { align-items: stretch; flex-direction: column; }
