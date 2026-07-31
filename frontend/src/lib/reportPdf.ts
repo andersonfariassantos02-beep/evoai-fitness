@@ -1,5 +1,6 @@
 import type { WorkoutReport } from "../services/reportService";
 import type { PersonalRecordHighlight } from "./personalRecord";
+import type { ReportCoachingSummary } from "./reportCoachingSummary";
 
 function fileName(report: WorkoutReport) {
   return `evoai-relatorio-${report.startDate}-a-${report.endDate}.pdf`;
@@ -14,6 +15,7 @@ export async function createReportPdf(
   previous: WorkoutReport | null,
   athleteName: string,
   personalRecords: PersonalRecordHighlight[] = [],
+  coachingSummary?: ReportCoachingSummary,
 ) {
   const { jsPDF } = await import("jspdf");
   const document = new jsPDF({ unit: "mm", format: "a4" });
@@ -57,6 +59,22 @@ export async function createReportPdf(
     : null;
   paragraph(`Resumo: ${report.completedSessions} treino(s), ${report.completedSets} series realizadas, ${report.totalReps} repeticoes e ${report.totalVolume.toLocaleString("pt-BR")} kg de volume.`);
   paragraph(`Adesao: ${report.adherence}% | RPE medio: ${report.averageRpe ?? "-"} | Series nao realizadas: ${report.skippedSets}${volumeChange === null ? "" : ` | Variacao de volume: ${volumeChange > 0 ? "+" : ""}${volumeChange}%`}.`, 9, [23, 107, 255]);
+
+  if (coachingSummary) {
+    ensureSpace(24);
+    document.setTextColor(7, 26, 51);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(13);
+    document.text("Leitura inteligente", margin, y);
+    y += 7;
+    paragraph(coachingSummary.title, 10, [23, 107, 255]);
+    paragraph(coachingSummary.description, 8);
+    coachingSummary.insights.forEach((insight) => {
+      paragraph(`${insight.title}: ${insight.message}`, 8);
+    });
+    paragraph("Orientacao de treino, nao diagnostico.", 7, [120, 132, 148]);
+    y += 2;
+  }
 
   if (report.bodyProgress) {
     ensureSpace(24);
@@ -151,8 +169,9 @@ export async function saveReportPdf(
   previous: WorkoutReport | null,
   athleteName: string,
   personalRecords: PersonalRecordHighlight[] = [],
+  coachingSummary?: ReportCoachingSummary,
 ) {
-  const { blob, name } = await createReportPdf(report, previous, athleteName, personalRecords);
+  const { blob, name } = await createReportPdf(report, previous, athleteName, personalRecords, coachingSummary);
   downloadBlob(blob, name);
 }
 
@@ -172,8 +191,9 @@ export async function shareReportPdf(
   previous: WorkoutReport | null,
   athleteName: string,
   personalRecords: PersonalRecordHighlight[] = [],
+  coachingSummary?: ReportCoachingSummary,
 ) {
-  const { blob, name } = await createReportPdf(report, previous, athleteName, personalRecords);
+  const { blob, name } = await createReportPdf(report, previous, athleteName, personalRecords, coachingSummary);
   const file = new File([blob], name, { type: "application/pdf" });
   if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
     await navigator.share({ title: "Relatório EvoAI Fitness", text: `Treinos de ${report.startDate} a ${report.endDate}`, files: [file] });
