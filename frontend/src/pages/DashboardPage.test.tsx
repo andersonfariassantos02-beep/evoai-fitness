@@ -204,6 +204,9 @@ describe("painel principal", () => {
     const dialog = screen.getByRole("dialog", { name: /Plano da semana/ });
     expect(within(dialog).getAllByText(/sessão da divisão/)).toHaveLength(3);
     expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
+    expect(within(dialog).getByLabelText("Resumo da semana planejada")).toHaveTextContent("DURAÇÃO ESTIMADA");
+    expect(within(dialog).getByRole("heading", { name: "Volume previsto comparado à referência" })).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Análise do planejamento")).not.toBeEmptyDOMElement();
     await user.click(within(dialog).getAllByRole("button", { name: "↓" })[0]);
     await user.click(within(dialog).getByRole("button", { name: "Confirmar planejamento" }));
 

@@ -40,6 +40,7 @@ import { loadWorkoutReport } from "../services/reportService";
 import { loadExerciseGoals } from "../services/exerciseGoalService";
 import { loadPersonalRecords } from "../services/personalRecordService";
 import { buildExerciseGoalSummary } from "../lib/exerciseGoalProgress";
+import { analyzeWeeklyPlan } from "../lib/weeklyPlanAnalysis";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -106,6 +107,7 @@ export default function DashboardPage() {
   const [weeklyPreviewDays, setWeeklyPreviewDays] = useState<WeeklyPlanPreviewDay[]>([]);
   const [weeklyPreviewMessage, setWeeklyPreviewMessage] = useState("");
   const [weeklyPreviewBusy, setWeeklyPreviewBusy] = useState(false);
+  const [previewCompletedMuscleVolume, setPreviewCompletedMuscleVolume] = useState<MuscleVolumeSummary[]>([]);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -151,6 +153,17 @@ export default function DashboardPage() {
         setPlanningProfile({ goal: "general_fitness", trainingFocus: ["full_body"], displayName: null });
         setLastCompletedLabel(null); setCompletedMuscleVolume([]);
       });
+  }, [selectedDate, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const nextWeekStart = toDateKey(addDays(getWeekStart(fromDateKey(selectedDate)), 7));
+    const nextWeekEnd = toDateKey(addDays(fromDateKey(nextWeekStart), 6));
+    let active = true;
+    void loadWeeklyMuscleVolume(user.id, nextWeekStart, nextWeekEnd)
+      .then((volume) => { if (active) setPreviewCompletedMuscleVolume(volume); })
+      .catch(() => { if (active) setPreviewCompletedMuscleVolume([]); });
+    return () => { active = false; };
   }, [selectedDate, user]);
 
   useEffect(() => {
@@ -351,6 +364,15 @@ export default function DashboardPage() {
   const previewLabelOptions = getAdaptiveWeekLabels(
     Math.max(1, previewEntries.filter((entry) => entry.available && !entry.completed).length),
     planningProfile.trainingFocus,
+  );
+  const weeklyPreviewAnalysis = useMemo(
+    () => analyzeWeeklyPlan(
+      weeklyPreviewDays,
+      planningProfile.goal,
+      previewCompletedMuscleVolume,
+      muscleRecovery,
+    ),
+    [muscleRecovery, planningProfile.goal, previewCompletedMuscleVolume, weeklyPreviewDays],
   );
 
   function openWeeklyPreview() {
@@ -609,6 +631,12 @@ export default function DashboardPage() {
             <span className="setup-status">PRÉVIA INTELIGENTE</span>
             <h2 id="weekly-preview-title">Plano da semana de {formatShortDate(previewPlan.weekStart)}</h2>
             <p>{previewPlan.summary}</p>
+            {weeklyPreviewDays.length > 0 && <section className="weekly-preview-dialog__metrics" aria-label="Resumo da semana planejada">
+              <article><small>TREINOS</small><strong>{weeklyPreviewAnalysis.sessions.length}</strong></article>
+              <article><small>DURAÇÃO ESTIMADA</small><strong>{weeklyPreviewAnalysis.estimatedMinutes} min</strong></article>
+              <article><small>SÉRIES VÁLIDAS</small><strong>{weeklyPreviewAnalysis.validSets}</strong></article>
+              <article><small>JÁ REALIZADO</small><strong>{previewCompletedMuscleVolume.reduce((total, item) => total + item.directSets, 0).toLocaleString("pt-BR")} séries</strong></article>
+            </section>}
             {weeklyPreviewDays.length === 0
               ? <div className="weekly-preview-dialog__empty">
                 Marque no calendário ao menos um dia disponível nessa semana e gere a prévia novamente.
@@ -619,6 +647,11 @@ export default function DashboardPage() {
                     <div>
                       <strong>{formatShortDate(day.date)}</strong>
                       <small>{day.reason}</small>
+                      <em>
+                        {weeklyPreviewAnalysis.sessions.find((session) => session.date === day.date)?.estimatedMinutes ?? 0} min
+                        {" · "}
+                        {weeklyPreviewAnalysis.sessions.find((session) => session.date === day.date)?.validSets ?? 0} séries
+                      </em>
                     </div>
                     <label>
                       <span>Divisão</span>
@@ -635,6 +668,27 @@ export default function DashboardPage() {
                   </article>
                 ))}
               </div>}
+            {weeklyPreviewDays.length > 0 && <section className="weekly-preview-dialog__coverage" aria-labelledby="weekly-coverage-title">
+              <div>
+                <span className="setup-status">COBERTURA MUSCULAR</span>
+                <h3 id="weekly-coverage-title">Volume previsto comparado à referência</h3>
+              </div>
+              <div className="weekly-preview-dialog__muscles">
+                {weeklyPreviewAnalysis.muscles.map((item) => (
+                  <article className={`weekly-preview-dialog__muscle weekly-preview-dialog__muscle--${item.status}`} key={item.muscle}>
+                    <div><strong>{MUSCLE_LABELS[item.muscle]}</strong><small>{item.totalSets.toLocaleString("pt-BR")} de {item.targetSets} séries</small></div>
+                    <span>{item.percentage}%</span>
+                    <i><b style={{ width: `${Math.min(100, item.percentage)}%` }} /></i>
+                  </article>
+                ))}
+              </div>
+              <p>Referência orientativa conforme seu objetivo. Séries indiretas são exibidas no painel semanal, mas esta comparação usa estímulo direto.</p>
+            </section>}
+            {weeklyPreviewDays.length > 0 && <section className="weekly-preview-dialog__alerts" aria-label="Análise do planejamento">
+              {weeklyPreviewAnalysis.alerts.map((alert) => (
+                <p className={`weekly-preview-dialog__alert weekly-preview-dialog__alert--${alert.level}`} key={alert.id}>{alert.message}</p>
+              ))}
+            </section>}
             {previewPlan.recoveryAdjustment !== "normal" && <p className="weekly-preview-dialog__recovery">
               {previewPlan.recoveryAdjustment === "deload"
                 ? "Deload ativo: as fichas usarão volume reduzido e esforço controlado."
@@ -643,7 +697,7 @@ export default function DashboardPage() {
             {weeklyPreviewMessage && <p className="weekly-preview-dialog__message" role="status">{weeklyPreviewMessage}</p>}
             <div className="weekly-preview-dialog__actions">
               <button type="button" disabled={weeklyPreviewBusy} onClick={() => setWeeklyPreviewOpen(false)}>Cancelar</button>
-              <button className="primary-action" type="button" disabled={weeklyPreviewBusy || !weeklyPreviewDays.length} onClick={() => void confirmWeeklyPreview()}>
+              <button className="primary-action" type="button" disabled={weeklyPreviewBusy || !weeklyPreviewAnalysis.canConfirm} onClick={() => void confirmWeeklyPreview()}>
                 {weeklyPreviewBusy ? "Confirmando…" : "Confirmar planejamento"}
               </button>
             </div>
