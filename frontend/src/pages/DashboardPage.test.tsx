@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
     bestEstimated1Rm: { estimated1Rm: 101, loadKg: 80, reps: 8, date: "2026-07-29" },
     bestSessionVolume: { volumeKg: 2400, date: "2026-07-29" },
   }]),
+  calendarEntries: [] as Array<{ date: string; available: boolean; completed: boolean; plannedLabel?: string }>,
+  queueCalendarMutation: vi.fn().mockResolvedValue("synced"),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -41,8 +43,8 @@ vi.mock("../services/exerciseCatalogService", () => ({
 
 vi.mock("../services/trainingCalendarService", () => ({
   flushCalendarOutbox: vi.fn().mockResolvedValue(undefined),
-  loadSyncedCalendar: vi.fn().mockResolvedValue({ entries: [], state: "synced" }),
-  queueCalendarMutation: vi.fn().mockResolvedValue("synced"),
+  loadSyncedCalendar: vi.fn().mockImplementation(() => Promise.resolve({ entries: mocks.calendarEntries, state: "synced" })),
+  queueCalendarMutation: (...args: unknown[]) => mocks.queueCalendarMutation(...args),
   loadLastCompletedWorkoutLabel: vi.fn().mockResolvedValue(null),
   loadWorkouts: vi.fn().mockResolvedValue([]),
 }));
@@ -92,6 +94,7 @@ describe("painel principal", () => {
     mocks.fatigue.title = "Recuperação merece atenção";
     mocks.loadActiveDeload.mockResolvedValue(null);
     mocks.loadActiveTrainingCycle.mockResolvedValue(null);
+    mocks.calendarEntries = [];
     mocks.startDeload.mockResolvedValue({
       id: "deload-1", userId: "admin-1", startsOn: "2026-07-29", endsOn: "2026-08-04",
       status: "active", volumeReductionPercent: 35, targetRpeMin: 6, targetRpeMax: 7, reason: "fadiga",
@@ -187,5 +190,28 @@ describe("painel principal", () => {
     await user.click(screen.getByTestId("view-toggle-monthly"));
     expect(screen.getByTestId("view-toggle-monthly")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { name: /julho de 2026/i, level: 2 })).toBeInTheDocument();
+  });
+  it("permite revisar, reordenar e confirmar a próxima semana", async () => {
+    mocks.calendarEntries = [
+      { date: "2026-08-03", available: true, completed: false },
+      { date: "2026-08-05", available: true, completed: false },
+      { date: "2026-08-07", available: true, completed: false },
+    ];
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Planejar próxima semana" }));
+    const dialog = screen.getByRole("dialog", { name: /Plano da semana/ });
+    expect(within(dialog).getAllByText(/sessão da divisão/)).toHaveLength(3);
+    expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
+    await user.click(within(dialog).getAllByRole("button", { name: "↓" })[0]);
+    await user.click(within(dialog).getByRole("button", { name: "Confirmar planejamento" }));
+
+    expect(mocks.queueCalendarMutation).toHaveBeenCalledTimes(3);
+    expect(mocks.queueCalendarMutation).toHaveBeenCalledWith(
+      "admin-1",
+      "2026-08-03",
+      expect.objectContaining({ plannedLabel: "PULL" }),
+    );
   });
 });

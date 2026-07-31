@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWeeklyPlan, PERIODIZED_WEEK_LABELS, type TrainingCalendarEntry } from "./trainingCalendar";
+import { buildWeeklyPlan, buildWeeklyPlanPreview, PERIODIZED_WEEK_LABELS, type TrainingCalendarEntry } from "./trainingCalendar";
 
 describe("buildWeeklyPlan periodizado", () => {
   const week = new Date(2026, 6, 20);
@@ -125,5 +125,38 @@ describe("buildWeeklyPlan periodizado", () => {
     ];
     const plan = buildWeeklyPlan(entries, week, { today: beforeWeek, trainingFocus: ["legs"] });
     expect(plan.days.map((day) => day.label)).toEqual(["LEGS", "PUSH", "PULL"]);
+  });
+
+  it("mantém a divisão confirmada pelo usuário sem alterar treino concluído", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-20", available: true, completed: true, completedLabel: "PUSH" },
+      { date: "2026-07-22", available: true, completed: false, plannedLabel: "LEGS" },
+      { date: "2026-07-24", available: true, completed: false, plannedLabel: "PULL" },
+    ], week, { today: beforeWeek });
+
+    expect(plan.days.map((day) => [day.date, day.label])).toEqual([
+      ["2026-07-20", "PUSH"],
+      ["2026-07-22", "LEGS"],
+      ["2026-07-24", "PULL"],
+    ]);
+  });
+
+  it("explica a prévia conforme foco, cobertura e fadiga", () => {
+    const preview = buildWeeklyPlanPreview([
+      { date: "2026-07-20", available: true, completed: false },
+      { date: "2026-07-22", available: true, completed: false },
+      { date: "2026-07-24", available: true, completed: false },
+    ], week, {
+      today: beforeWeek,
+      trainingFocus: ["back"],
+      fatigueLevel: "attention",
+      lowCoverageMuscles: ["Pernas"],
+    });
+
+    expect(preview.days).toHaveLength(3);
+    expect(preview.days[0].label).toBe("PULL");
+    expect(preview.days[0].reason).toContain("costas");
+    expect(preview.days[0].reason).toContain("Pernas");
+    expect(preview.recoveryAdjustment).toBe("attention");
   });
 });

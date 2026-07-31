@@ -3,6 +3,8 @@ export interface TrainingCalendarEntry {
   available: boolean;
   completed: boolean;
   completedWasPlanned?: boolean;
+  /** Divisão confirmada pelo atleta para esta data. */
+  plannedLabel?: string;
   /** Rótulo imutável vindo da sessão concluída, quando existir. */
   completedLabel?: string;
 }
@@ -33,6 +35,19 @@ export interface WeeklyPlanOptions {
   existingWorkouts?: Array<{ date: string; label: string }>;
   today?: Date;
   minimumRecoveryDays?: number;
+}
+
+export interface WeeklyPlanPreviewDay {
+  date: string;
+  label: string;
+  reason: string;
+}
+
+export interface WeeklyPlanPreview {
+  weekStart: string;
+  days: WeeklyPlanPreviewDay[];
+  summary: string;
+  recoveryAdjustment: "normal" | "attention" | "deload";
 }
 
 const DAY_IN_MS = 86_400_000;
@@ -231,7 +246,8 @@ export function buildWeeklyPlan(
     .slice(0, pendingSlots)
     .map((entry, index) => ({
       date: entry.date,
-      label: pendingSequence[index]
+      label: entry.plannedLabel
+        ?? pendingSequence[index]
         ?? `Treino ${completedCount + index + 1}`,
       status: "planned",
       adjusted: unplannedCompleted > 0,
@@ -252,6 +268,56 @@ export function buildWeeklyPlan(
     days: [...completedDays, ...plannedDays].sort((left, right) => left.date.localeCompare(right.date)),
     message,
     recoveryCompromised: false,
+  };
+}
+
+const FOCUS_LABELS: Record<TrainingFocus, string> = {
+  full_body: "corpo inteiro",
+  glutes: "glúteos",
+  legs: "pernas",
+  chest: "peito",
+  back: "costas",
+  shoulders: "ombros",
+  arms: "braços",
+  core: "core",
+};
+
+export function buildWeeklyPlanPreview(
+  entries: TrainingCalendarEntry[],
+  referenceDate: Date,
+  options: WeeklyPlanOptions & {
+    fatigueLevel?: "normal" | "attention" | "deload";
+    lowCoverageMuscles?: string[];
+  } = {},
+): WeeklyPlanPreview {
+  const plan = buildWeeklyPlan(entries, referenceDate, options);
+  const focus = options.trainingFocus?.filter((item) => item !== "full_body") ?? [];
+  const focusReason = focus.length
+    ? `prioriza ${focus.map((item) => FOCUS_LABELS[item]).join(" e ")} conforme seu perfil`
+    : "mantém cobertura equilibrada do corpo inteiro";
+  const deficitReason = options.lowCoverageMuscles?.length
+    ? ` e considera menor cobertura recente de ${options.lowCoverageMuscles.join(" e ")}`
+    : "";
+  const recoveryAdjustment = options.fatigueLevel ?? "normal";
+  const recoveryReason = recoveryAdjustment === "deload"
+    ? " Volume e esforço serão reduzidos pela semana de deload."
+    : recoveryAdjustment === "attention"
+      ? " A intensidade será conservadora por sinais recentes de fadiga."
+      : "";
+
+  return {
+    weekStart: plan.weekStart,
+    days: plan.days
+      .filter((day) => day.status === "planned")
+      .map((day, index) => ({
+        date: day.date,
+        label: day.label,
+        reason: `${index + 1}ª sessão da divisão para ${plan.targetSessions} dia(s): ${focusReason}${deficitReason}.${recoveryReason}`,
+      })),
+    summary: plan.targetSessions
+      ? `Prévia com ${plan.targetSessions} treino${plan.targetSessions === 1 ? "" : "s"}, limitada aos dias que você marcou como disponíveis.`
+      : "Marque os dias disponíveis da próxima semana para gerar a prévia.",
+    recoveryAdjustment,
   };
 }
 
