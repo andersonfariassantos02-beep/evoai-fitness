@@ -4,11 +4,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WorkoutSetupPage from "./WorkoutSetupPage";
 
-const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness, loadActiveDeload, loadActiveTrainingCycle, loadPlanningProfile, loadWeeklyMuscleVolume } = vi.hoisted(() => {
+const { authenticatedUser, row, legPress, lateralRaise, cancelStartedWorkout, createManualWorkout, replaceUnstartedWorkout, loadExistingWorkout, previewAutomaticWorkout, loadDailyReadiness, saveDailyReadiness, loadActiveDeload, loadActiveTrainingCycle, loadPlanningProfile, loadWeeklyMuscleVolume } = vi.hoisted(() => {
   const row = { key: "row", name: "Remada", sets: 3, repsMin: 8, repsMax: 12, muscle: "costas", movement: "puxar-horizontal", equipment: "máquina" };
   const legPress = { key: "leg-press", name: "Leg press", sets: 3, repsMin: 10, repsMax: 15, muscle: "quadriceps", movement: "agachar", equipment: "máquina" };
+  const lateralRaise = { key: "lateral-raise", name: "Elevação lateral", sets: 3, repsMin: 12, repsMax: 15, muscle: "ombros", movement: "abducao-ombro", equipment: "halteres", mechanics: "isolado" };
   return {
-    authenticatedUser: { id: "admin-1" }, row, legPress,
+    authenticatedUser: { id: "admin-1" }, row, legPress, lateralRaise,
     cancelStartedWorkout: vi.fn().mockResolvedValue(undefined),
     createManualWorkout: vi.fn().mockResolvedValue({}),
     replaceUnstartedWorkout: vi.fn().mockResolvedValue({}),
@@ -26,7 +27,7 @@ const { authenticatedUser, row, legPress, cancelStartedWorkout, createManualWork
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: authenticatedUser }) }));
 vi.mock("../services/exerciseCatalogService", () => ({
   isExerciseCatalogAdmin: vi.fn().mockResolvedValue(true),
-  loadExerciseCatalog: vi.fn().mockResolvedValue([row, legPress]),
+  loadExerciseCatalog: vi.fn().mockResolvedValue([row, legPress, lateralRaise]),
 }));
 vi.mock("../services/profileRestrictionService", () => ({
   exerciseConflictsWithRestrictions: vi.fn().mockReturnValue(false),
@@ -108,6 +109,41 @@ describe("preparação do treino", () => {
     expect(screen.getByText("Volume reduzido")).toBeInTheDocument();
   });
 
+  it("aceita substituir o valor de sono por 12 sem manter zero à esquerda", async () => {
+    const user = userEvent.setup();
+    renderSetup(true);
+    const sleepInput = await screen.findByLabelText("Horas de sono");
+    await user.clear(sleepInput);
+    await user.type(sleepInput, "12");
+    expect(sleepInput).toHaveValue(12);
+  });
+
+  it("recalcula os cartões depois de personalizar antes de criar o treino", async () => {
+    const user = userEvent.setup();
+    renderSetup(true);
+    await user.click(await screen.findByRole("button", { name: "Ver sugestão" }));
+    await user.click(screen.getByRole("button", { name: "Personalizar" }));
+    await user.click(screen.getByRole("checkbox", { name: /Elevação lateral/ }));
+    await user.click(screen.getByRole("button", { name: "Incluir e revisar" }));
+
+    expect(await screen.findByText(/Exercícios incluídos/)).toBeInTheDocument();
+    expect(screen.getByText("DURAÇÃO ESTIMADA")).toBeInTheDocument();
+    expect(screen.getByText("SÉRIES VÁLIDAS")).toBeInTheDocument();
+    expect(screen.getByText("Elevação lateral")).toBeInTheDocument();
+    expect(createManualWorkout).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Confirmar e criar treino" }));
+    await waitFor(() => expect(createManualWorkout).toHaveBeenCalledWith(
+      "admin-1", "2026-07-22", "Full body A",
+      expect.arrayContaining([
+        expect.objectContaining({ key: "row" }),
+        expect.objectContaining({ key: "leg-press" }),
+        expect.objectContaining({ key: "lateral-raise" }),
+      ]),
+      "test",
+    ));
+  });
+
   it("aplica o deload ativo à sugestão automática sem trocar exercícios", async () => {
     loadActiveDeload.mockResolvedValue({
       id: "deload-1", userId: "admin-1", startsOn: "2026-07-22", endsOn: "2026-07-28",
@@ -131,8 +167,13 @@ describe("preparação do treino", () => {
     renderSetup();
     await user.click(await screen.findByRole("button", { name: "Editar ficha" }));
     await user.click(screen.getByRole("checkbox", { name: /Leg press/ }));
-    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
-    await waitFor(() => expect(replaceUnstartedWorkout).toHaveBeenCalledWith("admin-1", "2026-07-22", "session-1", "Ficha do coach", [row, legPress]));
+    await user.click(screen.getByRole("button", { name: "Incluir e revisar" }));
+    expect(await screen.findByText("DURAÇÃO ESTIMADA")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Substituir ficha atual" }));
+    await waitFor(() => expect(replaceUnstartedWorkout).toHaveBeenCalledWith(
+      "admin-1", "2026-07-22", "session-1", "Ficha do coach",
+      [expect.objectContaining({ key: "row" }), expect.objectContaining({ key: "leg-press" })],
+    ));
   });
 
   it("restaura e permite atualizar o check-in salvo na mesma data", async () => {

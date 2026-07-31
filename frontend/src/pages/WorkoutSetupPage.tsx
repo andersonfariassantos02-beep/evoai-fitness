@@ -58,6 +58,7 @@ export default function WorkoutSetupPage() {
     sleepHours: 7, energy: 3, soreness: 2, fatigue: 2, jointDiscomfort: false, availableMinutes: 60,
   });
   const readinessAssessment = useMemo(() => assessReadiness(readiness), [readiness]);
+  const sleepHoursValid = Number.isFinite(readiness.sleepHours) && readiness.sleepHours >= 0 && readiness.sleepHours <= 16;
 
   useEffect(() => {
     if (!user || !date) return;
@@ -103,6 +104,16 @@ export default function WorkoutSetupPage() {
   }, [available]);
   const sessionHref = `/treino/${date}?label=${encodeURIComponent(existing?.workout_label ?? (label.trim() || suggestedLabel))}&planned=${planned ? "1" : "0"}${testMode ? "&test=1" : ""}`;
 
+  function createPrescription(templates: WorkoutExerciseTemplate[]) {
+    return buildIntelligentPrescription(templates, {
+      goal: planningProfile.goal,
+      readiness,
+      readinessAssessment,
+      completedWeeklyVolume,
+      deload: activeDeload,
+    });
+  }
+
   async function showAutomaticPreview() {
     if (!user) return;
     setBusy(true); setMessage("");
@@ -112,13 +123,7 @@ export default function WorkoutSetupPage() {
         setReadinessSaved(true);
       }
       const suggestion = await previewAutomaticWorkout(user.id, date, suggestedLabel);
-      const result = buildIntelligentPrescription(suggestion, {
-        goal: planningProfile.goal,
-        readiness,
-        readinessAssessment,
-        completedWeeklyVolume,
-        deload: activeDeload,
-      });
+      const result = createPrescription(suggestion);
       setPrescription(result);
       setPreview(result.exercises);
       setLabel(suggestedLabel);
@@ -126,6 +131,15 @@ export default function WorkoutSetupPage() {
     }
     catch { setMessage("Não foi possível gerar a sugestão com as preferências atuais."); }
     finally { setBusy(false); }
+  }
+
+  function reviewManualSelection() {
+    if (!selected.length || !label.trim()) return;
+    const result = createPrescription(selected);
+    setPrescription(result);
+    setPreview(result.exercises);
+    setMessage("Exercícios incluídos. Revise a duração, o volume e a prescrição antes de criar o treino.");
+    setMode("preview");
   }
 
   async function saveCheckIn() {
@@ -196,7 +210,7 @@ export default function WorkoutSetupPage() {
       <section className="readiness-checkin" aria-labelledby="readiness-title">
         <div><span className="setup-status">CHECK-IN RÁPIDO</span><h2 id="readiness-title">Como você chega para o treino?</h2><p>Leva poucos segundos e evita ajustes agressivos quando sua recuperação estiver menor.</p></div>
         <div className="readiness-checkin__fields">
-          <label>Horas de sono<input type="number" inputMode="decimal" min="0" max="16" step="0.5" value={readiness.sleepHours} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, sleepHours: Number(event.target.value) })); }} /></label>
+          <label>Horas de sono<input type="number" inputMode="decimal" min="0" max="16" step="0.5" aria-invalid={!sleepHoursValid} value={sleepHoursValid ? readiness.sleepHours : ""} onFocus={(event) => event.currentTarget.select()} onChange={(event) => { const raw = event.target.value; setReadinessSaved(false); setReadiness((current) => ({ ...current, sleepHours: raw === "" ? Number.NaN : Number(raw) })); }} onBlur={() => { if (!sleepHoursValid) setReadiness((current) => ({ ...current, sleepHours: 0 })); }} /></label>
           <label>Energia hoje<select value={readiness.energy} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, energy: Number(event.target.value) })); }}><option value="1">1 · Muito baixa</option><option value="2">2 · Baixa</option><option value="3">3 · Normal</option><option value="4">4 · Boa</option><option value="5">5 · Excelente</option></select></label>
           <label>Fadiga geral<select value={readiness.fatigue} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, fatigue: Number(event.target.value) })); }}><option value="1">1 · Muito baixa</option><option value="2">2 · Baixa</option><option value="3">3 · Moderada</option><option value="4">4 · Alta</option><option value="5">5 · Muito alta</option></select></label>
           <label>Dor muscular<select value={readiness.soreness} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, soreness: Number(event.target.value) })); }}><option value="1">1 · Nenhuma</option><option value="2">2 · Leve</option><option value="3">3 · Moderada</option><option value="4">4 · Alta</option><option value="5">5 · Muito alta</option></select></label>
@@ -204,10 +218,10 @@ export default function WorkoutSetupPage() {
           <label className="readiness-checkin__toggle"><input type="checkbox" checked={readiness.jointDiscomfort} onChange={(event) => { setReadinessSaved(false); setReadiness((current) => ({ ...current, jointDiscomfort: event.target.checked })); }} />Estou com desconforto articular</label>
         </div>
         <p className={`readiness-result readiness-result--${readinessAssessment.level}`}>{readinessAssessment.message}</p>
-        {!testMode && <div className="readiness-checkin__actions"><button type="button" disabled={busy || readinessSaved} onClick={() => void saveCheckIn()}>{readinessSaved ? "Check-in salvo" : "Salvar check-in"}</button><small>O registro poderá ser atualizado nesta mesma data.</small></div>}
+        {!testMode && <div className="readiness-checkin__actions"><button type="button" disabled={busy || readinessSaved || !sleepHoursValid} onClick={() => void saveCheckIn()}>{readinessSaved ? "Check-in salvo" : "Salvar check-in"}</button><small>O registro poderá ser atualizado nesta mesma data.</small></div>}
       </section>
       <section className="setup-mode-grid">
-        <article><h2>EvoAI monta para mim</h2><p>Primeiro você verá uma prévia considerando o check-in. Nada será salvo sem confirmação.</p><button type="button" disabled={busy} onClick={() => void showAutomaticPreview()}>{busy ? "Gerando prévia…" : "Ver sugestão"}</button></article>
+        <article><h2>EvoAI monta para mim</h2><p>Primeiro você verá uma prévia considerando o check-in. Nada será salvo sem confirmação.</p><button type="button" disabled={busy || !sleepHoursValid} onClick={() => void showAutomaticPreview()}>{busy ? "Gerando prévia…" : "Ver sugestão"}</button></article>
         <article><h2>Quero montar manualmente</h2><p>Escolha o nome e os exercícios da ficha, inclusive os prescritos pelo seu coach.</p><button type="button" onClick={() => openManual([])}>Montar minha ficha</button></article>
       </section>
     </>}
@@ -221,11 +235,11 @@ export default function WorkoutSetupPage() {
     {mode === "confirm-restart" && existing && <section className="setup-review setup-review--warning"><span className="setup-status setup-status--locked">CONFIRME O ENCERRAMENTO</span><h2>Montar uma nova ficha para este dia?</h2><p>As séries já concluídas em <strong>{existing.workout_label}</strong> continuarão no seu histórico. O treino atual será encerrado e a nova ficha começará sem séries preenchidas.</p><p>Essa ação não poderá ser desfeita.</p><div className="setup-review__actions"><button type="button" disabled={busy} onClick={() => setMode("locked")}>Voltar</button><button className="danger-action" type="button" disabled={busy} onClick={() => void restartWorkout()}>{busy ? "Encerrando…" : "Encerrar treino e montar nova ficha"}</button></div></section>}
 
     {mode === "manual" && <section className="manual-builder">
-      <div className="manual-builder__header"><div><span className="setup-status">EDIÇÃO NÃO CONFIRMADA</span><h2>Minha ficha</h2><p>Selecione de 1 a 12 exercícios. A ordem seguirá a ordem de seleção.</p></div><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Cancelar</button></div>
+      <div className="manual-builder__header"><div><span className="setup-status">EDIÇÃO NÃO CONFIRMADA</span><h2>Minha ficha</h2><p>Selecione de 1 a 12 exercícios. A ordem seguirá a ordem de seleção.</p></div><button type="button" onClick={() => setMode(prescription ? "preview" : existing ? "existing" : "choice")}>Cancelar</button></div>
       <label>Nome do treino<input value={label} maxLength={120} onChange={(event) => setLabel(event.target.value)} /></label>
       <div className="manual-selection"><strong>{selectedKeys.length} exercício{selectedKeys.length === 1 ? "" : "s"} selecionado{selectedKeys.length === 1 ? "" : "s"}</strong>{selectedKeys.length > 0 && <span>{selected.map((item) => item.name).join(" → ")}</span>}</div>
       {groups.map(([muscle, items]) => <section className="manual-muscle" key={muscle}><h3>{muscle}</h3><div>{items.map((item) => { const checked = selectedKeys.includes(item.key); return <label key={item.key} className={checked ? "manual-exercise manual-exercise--selected" : "manual-exercise"}><input type="checkbox" checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => setSelectedKeys((current) => checked ? current.filter((key) => key !== item.key) : [...current, item.key])} /><span><strong>{item.name}</strong><small>{item.equipment}</small><small>{formatWorkoutPrescription(item)}</small></span></label>; })}</div></section>)}
-      <button className="finish-workout" type="button" disabled={busy || !label.trim() || !selected.length} onClick={() => void persist(selected)}>{busy ? "Salvando ficha…" : existing ? "Salvar alterações" : "Confirmar e criar treino"}</button>
+      <button className="finish-workout" type="button" disabled={!label.trim() || !selected.length} onClick={reviewManualSelection}>Incluir e revisar</button>
     </section>}
   </main>;
 }
