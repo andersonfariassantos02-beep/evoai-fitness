@@ -197,8 +197,20 @@ export async function replaceUnstartedWorkout(userId: string, date: string, sess
   const { data: session, error: sessionError } = await supabase.from("workout_sessions").select("id").eq("user_id", userId).eq("id", sessionId).eq("training_date", date).maybeSingle();
   if (sessionError) throw sessionError;
   if (!session) throw new Error("WORKOUT_NOT_EDITABLE");
-  const exerciseKeys = templates.map((template) => template.key);
-  const { error } = await supabase.rpc("replace_unstarted_workout", { p_session_id: sessionId, p_workout_label: label, p_exercise_keys: exerciseKeys });
+  const prescription = templates.map((template) => ({
+    key: template.key,
+    sets: template.sets,
+    reps_min: template.repsMin,
+    reps_max: template.repsMax,
+    set_rep_ranges: template.setRepRanges ?? [],
+    rest_seconds: template.restSeconds ?? 120,
+    transition_rest_seconds: template.transitionRestSeconds ?? 180,
+  }));
+  const { error } = await supabase.rpc("replace_unstarted_workout_prescription", {
+    p_session_id: sessionId,
+    p_workout_label: label,
+    p_prescription: prescription,
+  });
   if (error) throw error;
 }
 

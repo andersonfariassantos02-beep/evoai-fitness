@@ -221,8 +221,9 @@ export async function loadWorkoutTemplate(label: string, restrictions: ProfileRe
       sets: prescription.sets,
       repsMin: prescription.repsMin,
       repsMax: prescription.repsMax,
-      setRepRanges: prescription.setRepRanges,
+      setRepRanges: prescription.setRepRanges ?? definition.setRepRanges,
       targetRpe: prescription.targetRpe,
+      prescriptionLocked: prescription.prescriptionLocked,
       restSeconds: prescription.restSeconds ?? definition.restSeconds,
       transitionRestSeconds: prescription.transitionRestSeconds ?? definition.transitionRestSeconds,
     });
@@ -255,12 +256,27 @@ export async function loadSubstitutionCandidates(key: string, restriction = "", 
   if (!source) return [];
   const normalized = restriction.toLowerCase();
   const excluded = new Set([key, ...excludedKeys]);
+  const score = (item: WorkoutExerciseTemplate) => {
+    let value = 0;
+    if (item.exerciseFamily && item.exerciseFamily === source.exerciseFamily) value += 8;
+    if (item.stimulus && item.stimulus === source.stimulus) value += 6;
+    if (item.movement === source.movement) value += 5;
+    if (item.mechanics === source.mechanics) value += 3;
+    if (item.resistanceProfile === source.resistanceProfile) value += 2;
+    if (item.muscleRegion && item.muscleRegion === source.muscleRegion) value += 2;
+    if (item.equipment === source.equipment) value += 1;
+    return value;
+  };
   return catalog
     .filter((item) => !excluded.has(item.key) && item.muscle === source.muscle
-      && (source.stimulus ? item.stimulus === source.stimulus : item.movement === source.movement))
+      && (
+        (source.exerciseFamily && item.exerciseFamily === source.exerciseFamily)
+        || (source.stimulus && item.stimulus === source.stimulus)
+        || item.movement === source.movement
+      ))
     .filter((item) => !(item.avoidWhen ?? []).some((term) => normalized.includes(term)))
     .filter((item) => !exerciseConflictsWithRestrictions(item, profileRestrictions))
-    .sort((a, b) => Number(b.equipment === source.equipment) - Number(a.equipment === source.equipment));
+    .sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export function resetExerciseCatalogCache() { cachedCatalog = null; }
