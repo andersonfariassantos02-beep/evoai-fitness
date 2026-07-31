@@ -23,6 +23,11 @@ export interface IntelligentPrescriptionResult {
   summary: string;
   reasons: string[];
   estimatedMinutes: number;
+  originalSets: number;
+  plannedSets: number;
+  targetRpe: number;
+  restRange: { min: number; max: number };
+  adjustment: "normal" | "reduced" | "deload";
 }
 
 const WEEKLY_DIRECT_SET_TARGET: Record<TrainingGoal, Partial<Record<MuscleGroup, number>>> = {
@@ -78,6 +83,7 @@ export function buildIntelligentPrescription(
   templates: WorkoutExerciseTemplate[],
   context: IntelligentPrescriptionContext,
 ): IntelligentPrescriptionResult {
+  const originalSets = templates.reduce((total, exercise) => total + exercise.sets, 0);
   const completed = context.completedWeeklyVolume ?? [];
   const multiplier = volumeMultiplier(context);
   const rpe = targetRpe(context.goal, context);
@@ -143,5 +149,27 @@ export function buildIntelligentPrescription(
     ? "A estrutura foi preservada, mas o desconforto articular exige revisão manual antes de iniciar."
     : `Prescrição ajustada para ${estimatedMinutes} minutos, RPE ${rpe} e objetivo selecionado no perfil.`;
 
-  return { exercises, summary, reasons: [...new Set(reasons)], estimatedMinutes };
+  const plannedSets = exercises.reduce((total, exercise) => total + exercise.sets, 0);
+  const rests = exercises.map((exercise) => exercise.restSeconds ?? 90);
+  const restRange = {
+    min: rests.length ? Math.min(...rests) : 0,
+    max: rests.length ? Math.max(...rests) : 0,
+  };
+  const adjustment = context.deload
+    ? "deload"
+    : plannedSets < originalSets || context.readinessAssessment.reduceVolume
+      ? "reduced"
+      : "normal";
+
+  return {
+    exercises,
+    summary,
+    reasons: [...new Set(reasons)],
+    estimatedMinutes,
+    originalSets,
+    plannedSets,
+    targetRpe: rpe,
+    restRange,
+    adjustment,
+  };
 }

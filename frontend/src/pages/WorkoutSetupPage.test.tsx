@@ -54,8 +54,9 @@ vi.mock("../services/weeklyMuscleVolumeService", () => ({
   loadWeeklyMuscleVolume: (...args: unknown[]) => loadWeeklyMuscleVolume(...args),
 }));
 
-function renderSetup() {
-  return render(<MemoryRouter initialEntries={["/preparar-treino/2026-07-22?label=Full%20body%20A&planned=1"]}><Routes><Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} /><Route path="/treino/:date" element={<p>Sessão aberta</p>} /></Routes></MemoryRouter>);
+function renderSetup(testMode = false) {
+  const testQuery = testMode ? "&test=1" : "";
+  return render(<MemoryRouter initialEntries={[`/preparar-treino/2026-07-22?label=Full%20body%20A&planned=1${testQuery}`]}><Routes><Route path="/preparar-treino/:date" element={<WorkoutSetupPage />} /><Route path="/treino/:date" element={<p>Sessão aberta</p>} /></Routes></MemoryRouter>);
 }
 
 describe("preparação do treino", () => {
@@ -79,6 +80,11 @@ describe("preparação do treino", () => {
     expect(saveDailyReadiness).toHaveBeenCalledWith("admin-1", "2026-07-22", expect.objectContaining({ sleepHours: 7, fatigue: 2 }));
     expect(await screen.findByText("SUGESTÃO INTELIGENTE · NÃO CONFIRMADA")).toBeInTheDocument();
     expect(screen.getByText(/Prescrição ajustada para/)).toBeInTheDocument();
+    expect(screen.getByText("DURAÇÃO ESTIMADA")).toBeInTheDocument();
+    expect(screen.getByText("SÉRIES VÁLIDAS")).toBeInTheDocument();
+    expect(screen.getByText("INTENSIDADE")).toBeInTheDocument();
+    expect(screen.getByText("DESCANSO")).toBeInTheDocument();
+    expect(screen.getByText("AJUSTE")).toBeInTheDocument();
     expect(createManualWorkout).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Confirmar e criar treino" }));
     await waitFor(() => expect(createManualWorkout).toHaveBeenCalledWith(
@@ -86,6 +92,20 @@ describe("preparação do treino", () => {
       [expect.objectContaining({ key: "row", targetRpe: 8 }), expect.objectContaining({ key: "leg-press", targetRpe: 8 })],
     ));
     expect(await screen.findByText("Sessão aberta")).toBeInTheDocument();
+  });
+
+  it("mostra no laboratório a comparação de séries antes e depois do ajuste", async () => {
+    const user = userEvent.setup();
+    renderSetup(true);
+    const sleepInput = await screen.findByLabelText("Horas de sono");
+    await user.clear(sleepInput);
+    await user.type(sleepInput, "5");
+    await user.selectOptions(screen.getByLabelText("Energia hoje"), "2");
+    await user.selectOptions(screen.getByLabelText("Dor muscular"), "4");
+    await user.selectOptions(screen.getByLabelText("Fadiga geral"), "4");
+    await user.click(await screen.findByRole("button", { name: "Ver sugestão" }));
+    expect(await screen.findByText("6 → 4 séries")).toBeInTheDocument();
+    expect(screen.getByText("Volume reduzido")).toBeInTheDocument();
   });
 
   it("aplica o deload ativo à sugestão automática sem trocar exercícios", async () => {

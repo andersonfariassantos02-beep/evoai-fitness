@@ -30,6 +30,11 @@ describe("motor inteligente de prescrição", () => {
     });
     expect(result.exercises.every((item, index) => item.sets <= original[index].sets)).toBe(true);
     expect(result.reasons.join(" ")).toContain("check-in");
+    expect(result.originalSets).toBeGreaterThan(result.plannedSets);
+    expect(result.adjustment).toBe("reduced");
+    expect(result.targetRpe).toBe(7);
+    expect(result.estimatedMinutes).toBeGreaterThan(0);
+    expect(result.restRange.max).toBeGreaterThanOrEqual(result.restRange.min);
   });
 
   it("considera volume semanal já realizado sem remover o estímulo", () => {
@@ -48,6 +53,7 @@ describe("motor inteligente de prescrição", () => {
     });
     expect(result.exercises.every((item) => item.targetRpe === 7)).toBe(true);
     expect(result.reasons[0]).toContain("Deload ativo");
+    expect(result.adjustment).toBe("deload");
   });
 });
 

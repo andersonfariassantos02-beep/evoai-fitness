@@ -1157,6 +1157,11 @@ main { padding: 64px 0 52px; }
 .prescription-summary ul { display:grid; gap:5px; margin:0; padding-left:18px; color:#356b5b; font-size:11px; line-height:1.45; }
 .prescription-summary--caution, .prescription-summary--limited { border-color:#ead196; color:#795600; background:#fff6dc; }
 .prescription-summary--caution ul, .prescription-summary--limited ul { color:#795f21; }
+.prescription-metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.prescription-metrics article { display:grid; align-content:start; gap:4px; min-height:82px; padding:12px; border:1px solid #bfd2ee; border-radius:12px; background:#f2f7ff; }
+.prescription-metrics small { color:#527196; font-size:9px; font-weight:900; letter-spacing:.08em; }
+.prescription-metrics strong { color:var(--navy); font-size:17px; line-height:1.15; }
+.prescription-metrics span { color:var(--muted); font-size:10px; font-weight:750; }
 .readiness-result { display:flex; min-height:46px; padding: 11px 13px; border:1px solid transparent; border-radius: 11px; align-items:center; font-size: 11px; font-weight:700; line-height: 1.5; }
 .readiness-result--ready { color: #09674f !important; background: #e7f8f1; }
 .readiness-result--caution { color: #805900 !important; background: #fff4d8; }
@@ -1253,6 +1258,8 @@ main { padding: 64px 0 52px; }
   .readiness-checkin__actions { display:grid; gap:8px; }
   .readiness-checkin__actions button { width:100%; }
   .setup-review li { grid-template-columns:1fr; gap:5px; }
+  .prescription-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .prescription-metrics article:last-child { grid-column:1 / -1; min-height:auto; }
   .setup-review li strong, .setup-review li span { display:block; }
   .setup-review li > small { text-align:left; }
   .setup-review__actions { display:grid; grid-template-columns:1fr; }

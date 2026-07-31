@@ -15,6 +15,17 @@ import { loadWeeklyMuscleVolume } from "../services/weeklyMuscleVolumeService";
 
 type SetupMode = "loading" | "unauthorized" | "choice" | "preview" | "manual" | "existing" | "locked" | "confirm-restart";
 
+const adjustmentLabel: Record<IntelligentPrescriptionResult["adjustment"], string> = {
+  normal: "Volume normal",
+  reduced: "Volume reduzido",
+  deload: "Deload ativo",
+};
+
+function formatRestRange(result: IntelligentPrescriptionResult) {
+  const { min, max } = result.restRange;
+  return min === max ? `${min}s` : `${min}–${max}s`;
+}
+
 export default function WorkoutSetupPage() {
   const { user } = useAuth();
   const { date = "" } = useParams();
@@ -200,7 +211,7 @@ export default function WorkoutSetupPage() {
       </section>
     </>}
 
-    {mode === "preview" && <section className="setup-review"><span className="setup-status">SUGESTÃO INTELIGENTE · NÃO CONFIRMADA</span><h2>{label}</h2><p>Confira a ficha. Você pode usá-la como está ou personalizar antes de salvar.</p><div className={`prescription-summary prescription-summary--${activeDeload ? "caution" : readinessAssessment.level}`}><strong>{prescription?.summary ?? readinessAssessment.message}</strong>{prescription?.reasons.length ? <ul>{prescription.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}</div><ol>{preview.map((item) => <li key={item.key}><span className="setup-exercise-copy"><strong>{item.name}</strong><span>{item.equipment}</span></span><small>{formatWorkoutPrescription(item)} · RPE {item.targetRpe ?? "—"} · descanso {item.restSeconds ?? 90}s</small></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Voltar</button><button type="button" onClick={() => openManual(preview.map((item) => item.key))}>Personalizar</button><button className="primary-action" type="button" disabled={busy} onClick={() => void persist(preview)}>{busy ? "Salvando…" : existing ? "Substituir ficha atual" : "Confirmar e criar treino"}</button></div></section>}
+    {mode === "preview" && <section className="setup-review"><span className="setup-status">SUGESTÃO INTELIGENTE · NÃO CONFIRMADA</span><h2>{label}</h2><p>Confira a ficha. Você pode usá-la como está ou personalizar antes de salvar.</p>{prescription && <section className="prescription-metrics" aria-label="Resumo da prescrição"><article><small>DURAÇÃO ESTIMADA</small><strong>{prescription.estimatedMinutes} min</strong></article><article><small>SÉRIES VÁLIDAS</small><strong>{prescription.plannedSets}</strong>{testMode && prescription.originalSets !== prescription.plannedSets && <span>{prescription.originalSets} → {prescription.plannedSets} séries</span>}</article><article><small>INTENSIDADE</small><strong>RPE {prescription.targetRpe}</strong></article><article><small>DESCANSO</small><strong>{formatRestRange(prescription)}</strong></article><article><small>AJUSTE</small><strong>{adjustmentLabel[prescription.adjustment]}</strong></article></section>}<div className={`prescription-summary prescription-summary--${activeDeload ? "caution" : readinessAssessment.level}`}><strong>{prescription?.summary ?? readinessAssessment.message}</strong>{prescription?.reasons.length ? <ul>{prescription.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}</div><ol>{preview.map((item) => <li key={item.key}><span className="setup-exercise-copy"><strong>{item.name}</strong><span>{item.equipment}</span></span><small>{formatWorkoutPrescription(item)} · RPE {item.targetRpe ?? "—"} · descanso {item.restSeconds ?? 90}s</small></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => setMode(existing ? "existing" : "choice")}>Voltar</button><button type="button" onClick={() => openManual(preview.map((item) => item.key))}>Personalizar</button><button className="primary-action" type="button" disabled={busy} onClick={() => void persist(preview)}>{busy ? "Salvando…" : existing ? "Substituir ficha atual" : "Confirmar e criar treino"}</button></div></section>}
 
     {mode === "existing" && existing && <section className="setup-review"><span className="setup-status setup-status--ready">FICHA PRONTA · AINDA NÃO INICIADA</span><h2>{existing.workout_label}</h2><p>Você ainda pode editar, trocar pela sugestão do EvoAI ou começar o treino.</p><ol>{existing.exercises.map((item) => <li key={item.id}><strong>{item.exercise_name}</strong><span>{item.sets.length} séries</span></li>)}</ol><div className="setup-review__actions"><button type="button" onClick={() => openManual(existing.exercises.map((item) => item.exercise_key))}>Editar ficha</button><button type="button" onClick={() => void showAutomaticPreview()}>Ver nova sugestão</button><Link className="primary-link" to={sessionHref}>Começar treino</Link></div></section>}
 
