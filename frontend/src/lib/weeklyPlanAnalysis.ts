@@ -39,6 +39,14 @@ export interface WeeklyPlanAnalysis {
   canConfirm: boolean;
 }
 
+export interface WeeklyPlanOptimization<T extends WeeklyPlanAnalysisDay = WeeklyPlanAnalysisDay> {
+  days: T[];
+  changed: boolean;
+  changes: string[];
+  beforeScore: number;
+  afterScore: number;
+}
+
 const IMPORTANT_MUSCLES: MuscleGroup[] = [
   "peito", "costas", "ombros", "quadriceps", "posteriores",
   "gluteos", "panturrilhas", "biceps", "triceps",
@@ -151,5 +159,65 @@ export function analyzeWeeklyPlan(
     muscles,
     alerts,
     canConfirm: days.length > 0 && !alerts.some((alert) => alert.level === "blocking"),
+  };
+}
+
+function scoreWeeklyPlan(analysis: WeeklyPlanAnalysis): number {
+  const volumePenalty = analysis.muscles.reduce((total, item) => {
+    if (item.status === "missing") return total + 500;
+    if (item.status === "low") return total + Math.max(0, 70 - item.percentage) * 4;
+    if (item.status === "high") return total + Math.max(0, item.percentage - 150) * 3;
+    return total;
+  }, 0);
+  const recoveryPenalty = analysis.alerts.filter((alert) => alert.id.startsWith("recovery-")).length * 120;
+  const blockingPenalty = analysis.alerts.filter((alert) => alert.level === "blocking").length * 1_000;
+  return volumePenalty + recoveryPenalty + blockingPenalty;
+}
+
+function permutations(values: string[]): string[][] {
+  if (values.length <= 1) return [values];
+  const result: string[][] = [];
+  values.forEach((value, index) => {
+    const remaining = values.filter((_, itemIndex) => itemIndex !== index);
+    permutations(remaining).forEach((tail) => result.push([value, ...tail]));
+  });
+  return result;
+}
+
+export function optimizeWeeklyPlan<T extends WeeklyPlanAnalysisDay>(
+  days: T[],
+  goal: TrainingGoal,
+  candidateLabels: string[],
+  completedVolume: MuscleVolumeSummary[] = [],
+  recovery: MuscleRecovery[] = [],
+): WeeklyPlanOptimization<T> {
+  const beforeScore = scoreWeeklyPlan(analyzeWeeklyPlan(days, goal, completedVolume, recovery));
+  const labels = Array.from(new Set(candidateLabels)).slice(0, days.length);
+  if (!days.length || labels.length !== days.length) {
+    return { days, changed: false, changes: [], beforeScore, afterScore: beforeScore };
+  }
+
+  let bestDays = days;
+  let bestScore = beforeScore;
+  permutations(labels).forEach((orderedLabels) => {
+    const candidateDays = days.map((day, index) => ({ ...day, label: orderedLabels[index] }));
+    const candidateScore = scoreWeeklyPlan(analyzeWeeklyPlan(candidateDays, goal, completedVolume, recovery));
+    if (candidateScore < bestScore) {
+      bestDays = candidateDays;
+      bestScore = candidateScore;
+    }
+  });
+
+  const changes = bestDays.flatMap((day, index) => (
+    day.label === days[index].label
+      ? []
+      : [`${days[index].label} → ${day.label}`]
+  ));
+  return {
+    days: bestDays,
+    changed: changes.length > 0,
+    changes,
+    beforeScore,
+    afterScore: bestScore,
   };
 }

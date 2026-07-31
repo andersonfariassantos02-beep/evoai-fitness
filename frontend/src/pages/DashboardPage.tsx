@@ -40,7 +40,7 @@ import { loadWorkoutReport } from "../services/reportService";
 import { loadExerciseGoals } from "../services/exerciseGoalService";
 import { loadPersonalRecords } from "../services/personalRecordService";
 import { buildExerciseGoalSummary } from "../lib/exerciseGoalProgress";
-import { analyzeWeeklyPlan } from "../lib/weeklyPlanAnalysis";
+import { analyzeWeeklyPlan, optimizeWeeklyPlan } from "../lib/weeklyPlanAnalysis";
 
 const WEEK_DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -382,12 +382,14 @@ export default function DashboardPage() {
   }
 
   function changePreviewLabel(index: number, label: string) {
+    setWeeklyPreviewMessage("");
     setWeeklyPreviewDays((current) => current.map((day, dayIndex) => (
       dayIndex === index ? { ...day, label } : day
     )));
   }
 
   function movePreviewDay(index: number, direction: -1 | 1) {
+    setWeeklyPreviewMessage("");
     setWeeklyPreviewDays((current) => {
       const target = index + direction;
       if (target < 0 || target >= current.length) return current;
@@ -395,6 +397,27 @@ export default function DashboardPage() {
       [labels[index], labels[target]] = [labels[target], labels[index]];
       return current.map((day, dayIndex) => ({ ...day, label: labels[dayIndex] }));
     });
+  }
+
+  function balanceWeeklyPreview() {
+    const result = optimizeWeeklyPlan(
+      weeklyPreviewDays,
+      planningProfile.goal,
+      previewLabelOptions,
+      previewCompletedMuscleVolume,
+      muscleRecovery,
+    );
+    if (!result.changed) {
+      setWeeklyPreviewMessage("A prévia já está na distribuição mais equilibrada para os dias selecionados.");
+      return;
+    }
+    setWeeklyPreviewDays(result.days.map((day) => ({
+      ...day,
+      reason: "Divisão equilibrada conforme volume semanal e recuperação.",
+    })));
+    setWeeklyPreviewMessage(
+      `Sugestão aplicada para revisão: ${result.changes.join("; ")}. Nada foi salvo ainda.`,
+    );
   }
 
   async function confirmWeeklyPreview() {
@@ -688,6 +711,9 @@ export default function DashboardPage() {
               {weeklyPreviewAnalysis.alerts.map((alert) => (
                 <p className={`weekly-preview-dialog__alert weekly-preview-dialog__alert--${alert.level}`} key={alert.id}>{alert.message}</p>
               ))}
+              <button className="weekly-preview-dialog__balance" type="button" onClick={balanceWeeklyPreview}>
+                Equilibrar semana
+              </button>
             </section>}
             {previewPlan.recoveryAdjustment !== "normal" && <p className="weekly-preview-dialog__recovery">
               {previewPlan.recoveryAdjustment === "deload"
