@@ -37,6 +37,8 @@ export interface ExercisePrescription {
   transitionRestSeconds?: number;
   setRepRanges?: ReadonlyArray<{ min: number; max: number }>;
   targetRpe?: number;
+  prescriptionReasons?: string[];
+  prescriptionLocked?: boolean;
 }
 
 export interface WorkoutExerciseTemplate extends ExerciseDefinition, ExercisePrescription {}
@@ -104,9 +106,21 @@ export function getSubstitutionCandidates(
 }
 function byKey(key: string) { const item = findExercise(key); if (!item) throw new Error(`Exercício ausente: ${key}`); return item; }
 
+function periodizedPushHeavy() {
+  return [
+    { ...byKey("machine-bench-press"), sets: 4, repsMin: 6, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 10 }, { min: 8, max: 8 }, { min: 6, max: 8 }], prescriptionLocked: true },
+    { ...byKey("incline-dumbbell-bench"), sets: 3, repsMin: 8, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 10 }, { min: 8, max: 10 }], prescriptionLocked: true },
+    { ...byKey("cable-crossover"), sets: 3, repsMin: 10, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 12, max: 12 }, { min: 10, max: 12 }], prescriptionLocked: true },
+    { ...byKey("dumbbell-shoulder-press"), sets: 3, repsMin: 8, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 10 }, { min: 8, max: 8 }], prescriptionLocked: true },
+    { ...byKey("lateral-raise"), sets: 3, repsMin: 10, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 12, max: 12 }, { min: 10, max: 10 }], prescriptionLocked: true },
+    { ...byKey("rope-triceps"), sets: 3, repsMin: 8, repsMax: 12, setRepRanges: [{ min: 12, max: 12 }, { min: 10, max: 12 }, { min: 8, max: 10 }], prescriptionLocked: true },
+    { ...byKey("reverse-cable-fly"), prescriptionLocked: true },
+  ];
+}
+
 export function getWorkoutTemplate(label: string) {
   const normalized = label.toLowerCase();
-  if (normalized.includes("push pesado")) return [byKey("machine-bench-press"), byKey("incline-dumbbell-bench"), byKey("cable-crossover"), byKey("dumbbell-shoulder-press"), byKey("lateral-raise"), byKey("rope-triceps"), byKey("reverse-cable-fly")];
+  if (normalized.includes("push pesado")) return periodizedPushHeavy();
   if (normalized.includes("quadr")) return [byKey("squat-pattern"), byKey("leg-press"), byKey("goblet-squat"), byKey("calf-raise")];
   if (normalized.includes("posterior")) return [byKey("leg-curl"), byKey("calf-raise")];
   if (normalized.includes("inferior") || normalized.includes("legs") || normalized.includes("lower")) return [

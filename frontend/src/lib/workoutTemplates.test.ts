@@ -14,12 +14,12 @@ describe("PUSH pesado", () => {
       "Crucifixo inverso no Cross",
     ]);
     expect(workout.map(formatWorkoutPrescription)).toEqual([
-      "3×10–12",
-      "3×10–12",
-      "3×12–15",
-      "3×10–12",
-      "4×12–15",
-      "3×10–12",
+      "4 séries: 12 / 10 / 8 / 6–8",
+      "3 séries: 12 / 10 / 8–10",
+      "3 séries: 12 / 12 / 10–12",
+      "3 séries: 12 / 10 / 8",
+      "3 séries: 12 / 12 / 10",
+      "3 séries: 12 / 10–12 / 8–10",
       "2×12–15",
     ]);
   });

@@ -1152,6 +1152,11 @@ main { padding: 64px 0 52px; }
 .readiness-checkin__actions button { width:auto; min-width:170px; min-height:44px; padding:0 16px; border:0; border-radius:10px; color:white; background:var(--blue); font-weight:900; box-shadow:0 8px 20px rgba(23,107,255,.2); }
 .readiness-checkin__actions button:disabled { color:#6d7f95; background:#e3eaf3; box-shadow:none; }
 .readiness-checkin__actions small { color:var(--muted); }
+.prescription-summary { display:grid; gap:10px; margin:14px 0; padding:15px 17px; border:1px solid #b8d8ca; border-radius:13px; color:#145f49; background:#e8f7f1; }
+.prescription-summary strong { font-size:13px; line-height:1.45; }
+.prescription-summary ul { display:grid; gap:5px; margin:0; padding-left:18px; color:#356b5b; font-size:11px; line-height:1.45; }
+.prescription-summary--caution, .prescription-summary--limited { border-color:#ead196; color:#795600; background:#fff6dc; }
+.prescription-summary--caution ul, .prescription-summary--limited ul { color:#795f21; }
 .readiness-result { display:flex; min-height:46px; padding: 11px 13px; border:1px solid transparent; border-radius: 11px; align-items:center; font-size: 11px; font-weight:700; line-height: 1.5; }
 .readiness-result--ready { color: #09674f !important; background: #e7f8f1; }
 .readiness-result--caution { color: #805900 !important; background: #fff4d8; }
