@@ -6,6 +6,7 @@ interface CalendarRow {
   available: boolean;
   completed: boolean;
   completed_was_planned: boolean | null;
+  planned_label: string | null;
 }
 
 interface PendingCalendarMutation {
@@ -40,6 +41,7 @@ function rowToEntry(row: CalendarRow): TrainingCalendarEntry {
     available: row.available,
     completed: row.completed,
     completedWasPlanned: row.completed_was_planned ?? undefined,
+    plannedLabel: row.planned_label ?? undefined,
   };
 }
 
@@ -81,6 +83,7 @@ async function sendMutation(userId: string, mutation: PendingCalendarMutation) {
     available: mutation.entry.available,
     completed: mutation.entry.completed,
     completed_was_planned: mutation.entry.completedWasPlanned ?? null,
+    planned_label: mutation.entry.plannedLabel ?? null,
   }, { onConflict: "user_id,training_date" });
 
   if (error) throw error;
@@ -102,7 +105,7 @@ export async function loadSyncedCalendar(userId: string, localEntries: TrainingC
   try {
     const { data, error } = await getSupabaseClient()
       .from("training_calendar_entries")
-      .select("training_date, available, completed, completed_was_planned")
+      .select("training_date, available, completed, completed_was_planned, planned_label")
       .eq("user_id", userId)
       .order("training_date");
 

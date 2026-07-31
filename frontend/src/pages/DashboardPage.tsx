@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
   addDays,
+  buildWeeklyPlanPreview,
   buildWeeklyPlan,
   fromDateKey,
+  getAdaptiveWeekLabels,
   getMonthGrid,
   getWeekDates,
   getWeekStart,
@@ -11,6 +13,7 @@ import {
   saveCalendarEntries,
   toDateKey,
   type TrainingCalendarEntry,
+  type WeeklyPlanPreviewDay,
 } from "../lib/trainingCalendar";
 import {
   flushCalendarOutbox,
@@ -99,6 +102,10 @@ export default function DashboardPage() {
   const [monthlyGoalLoading, setMonthlyGoalLoading] = useState(true);
   const [exerciseGoalSummary, setExerciseGoalSummary] = useState(() => buildExerciseGoalSummary([], []));
   const [exerciseGoalsLoading, setExerciseGoalsLoading] = useState(true);
+  const [weeklyPreviewOpen, setWeeklyPreviewOpen] = useState(false);
+  const [weeklyPreviewDays, setWeeklyPreviewDays] = useState<WeeklyPlanPreviewDay[]>([]);
+  const [weeklyPreviewMessage, setWeeklyPreviewMessage] = useState("");
+  const [weeklyPreviewBusy, setWeeklyPreviewBusy] = useState(false);
 
   useEffect(() => {
     const localEntries = loadCalendarEntries(storageKey);
@@ -329,6 +336,76 @@ export default function DashboardPage() {
     ? calculateTrainingCycleProgress(trainingCycle, cycleCompletedSessions, today)
     : null;
 
+  const previewWeekDate = addDays(getWeekStart(fromDateKey(selectedDate)), 7);
+  const previewWeekDates = getWeekDates(previewWeekDate);
+  const previewEntries = effectiveEntries.filter((entry) => previewWeekDates.includes(entry.date));
+  const previewPlan = buildWeeklyPlanPreview(effectiveEntries, previewWeekDate, {
+    ...planningProfile,
+    lastCompletedLabel,
+    fatigueLevel: activeDeload ? "deload" : fatigue?.level ?? "normal",
+    lowCoverageMuscles: muscleVolumeBalance
+      .filter((item) => item.status === "pending")
+      .slice(0, 2)
+      .map((item) => MUSCLE_LABELS[item.muscle]),
+  });
+  const previewLabelOptions = getAdaptiveWeekLabels(
+    Math.max(1, previewEntries.filter((entry) => entry.available && !entry.completed).length),
+    planningProfile.trainingFocus,
+  );
+
+  function openWeeklyPreview() {
+    setWeeklyPreviewDays(previewPlan.days);
+    setWeeklyPreviewMessage("");
+    setWeeklyPreviewOpen(true);
+  }
+
+  function changePreviewLabel(index: number, label: string) {
+    setWeeklyPreviewDays((current) => current.map((day, dayIndex) => (
+      dayIndex === index ? { ...day, label } : day
+    )));
+  }
+
+  function movePreviewDay(index: number, direction: -1 | 1) {
+    setWeeklyPreviewDays((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const labels = current.map((day) => day.label);
+      [labels[index], labels[target]] = [labels[target], labels[index]];
+      return current.map((day, dayIndex) => ({ ...day, label: labels[dayIndex] }));
+    });
+  }
+
+  async function confirmWeeklyPreview() {
+    if (!user || !weeklyPreviewDays.length) return;
+    setWeeklyPreviewBusy(true);
+    setWeeklyPreviewMessage("");
+    const labelByDate = new Map(weeklyPreviewDays.map((day) => [day.date, day.label]));
+    const nextEntries = entries.map((entry) => (
+      labelByDate.has(entry.date) && !entry.completed
+        ? { ...entry, plannedLabel: labelByDate.get(entry.date) }
+        : entry
+    ));
+    setEntries(nextEntries);
+    setSyncState("pending");
+    try {
+      const states = await Promise.all(weeklyPreviewDays.map((day) => {
+        const entry = nextEntries.find((item) => item.date === day.date);
+        return entry ? queueCalendarMutation(user.id, day.date, entry) : Promise.resolve("error" as const);
+      }));
+      const synchronized = states.every((state) => state === "synced");
+      setSyncState(synchronized ? "synced" : navigator.onLine ? "error" : "offline");
+      setWeeklyPreviewMessage(synchronized
+        ? "Próxima semana confirmada e sincronizada."
+        : "Plano salvo neste aparelho e aguardando sincronização.");
+      if (synchronized) window.setTimeout(() => setWeeklyPreviewOpen(false), 800);
+    } catch {
+      setSyncState(navigator.onLine ? "error" : "offline");
+      setWeeklyPreviewMessage("Plano salvo neste aparelho e aguardando sincronização.");
+    } finally {
+      setWeeklyPreviewBusy(false);
+    }
+  }
+
   async function activateDeload() {
     if (!user || !fatigue) return;
     setDeloadBusy(true);
@@ -522,7 +599,56 @@ export default function DashboardPage() {
           <span className="eyebrow">PLANEJAMENTO ADAPTATIVO</span>
           <h2>Quando você pode treinar?</h2>
           <p>Marque sua disponibilidade. O EvoAI monta a semana pelas datas escolhidas e reorganiza o restante quando um treino acontece fora do plano.</p>
+          <button className="weekly-preview-trigger" type="button" onClick={openWeeklyPreview}>
+            Planejar próxima semana
+          </button>
         </section>
+
+        {weeklyPreviewOpen && <div className="confirmation-backdrop">
+          <section className="confirmation-dialog weekly-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="weekly-preview-title">
+            <span className="setup-status">PRÉVIA INTELIGENTE</span>
+            <h2 id="weekly-preview-title">Plano da semana de {formatShortDate(previewPlan.weekStart)}</h2>
+            <p>{previewPlan.summary}</p>
+            {weeklyPreviewDays.length === 0
+              ? <div className="weekly-preview-dialog__empty">
+                Marque no calendário ao menos um dia disponível nessa semana e gere a prévia novamente.
+              </div>
+              : <div className="weekly-preview-dialog__days">
+                {weeklyPreviewDays.map((day, index) => (
+                  <article key={day.date}>
+                    <div>
+                      <strong>{formatShortDate(day.date)}</strong>
+                      <small>{day.reason}</small>
+                    </div>
+                    <label>
+                      <span>Divisão</span>
+                      <select value={day.label} onChange={(event) => changePreviewLabel(index, event.target.value)}>
+                        {Array.from(new Set([...previewLabelOptions, ...weeklyPreviewDays.map((item) => item.label)])).map((label) => (
+                          <option key={label} value={label}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="weekly-preview-dialog__order" aria-label={`Alterar posição de ${day.label}`}>
+                      <button type="button" disabled={index === 0} onClick={() => movePreviewDay(index, -1)}>↑</button>
+                      <button type="button" disabled={index === weeklyPreviewDays.length - 1} onClick={() => movePreviewDay(index, 1)}>↓</button>
+                    </div>
+                  </article>
+                ))}
+              </div>}
+            {previewPlan.recoveryAdjustment !== "normal" && <p className="weekly-preview-dialog__recovery">
+              {previewPlan.recoveryAdjustment === "deload"
+                ? "Deload ativo: as fichas usarão volume reduzido e esforço controlado."
+                : "Recuperação em atenção: evite recordes e confirme sua prontidão antes de cada sessão."}
+            </p>}
+            {weeklyPreviewMessage && <p className="weekly-preview-dialog__message" role="status">{weeklyPreviewMessage}</p>}
+            <div className="weekly-preview-dialog__actions">
+              <button type="button" disabled={weeklyPreviewBusy} onClick={() => setWeeklyPreviewOpen(false)}>Cancelar</button>
+              <button className="primary-action" type="button" disabled={weeklyPreviewBusy || !weeklyPreviewDays.length} onClick={() => void confirmWeeklyPreview()}>
+                {weeklyPreviewBusy ? "Confirmando…" : "Confirmar planejamento"}
+              </button>
+            </div>
+          </section>
+        </div>}
 
         <div className="planner-layout" id="training-calendar">
           <section className="calendar-card" aria-labelledby="calendar-title">
