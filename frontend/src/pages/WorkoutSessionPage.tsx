@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { queueCalendarMutation } from "../services/trainingCalendarService";
 import { loadExerciseGuidance, loadSubstitutionCandidates, type ExerciseGuidance } from "../services/exerciseCatalogService";
@@ -689,6 +689,9 @@ export default function WorkoutSessionPage() {
             {exercise.recommendation.evidence?.length ? <ul>{exercise.recommendation.evidence.map((item) => <li key={item}>{item}</li>)}</ul> : null}
           </div>
           {exercise.recommendation.loadKg > 0 && <button type="button" onClick={() => void applyRecommendedLoad(exercise)}>Aplicar às séries vazias</button>}
+          {session.session_kind === "real" && exercise.personalBest && <Link className="progression__history" to={`/recordes?exercicio=${encodeURIComponent(exercise.exercise_key)}`}>
+            Ver evolução completa
+          </Link>}
         </div>
         {personalRecord?.achieved && <div className="personal-record-banner" role="status">
           <span>RECORDE PESSOAL</span>

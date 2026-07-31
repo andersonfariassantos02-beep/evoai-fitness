@@ -298,6 +298,20 @@ describe("percurso principal do treino", () => {
     expect(screen.getByRole("spinbutton", { name: "Carga da série 2" })).toHaveValue(40);
   });
 
+  it("oferece acesso direto à evolução do exercício durante um treino real", async () => {
+    startOrLoadWorkout.mockResolvedValueOnce({
+      ...structuredClone(baseSession),
+      exercises: [{
+        ...structuredClone(baseSession.exercises[0]),
+        personalBest: { loadKg: 40, reps: 10, estimated1Rm: 53.3, date: "2026-07-13" },
+      }],
+    });
+    render(<MemoryRouter initialEntries={["/treino/2026-07-20?label=Full%20body"]}><Routes><Route path="/treino/:date" element={<WorkoutSessionPage />} /></Routes></MemoryRouter>);
+
+    expect(await screen.findByRole("link", { name: "Ver evolução completa" }))
+      .toHaveAttribute("href", "/recordes?exercicio=row");
+  });
+
   it("mostra a execução anterior como referência em cada série", async () => {
     startOrLoadWorkout.mockResolvedValueOnce({
       ...baseSession,

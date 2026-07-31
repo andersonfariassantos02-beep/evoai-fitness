@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import PersonalRecordsPage from "./PersonalRecordsPage";
 
 const load = vi.fn();
@@ -52,6 +53,10 @@ const evolution = [{
   ],
 }];
 
+function renderPage(initialEntry = "/recordes") {
+  return render(<MemoryRouter initialEntries={[initialEntry]}><PersonalRecordsPage /></MemoryRouter>);
+}
+
 describe("página de recordes pessoais", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -65,16 +70,16 @@ describe("página de recordes pessoais", () => {
   afterEach(cleanup);
 
   it("mostra destaques e recordes por exercício", async () => {
-    render(<PersonalRecordsPage />);
+    renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Recordes pessoais" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Evolução e recordes" })).toBeInTheDocument();
     expect(screen.getAllByText("Supino articulado · 30/07/2026")).not.toHaveLength(0);
     expect(screen.getByRole("heading", { name: "Supino articulado" })).toBeInTheDocument();
     expect(screen.getAllByText("100 kg")).not.toHaveLength(0);
   });
 
   it("abre a evolução do exercício selecionado e compara com a sessão anterior", async () => {
-    render(<PersonalRecordsPage />);
+    renderPage();
     await screen.findByRole("heading", { name: "Supino articulado" });
 
     fireEvent.click(screen.getAllByRole("button", { name: "Ver evolução" })[1]);
@@ -85,7 +90,7 @@ describe("página de recordes pessoais", () => {
   });
 
   it("permite definir uma meta de carga para o exercício", async () => {
-    render(<PersonalRecordsPage />);
+    renderPage();
     await screen.findByRole("heading", { name: "Supino articulado" });
 
     fireEvent.click(screen.getAllByRole("button", { name: "Definir meta" })[0]);
@@ -100,12 +105,21 @@ describe("página de recordes pessoais", () => {
   });
 
   it("filtra os recordes pelo nome do exercício", async () => {
-    render(<PersonalRecordsPage />);
+    renderPage();
     await screen.findByRole("heading", { name: "Supino articulado" });
 
     fireEvent.change(screen.getByLabelText("Buscar exercício"), { target: { value: "remada" } });
 
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Supino articulado" })).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Remada" })).toBeInTheDocument();
+  });
+
+  it("abre diretamente o exercício informado na URL e permite mudar o período", async () => {
+    renderPage("/recordes?exercicio=row");
+
+    expect(await screen.findByLabelText("Exercício do gráfico")).toHaveValue("row");
+    fireEvent.click(screen.getByRole("button", { name: "6 meses" }));
+
+    await waitFor(() => expect(loadEvolution).toHaveBeenLastCalledWith("user-1", expect.any(String), 180));
   });
 });
