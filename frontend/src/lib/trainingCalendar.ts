@@ -221,14 +221,46 @@ export function buildWeeklyPlan(
   const availableDates = weekEntries.filter((entry) => entry.available);
   const completedDates = new Set(completed.map((entry) => entry.date));
   const pendingAvailableDates = availableDates.filter((entry) => !completedDates.has(entry.date));
-  const targetSessions = completedCount + pendingAvailableDates.length;
+  const todayKey = toDateKey(options.today ?? new Date());
+  const actionablePendingDates = pendingAvailableDates.filter((entry) => entry.date >= todayKey);
+  const targetSessions = completedCount + actionablePendingDates.length;
   const labels = targetSessions > 0
     ? getAdaptiveWeekLabels(targetSessions, options.trainingFocus)
     : [];
-  const pendingSequence = options.lastCompletedLabel
-    ? rotateAfterLastCompleted(labels, options.lastCompletedLabel)
+  const latestCompletedLabel = [...completed]
+    .reverse()
+    .find((entry) => entry.completedLabel)?.completedLabel;
+  const sequenceCursor = latestCompletedLabel ?? options.lastCompletedLabel;
+  const pendingSequence = sequenceCursor
+    ? rotateAfterLastCompleted(labels, sequenceCursor)
     : labels.slice(completedCount);
-  const todayKey = toDateKey(options.today ?? new Date());
+  const previousWeekStart = toDateKey(addDays(fromDateKey(weekDates[0]), -7));
+  const overdueEntries = entries
+    .filter((entry) => entry.available && !entry.completed && entry.date < todayKey && entry.date >= previousWeekStart)
+    .sort((left, right) => left.date.localeCompare(right.date));
+  const overdueLabels = overdueEntries.map((entry, index) => {
+    if (entry.plannedLabel) return entry.plannedLabel;
+    if (weekDates.includes(entry.date)) return pendingSequence[index];
+
+    const sourceWeekDates = getWeekDates(fromDateKey(entry.date));
+    const sourceEntries = entries
+      .filter((item) => sourceWeekDates.includes(item.date))
+      .sort((left, right) => left.date.localeCompare(right.date));
+    const sourceCompleted = sourceEntries.filter((item) => item.completed);
+    const sourcePending = sourceEntries.filter((item) => item.available && !item.completed);
+    const sourceLabels = getAdaptiveWeekLabels(
+      sourceCompleted.length + sourcePending.length,
+      options.trainingFocus,
+    );
+    const sourceLatestCompletedLabel = [...sourceCompleted]
+      .reverse()
+      .find((item) => item.completedLabel)?.completedLabel;
+    const sourceSequence = sourceLatestCompletedLabel
+      ? rotateAfterLastCompleted(sourceLabels, sourceLatestCompletedLabel)
+      : sourceLabels.slice(sourceCompleted.length);
+    const sourceIndex = sourcePending.findIndex((item) => item.date === entry.date);
+    return sourceSequence[sourceIndex];
+  }).filter((label): label is string => Boolean(label));
   const unplannedCompleted = completed.filter((entry) => entry.completedWasPlanned === false).length;
 
   const completedDays: PlannedWorkoutDay[] = completed.map((entry, index) => ({
@@ -241,12 +273,12 @@ export function buildWeeklyPlan(
   }));
 
   const pendingSlots = Math.max(0, targetSessions - completedCount);
-  const plannedDays: PlannedWorkoutDay[] = pendingAvailableDates
-    .filter((entry) => entry.date >= todayKey)
+  const plannedDays: PlannedWorkoutDay[] = actionablePendingDates
     .slice(0, pendingSlots)
     .map((entry, index) => ({
       date: entry.date,
-      label: entry.plannedLabel
+      label: overdueLabels[index]
+        ?? entry.plannedLabel
         ?? pendingSequence[index]
         ?? `Treino ${completedCount + index + 1}`,
       status: "planned",

@@ -180,6 +180,12 @@ describe("painel principal", () => {
     const user = userEvent.setup();
     render(<DashboardPage />);
 
+    const initialMonthHeading = await screen.findByRole("heading", {
+      name: /de 2026/i,
+      level: 2,
+    });
+    const initialMonthLabel = initialMonthHeading.textContent;
+
     await user.click(screen.getByTestId("view-toggle-weekly"));
     const weeklyButton = screen.getByTestId("view-toggle-weekly");
     expect(weeklyButton).toHaveAttribute("aria-selected", "true");
@@ -189,7 +195,9 @@ describe("painel principal", () => {
 
     await user.click(screen.getByTestId("view-toggle-monthly"));
     expect(screen.getByTestId("view-toggle-monthly")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { name: /julho de 2026/i, level: 2 })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: initialMonthLabel ?? "", level: 2 }),
+    ).toBeInTheDocument();
   });
   it("permite revisar, reordenar e confirmar a próxima semana", async () => {
     mocks.calendarEntries = [
