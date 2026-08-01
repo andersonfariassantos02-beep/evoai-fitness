@@ -159,4 +159,37 @@ describe("buildWeeklyPlan periodizado", () => {
     expect(preview.days[0].reason).toContain("Pernas");
     expect(preview.recoveryAdjustment).toBe("attention");
   });
+
+  it("transporta o estimulo perdido para o proximo dia disponivel", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-27", available: true, completed: true, completedLabel: "PUSH" },
+      { date: "2026-07-29", available: true, completed: true, completedLabel: "PULL" },
+      { date: "2026-07-31", available: true, completed: false, plannedLabel: "LEGS" },
+      { date: "2026-08-01", available: true, completed: false, plannedLabel: "SUPERIOR B" },
+    ], new Date(2026, 7, 1), { today: new Date(2026, 7, 1) });
+
+    expect(plan.targetSessions).toBe(3);
+    expect(plan.days.map((day) => [day.date, day.label])).toEqual([
+      ["2026-07-27", "PUSH"],
+      ["2026-07-29", "PULL"],
+      ["2026-08-01", "LEGS"],
+    ]);
+  });
+
+  it("mantem o estimulo pendente ao atravessar para a semana seguinte", () => {
+    const plan = buildWeeklyPlan([
+      { date: "2026-07-27", available: true, completed: true, completedLabel: "PUSH" },
+      { date: "2026-07-29", available: true, completed: true, completedLabel: "PULL" },
+      { date: "2026-07-31", available: true, completed: false },
+      { date: "2026-08-03", available: true, completed: false },
+    ], new Date(2026, 7, 3), {
+      today: new Date(2026, 7, 3),
+      lastCompletedLabel: "PULL",
+    });
+
+    expect(plan.targetSessions).toBe(1);
+    expect(plan.days).toEqual([
+      { date: "2026-08-03", label: "LEGS", status: "planned", adjusted: false },
+    ]);
+  });
 });
